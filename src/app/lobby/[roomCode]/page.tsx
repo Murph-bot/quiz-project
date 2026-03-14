@@ -17,7 +17,7 @@ export default async function LobbyPage({ params }: Props) {
     .eq('room_code', roomCode)
     .single()
 
-  if (error || !session || session.status === 'finished') {
+  if (error || !session || session.status !== 'lobby') {
     notFound()
   }
 

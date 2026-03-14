@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { generateRoomCode } from '@/lib/roomCode'
 
+const MAX_RETRIES = 5
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const nickname = (body.nickname ?? '').trim()
@@ -11,31 +13,48 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServerClient()
-  const roomCode = generateRoomCode()
   const playerId = crypto.randomUUID()
 
-  const { error: sessionError } = await supabase.from('sessions').insert({
-    room_code: roomCode,
-    host_id: playerId,
-  })
+  // Retry on room code collision (unique constraint)
+  let roomCode: string | null = null
+  let sessionId: string | null = null
 
-  if (sessionError) {
-    return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const code = generateRoomCode()
+
+    const { error: sessionError } = await supabase.from('sessions').insert({
+      room_code: code,
+      host_id: playerId,
+    })
+
+    if (sessionError) {
+      // Unique constraint violation on room_code — retry with new code
+      if (sessionError.code === '23505') continue
+      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+    }
+
+    const { data: session, error: fetchError } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('room_code', code)
+      .single()
+
+    if (fetchError || !session) {
+      return NextResponse.json({ error: 'Failed to retrieve session' }, { status: 500 })
+    }
+
+    roomCode = code
+    sessionId = session.id
+    break
   }
 
-  const { data: session, error: fetchError } = await supabase
-    .from('sessions')
-    .select('id')
-    .eq('room_code', roomCode)
-    .single()
-
-  if (fetchError || !session) {
-    return NextResponse.json({ error: 'Failed to retrieve session' }, { status: 500 })
+  if (!roomCode || !sessionId) {
+    return NextResponse.json({ error: 'Failed to generate unique room code' }, { status: 500 })
   }
 
   const { error: playerError } = await supabase.from('players').insert({
     id: playerId,
-    session_id: session.id,
+    session_id: sessionId,
     nickname,
     is_host: true,
   })

@@ -23,7 +23,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
   const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
-  const isHost = players.find(p => p.playerId === playerId)?.isHost ?? false
+  const isHost = playerId !== null && initialSession.host_id === playerId
 
   useEffect(() => {
     if (!playerId || !nickname) {

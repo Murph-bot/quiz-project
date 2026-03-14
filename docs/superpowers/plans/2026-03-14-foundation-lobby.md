@@ -190,6 +190,7 @@ Create `quizknight/.env.local` (never commit this file):
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 ```
 
 Find these values in: Supabase Dashboard → Project Settings → API

@@ -61,6 +61,31 @@ describe('POST /api/sessions/[roomCode]/join', () => {
     expect(res.status).toBe(409)
   })
 
+  it('returns 409 if nickname is already taken in this session', async () => {
+    const mockSupabase = {
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        return {
+          insert: jest.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate' } }),
+        }
+      }),
+    }
+    ;(createServerClient as jest.Mock).mockReturnValue(mockSupabase)
+
+    const res = await POST(makeRequest('AB12', { nickname: 'Alice' }), {
+      params: Promise.resolve({ roomCode: 'AB12' }),
+    })
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toMatch(/taken/i)
+  })
+
   it('returns 201 with playerId on success', async () => {
     const mockSupabase = {
       from: jest.fn().mockImplementation((table: string) => {

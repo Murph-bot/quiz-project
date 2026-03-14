@@ -71,4 +71,30 @@ describe('POST /api/sessions', () => {
     const res = await POST(makeRequest({ nickname: 'SirAnswers' }))
     expect(res.status).toBe(500)
   })
+
+  it('returns 500 if player insert fails after session is created', async () => {
+    let callCount = 0
+    ;(createServerClient as jest.Mock).mockReturnValue({
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          callCount++
+          if (callCount === 1) {
+            // First call: insert succeeds
+            return { insert: jest.fn().mockResolvedValue({ error: null }) }
+          }
+          // Second call: select returns session id
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'sess-uuid' }, error: null }),
+          }
+        }
+        // players insert fails
+        return { insert: jest.fn().mockResolvedValue({ error: { message: 'player insert failed' } }) }
+      }),
+    })
+
+    const res = await POST(makeRequest({ nickname: 'SirAnswers' }))
+    expect(res.status).toBe(500)
+  })
 })
