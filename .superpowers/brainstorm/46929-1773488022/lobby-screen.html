@@ -1,0 +1,63 @@
+<h2>Lobby Screen Layout</h2>
+<p class="subtitle">Players wait here after joining. Host sees extra controls. Which layout works best?</p>
+
+<div class="cards">
+  <div class="card" data-choice="compact" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #6c2eb9 0%, #e91e8c 100%); padding: 16px; border-radius: 8px 8px 0 0; font-family: system-ui, sans-serif; min-height: 220px;">
+      <!-- Header -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="color: #fff; font-weight: 900; font-size: 16px;">⚔️ QuizKnight</div>
+        <div style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); border-radius: 8px; padding: 4px 10px; color: #fff; font-weight: 800; font-size: 14px; letter-spacing: 2px;">AB12</div>
+      </div>
+      <!-- Player grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+        <div style="background: rgba(255,255,255,0.2); border-radius: 6px; padding: 6px; text-align: center;">
+          <div style="font-size: 16px;">👑</div>
+          <div style="color: #fff; font-size: 9px; font-weight: 700; margin-top: 2px;">SirAnswers</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.2); border-radius: 6px; padding: 6px; text-align: center;">
+          <div style="font-size: 16px;">🧙</div>
+          <div style="color: #fff; font-size: 9px; font-weight: 700; margin-top: 2px;">MagicMike</div>
+        </div>
+        <div style="background: rgba(255,255,255,0.15); border: 1px dashed rgba(255,255,255,0.4); border-radius: 6px; padding: 6px; text-align: center;">
+          <div style="font-size: 16px; opacity: 0.5;">+</div>
+          <div style="color: rgba(255,255,255,0.4); font-size: 9px; margin-top: 2px;">waiting...</div>
+        </div>
+      </div>
+      <div style="color: rgba(255,255,255,0.7); font-size: 10px; text-align: center; margin-bottom: 8px;">2 / 50 players joined</div>
+      <!-- Host start button -->
+      <button style="width: 100%; background: #fff; color: #6c2eb9; border: none; border-radius: 20px; padding: 10px; font-weight: 900; font-size: 14px; opacity: 0.5; cursor: not-allowed;">Start Game (min. 3 players)</button>
+    </div>
+    <div class="card-body">
+      <h3>A — Grid of players</h3>
+      <p>Players shown as avatar cards in a grid. Room code prominent in top corner. Host sees disabled Start until 3+ players join.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="list" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: linear-gradient(135deg, #6c2eb9 0%, #e91e8c 100%); padding: 16px; border-radius: 8px 8px 0 0; font-family: system-ui, sans-serif; min-height: 220px;">
+      <!-- Big room code -->
+      <div style="text-align: center; margin-bottom: 10px;">
+        <div style="color: rgba(255,255,255,0.7); font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Room Code</div>
+        <div style="color: #fff; font-size: 36px; font-weight: 900; letter-spacing: 8px; text-shadow: 0 2px 8px rgba(0,0,0,0.3);">AB12</div>
+      </div>
+      <!-- Player list -->
+      <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.15);">
+          <span style="font-size: 14px;">👑</span>
+          <span style="color: #fff; font-size: 12px; font-weight: 700;">SirAnswersAlot</span>
+          <span style="margin-left: auto; color: rgba(255,255,255,0.5); font-size: 9px;">host</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+          <span style="font-size: 14px;">🧙</span>
+          <span style="color: #fff; font-size: 12px; font-weight: 700;">MagicMike</span>
+        </div>
+      </div>
+      <button style="width: 100%; background: #fff; color: #6c2eb9; border: none; border-radius: 20px; padding: 9px; font-weight: 900; font-size: 13px; opacity: 0.5;">Start (need 1 more)</button>
+    </div>
+    <div class="card-body">
+      <h3>B — Big code + list</h3>
+      <p>Room code is the hero — huge and easy to share verbally. Players listed below. Better for shouting the code across a room.</p>
+    </div>
+  </div>
+</div>
