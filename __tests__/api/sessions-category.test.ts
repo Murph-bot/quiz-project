@@ -12,6 +12,33 @@ function makeRequest(roomCode: string, body: object) {
   })
 }
 
+const mockSession = { id: 'sess-1' }
+
+function makeSupabaseMock({ sessionExists = true, isHost = true } = {}) {
+  return {
+    from: jest.fn().mockImplementation((table: string) => {
+      if (table === 'sessions') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue(
+            sessionExists
+              ? { data: mockSession, error: null }
+              : { data: null, error: { message: 'not found' } }
+          ),
+          update: jest.fn().mockReturnThis(),
+        }
+      }
+      // players table
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: { is_host: isHost }, error: null }),
+      }
+    }),
+  }
+}
+
 describe('PATCH /api/sessions/[roomCode]/category', () => {
   beforeEach(() => jest.clearAllMocks())
 
@@ -29,15 +56,16 @@ describe('PATCH /api/sessions/[roomCode]/category', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns 403 if player is not the host', async () => {
-    ;(createServerClient as jest.Mock).mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: { is_host: false }, error: null }),
-      }),
+  it('returns 404 if session not found', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabaseMock({ sessionExists: false }))
+    const res = await PATCH(makeRequest('AB12', { category: 'all', playerId: 'p1' }), {
+      params: Promise.resolve({ roomCode: 'AB12' }),
     })
+    expect(res.status).toBe(404)
+  })
 
+  it('returns 403 if player is not the host', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabaseMock({ isHost: false }))
     const res = await PATCH(makeRequest('AB12', { category: 'all', playerId: 'p1' }), {
       params: Promise.resolve({ roomCode: 'AB12' }),
     })
@@ -45,8 +73,7 @@ describe('PATCH /api/sessions/[roomCode]/category', () => {
   })
 
   it('returns 200 on successful category update', async () => {
-    const mockUpdate = jest.fn().mockReturnThis()
-    const mockEq = jest.fn().mockResolvedValue({ error: null })
+    let sessionsCallCount = 0
     const mockSupabase = {
       from: jest.fn().mockImplementation((table: string) => {
         if (table === 'players') {
@@ -56,7 +83,19 @@ describe('PATCH /api/sessions/[roomCode]/category', () => {
             single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
           }
         }
-        return { update: mockUpdate, eq: mockEq }
+        // sessions table: first call = select/single for existence, second call = update
+        sessionsCallCount++
+        if (sessionsCallCount === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        return {
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        }
       }),
     }
     ;(createServerClient as jest.Mock).mockReturnValue(mockSupabase)

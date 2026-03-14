@@ -26,14 +26,27 @@ export async function PATCH(
 
   const supabase = createServerClient()
 
+  // Verify session exists
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('room_code', roomCode)
+    .single()
+
+  if (sessionError || !session) {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  }
+
+  // Verify player is host of this specific session
   const { data: player, error: playerError } = await supabase
     .from('players')
     .select('is_host')
     .eq('id', playerId)
+    .eq('session_id', session.id)
     .single()
 
   if (playerError || !player) {
-    return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    return NextResponse.json({ error: 'Player not found in this session' }, { status: 404 })
   }
 
   if (!player.is_host) {
@@ -43,7 +56,7 @@ export async function PATCH(
   const { error: updateError } = await supabase
     .from('sessions')
     .update({ category })
-    .eq('room_code', roomCode)
+    .eq('id', session.id)
 
   if (updateError) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
