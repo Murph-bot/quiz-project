@@ -40,7 +40,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         const list = Object.values(state).flat()
         setPlayers(list)
       })
-      .on('broadcast', { event: 'game:start' }, () => {
+      .on('broadcast', { event: 'game:started' }, () => {
         // Layer 3: navigate to game screen (404 until Layer 3 is built)
         router.push(`/game/${roomCode}`)
       })
@@ -73,13 +73,24 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   }
 
   async function handleStart() {
-    if (players.length < MIN_PLAYERS || !isHost) return
+    if (players.length < MIN_PLAYERS || !isHost || !playerId) return
     setStarting(true)
+    const res = await fetch(`/api/sessions/${roomCode}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId }),
+    })
+    if (!res.ok) {
+      setStarting(false)
+      return
+    }
     channelRef.current?.send({
       type: 'broadcast',
-      event: 'game:start',
+      event: 'game:started',
       payload: {},
     })
+    // Host won't receive its own broadcast — navigate directly
+    router.push(`/game/${roomCode}`)
   }
 
   return (
