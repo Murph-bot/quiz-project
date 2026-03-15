@@ -19,7 +19,7 @@ const params = (roomCode: string, roundId: string) => ({
 const mockSession = { id: 'sess-1' }
 const mockRound = { id: 'round-1', session_id: 'sess-1', status: 'active' }
 
-function makeSupabase({ roundStatus = 'active', insertError = null } = {}) {
+function makeSupabase({ roundStatus = 'active', insertError = null as null | { code: string; message: string } } = {}) {
   return {
     from: jest.fn().mockImplementation((table: string) => {
       if (table === 'sessions') {
