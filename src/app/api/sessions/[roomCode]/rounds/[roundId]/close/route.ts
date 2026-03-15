@@ -63,7 +63,7 @@ export async function POST(
     .select('player_id, value, players(nickname)')
     .eq('round_id', roundId)
 
-  const answers = ((rawAnswers ?? []) as Array<{ player_id: string; value: number; players: { nickname: string } }>)
+  const answers = ((rawAnswers ?? []) as unknown as Array<{ player_id: string; value: number; players: { nickname: string } }>)
     .map(a => ({
       playerId: a.player_id,
       nickname: a.players.nickname,

@@ -49,7 +49,7 @@ export default async function GamePage({ params }: Props) {
 
     revealData = {
       correctAnswer: question.answer,
-      answers: ((rawAnswers ?? []) as Array<{ player_id: string; value: number; players: { nickname: string } }>)
+      answers: ((rawAnswers ?? []) as unknown as Array<{ player_id: string; value: number; players: { nickname: string } }>)
         .map(a => ({
           playerId: a.player_id,
           nickname: a.players.nickname,
