@@ -29,6 +29,10 @@ export async function POST(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
 
+  if (session.status !== 'lobby') {
+    return NextResponse.json({ error: 'Game already started' }, { status: 409 })
+  }
+
   const { data: player, error: playerError } = await supabase
     .from('players')
     .select('is_host')
@@ -38,10 +42,6 @@ export async function POST(
 
   if (playerError || !player || !player.is_host) {
     return NextResponse.json({ error: 'Only the host can start the game' }, { status: 403 })
-  }
-
-  if (session.status !== 'lobby') {
-    return NextResponse.json({ error: 'Game already started' }, { status: 409 })
   }
 
   // Pick a random question from the selected category
@@ -69,7 +69,10 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
 
-  await supabase.from('sessions').update({ status: 'active' }).eq('id', session.id)
+  const { error: updateError } = await supabase.from('sessions').update({ status: 'active' }).eq('id', session.id)
+  if (updateError) {
+    return NextResponse.json({ error: 'Failed to update session' }, { status: 500 })
+  }
 
   return NextResponse.json({
     roundId: round.id,
