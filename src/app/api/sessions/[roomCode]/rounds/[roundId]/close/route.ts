@@ -40,15 +40,23 @@ export async function POST(
     return NextResponse.json({ wasAlreadyClosed: true })
   }
 
-  await supabase.from('rounds').update({ status: 'closed' }).eq('id', roundId)
+  const { error: updateError } = await supabase.from('rounds').update({ status: 'closed' }).eq('id', roundId)
 
-  const { data: question } = await supabase
+  if (updateError) {
+    return NextResponse.json({ error: 'Failed to close round' }, { status: 500 })
+  }
+
+  const { data: question, error: questionError } = await supabase
     .from('questions')
     .select('answer')
     .eq('id', round.question_id)
     .single()
 
-  const correctAnswer = question!.answer
+  if (questionError || !question) {
+    return NextResponse.json({ error: 'Question not found' }, { status: 500 })
+  }
+
+  const correctAnswer = question.answer
 
   const { data: rawAnswers } = await supabase
     .from('answers')
