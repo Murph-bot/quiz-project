@@ -89,6 +89,8 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
       event: 'game:started',
       payload: {},
     })
+    // Host won't receive its own broadcast — navigate directly
+    router.push(`/game/${roomCode}`)
   }
 
   return (
