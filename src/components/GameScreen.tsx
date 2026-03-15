@@ -75,13 +75,17 @@ export function GameScreen({
     })
       .then(r => r.json())
       .then(data => {
-        if (!data.wasAlreadyClosed && channelRef.current) {
-          channelRef.current.send({
+        if (!data.wasAlreadyClosed) {
+          // Won the race — update own state (won't receive own broadcast)
+          setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+          setPhase('reveal')
+          channelRef.current?.send({
             type: 'broadcast',
             event: 'round:closed',
             payload: { correctAnswer: data.correctAnswer, answers: data.answers },
           })
         }
+        // wasAlreadyClosed: true → another client already broadcast, we'll receive it
       })
   }, [isExpired, phase, roundId, roomCode])
 
@@ -100,6 +104,7 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => {
+          if (!data.roundId) return // POST /next failed (e.g. round still active), ignore
           // Host transitions its own state directly — it won't receive its own broadcast
           setRoundId(data.roundId)
           setRoundNumber(data.roundNumber)
