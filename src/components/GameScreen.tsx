@@ -30,6 +30,8 @@ interface Props {
   initialRevealData: RevealData | null
 }
 
+const FAR_FUTURE_MS = Date.now() + 1e9
+
 type Phase = 'answering' | 'waiting' | 'reveal'
 
 export function GameScreen({
@@ -61,7 +63,7 @@ export function GameScreen({
 
   // Countdown for current question — used to trigger close when expired
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
-  const { isExpired } = useCountdown(phase === 'answering' ? deadlineMs : Date.now() + 999999)
+  const { isExpired } = useCountdown(phase === 'answering' ? deadlineMs : FAR_FUTURE_MS)
 
   // Timer expired → race to close the round
   useEffect(() => {

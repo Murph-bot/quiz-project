@@ -49,10 +49,11 @@ export default async function GamePage({ params }: Props) {
 
     revealData = {
       correctAnswer: question.answer,
-      answers: ((rawAnswers ?? []) as unknown as Array<{ player_id: string; value: number; players: { nickname: string } }>)
+      answers: ((rawAnswers ?? []) as unknown as Array<{ player_id: string; value: number; players: { nickname: string } | null }>)
+        .filter(a => a.players !== null)
         .map(a => ({
           playerId: a.player_id,
-          nickname: a.players.nickname,
+          nickname: a.players!.nickname,
           value: a.value,
           delta: Math.abs(a.value - question.answer),
         }))
