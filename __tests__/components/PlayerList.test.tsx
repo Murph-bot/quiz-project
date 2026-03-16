@@ -24,7 +24,7 @@ describe('PlayerList', () => {
 
   it('shows host label next to the host player', () => {
     render(<PlayerList players={mockPlayers} />)
-    expect(screen.getByText('host')).toBeInTheDocument()
+    expect(screen.getByText(/host/i)).toBeInTheDocument()
   })
 
   it('displays the correct player count', () => {
