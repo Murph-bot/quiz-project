@@ -79,28 +79,28 @@ export default function HomeScreen() {
           <p className="text-white/70 text-sm mt-1">Last one standing wins</p>
         </div>
 
-        <div className="bg-white/15 backdrop-blur border border-white/30 rounded-2xl p-5 flex flex-col gap-3">
+        <div className="bg-white rounded-2xl shadow-md p-5 flex flex-col gap-3">
           <input
             type="text"
             placeholder="Your nickname"
             maxLength={20}
             value={nickname}
             onChange={e => { setNickname(e.target.value); setError('') }}
-            className="w-full bg-white/20 border border-white/40 rounded-xl px-4 py-3 text-white placeholder-white/50 font-bold text-sm focus:outline-none focus:border-white"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-bold text-sm focus:outline-none focus:border-orange-400"
           />
 
           <button
             onClick={handleCreate}
             disabled={loading}
-            className="w-full bg-white text-purple-700 font-black text-sm rounded-full py-3 disabled:opacity-50 active:scale-95 transition-transform"
+            className="w-full bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full py-3 disabled:opacity-50 active:scale-95 transition-transform"
           >
             🎮 Create Game
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-white/20" />
-            <span className="text-white/40 text-xs">or join</span>
-            <div className="flex-1 h-px bg-white/20" />
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-gray-400 text-xs">or join</span>
+            <div className="flex-1 h-px bg-gray-200" />
           </div>
 
           <div className="flex gap-2">
@@ -110,19 +110,19 @@ export default function HomeScreen() {
               maxLength={4}
               value={roomCode}
               onChange={e => { setRoomCode(e.target.value.toUpperCase()); setError('') }}
-              className="flex-1 bg-white/20 border border-white/40 rounded-xl px-4 py-3 text-white placeholder-white/50 font-bold text-sm uppercase tracking-widest focus:outline-none focus:border-white"
+              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-sm uppercase tracking-widest focus:outline-none focus:border-orange-400"
             />
             <button
               onClick={handleJoin}
               disabled={loading}
-              className="bg-orange-500 text-white font-black text-sm rounded-full px-5 disabled:opacity-50 active:scale-95 transition-transform"
+              className="bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 disabled:opacity-50 active:scale-95 transition-transform"
             >
               Join
             </button>
           </div>
 
           {error && (
-            <p className="text-red-300 text-xs text-center font-semibold">{error}</p>
+            <p className="text-red-500 text-xs text-center font-semibold">{error}</p>
           )}
         </div>
       </div>
