@@ -100,8 +100,8 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           <h1 className="text-2xl font-black text-white">⚔️ QuizKnight</h1>
         </div>
 
-        {/* Room code (hero) */}
-        <div className="text-center bg-white/15 backdrop-blur border border-white/30 rounded-2xl py-5">
+        {/* Room code — directly on gradient, no card */}
+        <div className="text-center">
           <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Room Code</p>
           <p className="text-white text-5xl font-black tracking-[0.3em]">{roomCode}</p>
           <p className="text-white/50 text-xs mt-2">Share this code with friends</p>
@@ -114,15 +114,17 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         {isHost && (
           <div className="flex flex-col gap-2">
             <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Category</p>
-            <select
-              value={category}
-              onChange={e => handleCategoryChange(e.target.value)}
-              className="bg-white/20 border border-white/40 rounded-xl px-4 py-3 text-white font-bold text-sm focus:outline-none capitalize"
-            >
-              {VALID_CATEGORIES.map(c => (
-                <option key={c} value={c} className="text-purple-900 capitalize">{c}</option>
-              ))}
-            </select>
+            <div className="bg-white rounded-2xl shadow-md px-4 py-1">
+              <select
+                value={category}
+                onChange={e => handleCategoryChange(e.target.value)}
+                className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none capitalize w-full py-2"
+              >
+                {VALID_CATEGORIES.map(c => (
+                  <option key={c} value={c} className="capitalize">{c}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 
@@ -131,7 +133,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           <button
             onClick={handleStart}
             disabled={players.length < MIN_PLAYERS || starting}
-            className="w-full bg-white text-purple-700 font-black text-sm rounded-full py-4 disabled:opacity-40 active:scale-95 transition-transform"
+            className="w-full bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full py-4 disabled:opacity-40 active:scale-95 transition-transform"
           >
             {players.length < MIN_PLAYERS
               ? `Need ${MIN_PLAYERS - players.length} more player${MIN_PLAYERS - players.length > 1 ? 's' : ''}`
