@@ -4,10 +4,39 @@
   box-sizing: border-box;
 }
 
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.1); }
+}
+
+@keyframes trophy {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50%       { transform: rotate(8deg) scale(1.15); }
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
   font-family: system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, #6c2eb9 0%, #e91e8c 100%);
+  background: linear-gradient(135deg, #ff4500, #ff6b00, #ff8c42, #ffa500, #e84393);
+  background-size: 400% 400%;
+  animation: gradientShift 16s ease infinite;
   background-attachment: fixed;
+}
+
+.urgent-bg {
+  background: linear-gradient(135deg, #c0160a, #e02010, #ff4500, #c0200a, #8b0000) !important;
+  background-size: 400% 400% !important;
+  animation: gradientShift 2s ease infinite !important;
 }
