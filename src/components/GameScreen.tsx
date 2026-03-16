@@ -269,7 +269,7 @@ export function GameScreen({
   }
 
   if (phase === 'spectating') {
-    return <SpectatorScreen nickname={nickname ?? ''} />
+    return <SpectatorScreen roundNumber={roundNumber} />
   }
 
   // Show resurrection banner briefly at start of answering phase
