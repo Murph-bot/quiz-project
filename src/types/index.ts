@@ -53,6 +53,17 @@ export interface Question {
 export interface RankedAnswer {
   playerId: string
   nickname: string
-  value: number
-  delta: number
+  value: number | null   // null for players who didn't answer
+  delta: number          // Number.MAX_SAFE_INTEGER for no-answer players
+  noAnswer: boolean
+}
+
+export interface EliminatedPlayer {
+  playerId: string
+  nickname: string
+}
+
+export interface WinnerInfo {
+  playerId: string
+  nickname: string
 }

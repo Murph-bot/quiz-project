@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase-server'
 import { GameScreen } from '@/components/GameScreen'
+import type { WinnerInfo } from '@/types'
 
 interface Props {
   params: Promise<{ roomCode: string }>
@@ -12,13 +13,12 @@ export default async function GamePage({ params }: Props) {
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('id, status, host_id')
+    .select('id, status, host_id, winner_id')
     .eq('room_code', roomCode)
     .single()
 
   if (!session) return notFound()
   if (session.status === 'lobby') redirect(`/lobby/${roomCode}`)
-  if (session.status === 'finished') redirect('/')
 
   // Get current (latest) round
   const { data: round } = await supabase
@@ -56,8 +56,22 @@ export default async function GamePage({ params }: Props) {
           nickname: a.players!.nickname,
           value: a.value,
           delta: Math.abs(a.value - question.answer),
+          noAnswer: false,
         }))
         .sort((a, b) => a.delta - b.delta),
+    }
+  }
+
+  // If finished, resolve winner info (if any) and show WinnerScreen instead of redirecting
+  let initialWinner: WinnerInfo | null = null
+  if (session.status === 'finished' && session.winner_id) {
+    const { data: winnerPlayer } = await supabase
+      .from('players')
+      .select('id, nickname')
+      .eq('id', session.winner_id)
+      .single()
+    if (winnerPlayer) {
+      initialWinner = { playerId: winnerPlayer.id, nickname: winnerPlayer.nickname }
     }
   }
 
@@ -76,6 +90,7 @@ export default async function GamePage({ params }: Props) {
         }}
         initialStartedAt={round.started_at}
         initialRevealData={revealData}
+        initialWinner={initialWinner}
       />
     </div>
   )

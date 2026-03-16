@@ -79,12 +79,14 @@ export async function POST(
 
   const question = available[Math.floor(Math.random() * available.length)]
 
+  const newRoundNumber = latestRound.round_number + 1
+
   const { data: round, error: newRoundError } = await supabase
     .from('rounds')
     .insert({
       session_id: session.id,
       question_id: question.id,
-      round_number: latestRound.round_number + 1,
+      round_number: newRoundNumber,
     })
     .select('id, started_at')
     .single()
@@ -93,10 +95,40 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
 
+  // Resurrection logic: every 5th round, resurrect one eliminated player if enough alive
+  let resurrected: { playerId: string; nickname: string } | null = null
+
+  if (newRoundNumber % 5 === 0) {
+    const { count: aliveCount } = await supabase
+      .from('players')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session.id)
+      .eq('is_alive', true)
+
+    if ((aliveCount ?? 0) >= 7) {
+      const { data: eliminated } = await supabase
+        .from('players')
+        .select('id, nickname')
+        .eq('session_id', session.id)
+        .eq('is_alive', false)
+
+      const pool = (eliminated ?? []) as Array<{ id: string; nickname: string }>
+      if (pool.length > 0) {
+        const chosen = pool[Math.floor(Math.random() * pool.length)]
+        await supabase
+          .from('players')
+          .update({ is_alive: true })
+          .eq('id', chosen.id)
+        resurrected = { playerId: chosen.id, nickname: chosen.nickname }
+      }
+    }
+  }
+
   return NextResponse.json({
     roundId: round.id,
-    roundNumber: latestRound.round_number + 1,
+    roundNumber: newRoundNumber,
     question: { id: question.id, text: question.text, timeLimit: question.time_limit, category: question.category },
     startedAt: round.started_at,
+    resurrected,
   })
 }

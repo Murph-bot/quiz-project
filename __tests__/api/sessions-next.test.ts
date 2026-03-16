@@ -18,8 +18,34 @@ const mockSession = { id: 'sess-1', category: 'all', host_id: 'p1' }
 const mockQuestion = { id: 'q-2', text: 'How many?', answer: 42, category: 'science', time_limit: 10 }
 const mockNewRound = { id: 'round-2', started_at: '2026-03-15T10:01:00Z' }
 
-function makeSupabase({ latestRoundStatus = 'closed', noQuestions = false } = {}) {
-  let roundsCount = 0
+/**
+ * Build a supabase mock for the next route.
+ *
+ * DB call order:
+ *   sessions  1: SELECT session
+ *   players   1: SELECT host check (single)
+ *   rounds    1: SELECT latest round (order/limit/single)
+ *   rounds    2: SELECT used question_ids (eq resolves array)
+ *   questions 1: SELECT all questions (thenable)
+ *   rounds    3: INSERT new round
+ *   (if newRoundNumber % 5 === 0 && aliveCount >= 7):
+ *     players 2: SELECT COUNT alive
+ *     players 3: SELECT eliminated players
+ *     players 4: UPDATE resurrected player
+ */
+function makeNextMock({
+  latestRoundNumber = 1,
+  latestRoundStatus = 'closed' as 'active' | 'closed',
+  noQuestions = false,
+  aliveCount = 3,
+  eliminatedPlayers = [] as Array<{ id: string; nickname: string }>,
+} = {}) {
+  const callMap: Record<string, number> = {}
+  function next(key: string) {
+    callMap[key] = (callMap[key] ?? 0) + 1
+    return callMap[key]
+  }
+
   return {
     from: jest.fn().mockImplementation((table: string) => {
       if (table === 'sessions') {
@@ -29,13 +55,6 @@ function makeSupabase({ latestRoundStatus = 'closed', noQuestions = false } = {}
           single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
         }
       }
-      if (table === 'players') {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
-        }
-      }
       if (table === 'questions') {
         const result = Promise.resolve({
           data: noQuestions ? [] : [mockQuestion],
@@ -43,32 +62,75 @@ function makeSupabase({ latestRoundStatus = 'closed', noQuestions = false } = {}
         })
         return { select: jest.fn().mockReturnValue({ then: result.then.bind(result) }) }
       }
-      // rounds: call 1 = latest round check, call 2 = used question IDs, call 3 = insert
-      roundsCount++
-      if (roundsCount === 1) {
+      if (table === 'players') {
+        const n = next('players')
+        if (n === 1) {
+          // host check
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+          }
+        }
+        if (n === 2) {
+          // COUNT alive: .select('id', {count:'exact',head:true}).eq().eq()
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ count: aliveCount, error: null }),
+              }),
+            }),
+          }
+        }
+        if (n === 3) {
+          // SELECT eliminated players: .select().eq().eq()
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ data: eliminatedPlayers, error: null }),
+              }),
+            }),
+          }
+        }
+        if (n === 4) {
+          // UPDATE resurrected player: .update().eq()
+          return {
+            update: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ error: null }),
+          }
+        }
+        return {}
+      }
+      if (table === 'rounds') {
+        const n = next('rounds')
+        if (n === 1) {
+          // SELECT latest round
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            order: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { id: 'round-1', round_number: latestRoundNumber, status: latestRoundStatus },
+              error: null,
+            }),
+          }
+        }
+        if (n === 2) {
+          // SELECT used question IDs
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: [{ question_id: 'q-1' }], error: null }),
+          }
+        }
+        // n === 3: INSERT new round
         return {
+          insert: jest.fn().mockReturnThis(),
           select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({
-            data: { id: 'round-1', round_number: 1, status: latestRoundStatus },
-            error: null,
-          }),
+          single: jest.fn().mockResolvedValue({ data: mockNewRound, error: null }),
         }
       }
-      if (roundsCount === 2) {
-        return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ data: [{ question_id: 'q-1' }], error: null }),
-        }
-      }
-      // insert new round
-      return {
-        insert: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockNewRound, error: null }),
-      }
+      return {}
     }),
   }
 }
@@ -103,19 +165,19 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
   })
 
   it('returns 409 if current round is still active', async () => {
-    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ latestRoundStatus: 'active' }))
+    ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ latestRoundStatus: 'active' }))
     const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 409 if no questions available', async () => {
-    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ noQuestions: true }))
+    ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ noQuestions: true }))
     const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 200 with new round data on success', async () => {
-    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase())
+    ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock())
     const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -123,5 +185,47 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     expect(body).toHaveProperty('roundNumber', 2)
     expect(body).toHaveProperty('question')
     expect(body).toHaveProperty('startedAt')
+  })
+
+  // --- Layer 4: resurrection test cases ---
+
+  it('returns resurrected:null when round number is not a multiple of 5', async () => {
+    // round 1 → new round 2, not a multiple of 5
+    ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ latestRoundNumber: 1 }))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.resurrected).toBeNull()
+    expect(body.roundNumber).toBe(2)
+  })
+
+  it('returns resurrected:null when round is a multiple of 5 but active player count < 7', async () => {
+    // round 4 → new round 5, multiple of 5, but only 4 alive players
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeNextMock({ latestRoundNumber: 4, aliveCount: 4 })
+    )
+    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.resurrected).toBeNull()
+    expect(body.roundNumber).toBe(5)
+  })
+
+  it('returns resurrected:{playerId,nickname} when round is multiple of 5 and count >= 7', async () => {
+    // round 4 → new round 5, 8 alive, 1 eliminated
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeNextMock({
+        latestRoundNumber: 4,
+        aliveCount: 8,
+        eliminatedPlayers: [{ id: 'p-elim', nickname: 'Ghost' }],
+      })
+    )
+    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.resurrected).not.toBeNull()
+    expect(body.resurrected.playerId).toBe('p-elim')
+    expect(body.resurrected.nickname).toBe('Ghost')
+    expect(body.roundNumber).toBe(5)
   })
 })

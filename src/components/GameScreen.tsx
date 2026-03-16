@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase'
 import { useCountdown } from '@/hooks/useCountdown'
 import { QuestionPanel } from './QuestionPanel'
 import { RevealPanel } from './RevealPanel'
-import type { RankedAnswer } from '@/types'
+import { SpectatorScreen } from './SpectatorScreen'
+import { WinnerScreen } from './WinnerScreen'
+import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
 interface QuestionData {
   id: string
@@ -28,11 +30,12 @@ interface Props {
   initialQuestion: QuestionData
   initialStartedAt: string
   initialRevealData: RevealData | null
+  initialWinner: WinnerInfo | null
 }
 
 const FAR_FUTURE_MS = Date.now() + 1e9
 
-type Phase = 'answering' | 'waiting' | 'reveal'
+type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'winner'
 
 export function GameScreen({
   roomCode,
@@ -42,19 +45,37 @@ export function GameScreen({
   initialQuestion,
   initialStartedAt,
   initialRevealData,
+  initialWinner,
 }: Props) {
   const router = useRouter()
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
+  const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
   const isHost = playerId !== null && playerId === sessionHostId
 
   const [roundId, setRoundId] = useState(initialRoundId)
   const [roundNumber, setRoundNumber] = useState(initialRoundNumber)
   const [question, setQuestion] = useState(initialQuestion)
   const [startedAt, setStartedAt] = useState(initialStartedAt)
-  const [phase, setPhase] = useState<Phase>(initialRevealData ? 'reveal' : 'answering')
+
+  const getInitialPhase = (): Phase => {
+    if (initialWinner !== null) return 'winner'
+    if (initialRevealData) return 'reveal'
+    return 'answering'
+  }
+
+  const [phase, setPhase] = useState<Phase>(getInitialPhase)
   const [revealData, setRevealData] = useState<RevealData | null>(initialRevealData)
+  const [eliminated, setEliminated] = useState<EliminatedPlayer[]>([])
+  const [winner, setWinner] = useState<WinnerInfo | null>(initialWinner)
+  const [gameOver, setGameOver] = useState(initialWinner !== null)
+  const [resurrected, setResurrected] = useState<{ playerId: string; nickname: string } | null>(null)
   const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
+  const [autoRedirectIn, setAutoRedirectIn] = useState(30)
+  const [isSpectating, setIsSpectating] = useState(false)
+
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const isSpectatingRef = useRef(false)
+  const gameOverRef = useRef(initialWinner !== null)
 
   // Redirect if no identity
   useEffect(() => {
@@ -77,26 +98,53 @@ export function GameScreen({
       .then(data => {
         if (!data.wasAlreadyClosed) {
           // Won the race — update own state (won't receive own broadcast)
+          setEliminated(data.eliminated ?? [])
           setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
           setPhase('reveal')
+
+          if (data.gameOver) {
+            setGameOver(true)
+            gameOverRef.current = true
+            setWinner(data.winner ?? null)
+          }
+
+          if (data.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
+            isSpectatingRef.current = true
+            setIsSpectating(true)
+          }
+
           channelRef.current?.send({
             type: 'broadcast',
             event: 'round:closed',
-            payload: { correctAnswer: data.correctAnswer, answers: data.answers },
+            payload: {
+              correctAnswer: data.correctAnswer,
+              answers: data.answers,
+              eliminated: data.eliminated,
+              winner: data.winner,
+              gameOver: data.gameOver,
+            },
           })
         }
         // wasAlreadyClosed: true → another client already broadcast, we'll receive it
       })
-  }, [isExpired, phase, roundId, roomCode])
+  }, [isExpired, phase, roundId, roomCode, playerId])
 
-  // Auto-advance after reveal: host calls /next, updates own state directly (Supabase
-  // Broadcast does NOT echo back to the sender), then broadcasts to all other clients.
+  // Auto-advance after reveal
   useEffect(() => {
     if (phase !== 'reveal') return
     setAutoAdvanceIn(5)
     const tick = setInterval(() => setAutoAdvanceIn(s => Math.max(0, s - 1)), 1000)
     const advance = setTimeout(() => {
       if (!isHost || !playerId) return
+      if (gameOverRef.current) {
+        setPhase('winner')
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'game:over',
+          payload: {},
+        })
+        return
+      }
       fetch(`/api/sessions/${roomCode}/rounds/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,15 +152,20 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => {
-          if (!data.roundId) return // POST /next failed (e.g. round still active), ignore
-          // Host transitions its own state directly — it won't receive its own broadcast
+          if (!data.roundId) return
+          // Check if this player was resurrected
+          if (data.resurrected?.playerId === playerId) {
+            isSpectatingRef.current = false
+            setIsSpectating(false)
+          }
+          setResurrected(data.resurrected ?? null)
           setRoundId(data.roundId)
           setRoundNumber(data.roundNumber)
           setQuestion(data.question)
           setStartedAt(data.startedAt)
           setRevealData(null)
-          setPhase('answering')
-          // Broadcast to all other clients
+          setEliminated([])
+          setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
           channelRef.current?.send({
             type: 'broadcast',
             event: 'round:started',
@@ -121,6 +174,7 @@ export function GameScreen({
               roundNumber: data.roundNumber,
               question: data.question,
               startedAt: data.startedAt,
+              resurrected: data.resurrected ?? null,
             },
           })
         })
@@ -131,29 +185,62 @@ export function GameScreen({
     }
   }, [phase, isHost, playerId, roomCode])
 
+  // Winner auto-redirect
+  useEffect(() => {
+    if (phase !== 'winner') return
+    setAutoRedirectIn(30)
+    const tick = setInterval(() => setAutoRedirectIn(s => Math.max(0, s - 1)), 1000)
+    const redirect = setTimeout(() => router.push('/'), 30000)
+    return () => {
+      clearInterval(tick)
+      clearTimeout(redirect)
+    }
+  }, [phase, router])
+
   // Supabase Realtime subscriptions
   useEffect(() => {
     const channel = supabase
       .channel(`room:${roomCode}`)
       .on('broadcast', { event: 'round:closed' }, ({ payload }) => {
+        setEliminated(payload.eliminated ?? [])
         setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
         setPhase('reveal')
+
+        if (payload.gameOver) {
+          setGameOver(true)
+          gameOverRef.current = true
+          setWinner(payload.winner ?? null)
+        }
+
+        if (payload.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
+          isSpectatingRef.current = true
+          setIsSpectating(true)
+        }
       })
       .on('broadcast', { event: 'round:started' }, ({ payload }) => {
+        if (payload.resurrected?.playerId === playerId) {
+          isSpectatingRef.current = false
+          setIsSpectating(false)
+        }
+        setResurrected(payload.resurrected ?? null)
         setRoundId(payload.roundId)
         setRoundNumber(payload.roundNumber)
         setQuestion(payload.question)
         setStartedAt(payload.startedAt)
         setRevealData(null)
-        setPhase('answering')
+        setEliminated([])
+        setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
+      })
+      .on('broadcast', { event: 'game:over' }, () => {
+        setPhase('winner')
       })
       .subscribe()
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [roomCode])
+  }, [roomCode, playerId])
 
   async function handleSubmit(value: number) {
-    if (!playerId) return
+    if (!playerId || isSpectatingRef.current) return
     const res = await fetch(`/api/sessions/${roomCode}/rounds/${roundId}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,24 +249,46 @@ export function GameScreen({
     if (res.ok) setPhase('waiting')
   }
 
+  if (phase === 'winner') {
+    return <WinnerScreen winnerNickname={winner?.nickname ?? null} autoRedirectIn={autoRedirectIn} />
+  }
+
   if (phase === 'reveal' && revealData) {
     return (
       <RevealPanel
         roundNumber={roundNumber}
         correctAnswer={revealData.correctAnswer}
         answers={revealData.answers}
+        eliminated={eliminated}
+        gameOver={gameOver}
+        winner={winner}
         autoAdvanceIn={autoAdvanceIn}
+        spectatorBanner={isSpectating ? (nickname ?? undefined) : null}
       />
     )
   }
 
+  if (phase === 'spectating') {
+    return <SpectatorScreen nickname={nickname ?? ''} />
+  }
+
+  // Show resurrection banner briefly at start of answering phase
   return (
-    <QuestionPanel
-      roundNumber={roundNumber}
-      question={question}
-      startedAt={startedAt}
-      isWaiting={phase === 'waiting'}
-      onSubmit={handleSubmit}
-    />
+    <>
+      {resurrected && (
+        <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+            🔄 {resurrected.nickname} has been resurrected!
+          </div>
+        </div>
+      )}
+      <QuestionPanel
+        roundNumber={roundNumber}
+        question={question}
+        startedAt={startedAt}
+        isWaiting={phase === 'waiting'}
+        onSubmit={handleSubmit}
+      />
+    </>
   )
 }
