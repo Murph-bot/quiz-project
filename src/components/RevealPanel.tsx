@@ -43,14 +43,16 @@ export function RevealPanel({
           </div>
         )}
 
-        <div className="bg-white rounded-2xl py-4 text-center">
-          <div className="text-xs font-bold text-purple-700 uppercase tracking-widest">Correct Answer</div>
-          <div className="text-4xl font-black text-purple-700">{correctAnswer}</div>
+        <div className="bg-white rounded-2xl shadow-md py-4 text-center">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Correct Answer</div>
+          <div className="text-5xl font-black text-orange-500">{correctAnswer}</div>
         </div>
 
         {spectatorBanner && (
-          <div className="bg-white/10 border border-white/30 rounded-xl px-4 py-2 text-center">
-            <span className="text-white/80 text-xs">You are spectating as <span className="font-bold text-white">{spectatorBanner}</span></span>
+          <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
+            <span className="text-white/80 text-xs">
+              You are spectating as <span className="font-bold text-white">{spectatorBanner}</span>
+            </span>
           </div>
         )}
 
@@ -60,30 +62,39 @@ export function RevealPanel({
             return (
               <div
                 key={a.playerId}
-                className={`backdrop-blur border rounded-xl px-4 py-3 flex justify-between items-center ${
-                  isEliminated
-                    ? 'bg-red-900/30 border-red-400/40 opacity-60'
-                    : 'bg-white/15 border-white/30'
+                className={`rounded-xl px-4 py-3 flex justify-between items-center shadow-sm ${
+                  isEliminated ? 'bg-red-100' : 'bg-white'
                 }`}
+                style={{
+                  opacity: 0,
+                  animation: 'fadeIn 0.3s ease forwards',
+                  animationDelay: `${i * 50}ms`,
+                }}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{isEliminated ? '💀' : (MEDALS[i] ?? '▫️')}</span>
-                  <span className={`font-bold text-sm ${isEliminated ? 'text-red-200' : 'text-white'}`}>
+                  <span className={`font-bold text-sm ${isEliminated ? 'text-red-800' : 'text-gray-900'}`}>
                     {a.nickname}
                   </span>
                 </div>
                 <div className="text-right">
                   {a.noAnswer ? (
                     <>
-                      <span className="text-white/40 font-black text-base">—</span>
-                      <span className="text-white/40 text-xs ml-2">no answer</span>
+                      <span className="text-gray-400 font-black text-base">—</span>
+                      <span className="text-gray-400 text-xs ml-2">no answer</span>
                     </>
                   ) : (
                     <>
-                      <span className={`font-black text-base ${isEliminated ? 'text-red-200' : 'text-white'}`}>
+                      <span className={`font-black text-base ${isEliminated ? 'text-red-600' : 'text-gray-900'}`}>
                         {a.value}
                       </span>
-                      <span className={`text-xs ml-2 ${isEliminated ? 'text-red-200/60' : 'text-white/60'}`}>
+                      <span className={`text-xs ml-2 ${
+                        isEliminated
+                          ? 'text-red-400'
+                          : a.delta === 0
+                          ? 'text-green-600 font-bold'
+                          : 'text-gray-400'
+                      }`}>
                         {a.delta === 0 ? 'exact!' : `off by ${a.delta}`}
                       </span>
                     </>
@@ -95,12 +106,12 @@ export function RevealPanel({
         </div>
 
         {gameOver ? (
-          <p className="text-center text-white/60 text-xs">
+          <p className="text-center text-white/70 text-xs">
             Game over — results in <span className="font-bold text-white">5s</span>
           </p>
         ) : (
           autoAdvanceIn > 0 && (
-            <p className="text-center text-white/60 text-xs">
+            <p className="text-center text-white/70 text-xs">
               Next question in <span className="font-bold text-white">{autoAdvanceIn}s</span>
             </p>
           )
