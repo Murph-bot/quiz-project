@@ -6,7 +6,26 @@ import { supabase } from '@/lib/supabase'
 import PlayerList from '@/components/PlayerList'
 import type { Session, PresencePlayer } from '@/types'
 
-const VALID_CATEGORIES = ['all', 'history', 'science', 'money', 'geography', 'sports']
+const VALID_CATEGORIES = [
+  'all',
+  'geography',
+  'nature',
+  'animals',
+  'music industry',
+  'nations',
+  'popular products',
+  'popular tools',
+  'history',
+  'music instruments',
+  'sodas',
+  'alcoholic drinks',
+  'pop culture',
+  'movies',
+  'formula 1',
+  'food & drink',
+  'technology',
+  '00s nostalgia',
+]
 const MIN_PLAYERS = 3
 
 interface Props {

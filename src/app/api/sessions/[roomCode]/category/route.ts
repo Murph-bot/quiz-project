@@ -2,7 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 
-const VALID_CATEGORIES = ['all', 'history', 'science', 'money', 'geography', 'sports']
+const VALID_CATEGORIES = [
+  'all',
+  'geography',
+  'nature',
+  'animals',
+  'music industry',
+  'nations',
+  'popular products',
+  'popular tools',
+  'history',
+  'music instruments',
+  'sodas',
+  'alcoholic drinks',
+  'pop culture',
+  'movies',
+  'formula 1',
+  'food & drink',
+  'technology',
+  '00s nostalgia',
+]
 
 export async function PATCH(
   req: NextRequest,
