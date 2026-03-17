@@ -69,6 +69,7 @@ export function GameScreen({
   const [winner, setWinner] = useState<WinnerInfo | null>(initialWinner)
   const [gameOver, setGameOver] = useState(initialWinner !== null)
   const [resurrected, setResurrected] = useState<{ playerId: string; nickname: string } | null>(null)
+  const [isSuddenDeath, setIsSuddenDeath] = useState(false)
   const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
@@ -84,11 +85,11 @@ export function GameScreen({
 
   // Countdown for current question — used to trigger close when expired
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
-  const { isExpired } = useCountdown(phase === 'answering' ? deadlineMs : FAR_FUTURE_MS)
+  const { isExpired } = useCountdown(phase === 'answering' || phase === 'waiting' ? deadlineMs : FAR_FUTURE_MS)
 
   // Timer expired → race to close the round
   useEffect(() => {
-    if (!isExpired || phase !== 'answering') return
+    if (!isExpired || (phase !== 'answering' && phase !== 'waiting')) return
     fetch(`/api/sessions/${roomCode}/rounds/${roundId}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -159,6 +160,7 @@ export function GameScreen({
             setIsSpectating(false)
           }
           setResurrected(data.resurrected ?? null)
+          if (data.isSuddenDeath) setIsSuddenDeath(true)
           setRoundId(data.roundId)
           setRoundNumber(data.roundNumber)
           setQuestion(data.question)
@@ -175,6 +177,7 @@ export function GameScreen({
               question: data.question,
               startedAt: data.startedAt,
               resurrected: data.resurrected ?? null,
+              isSuddenDeath: data.isSuddenDeath ?? false,
             },
           })
         })
@@ -223,6 +226,7 @@ export function GameScreen({
           setIsSpectating(false)
         }
         setResurrected(payload.resurrected ?? null)
+        if (payload.isSuddenDeath) setIsSuddenDeath(true)
         setRoundId(payload.roundId)
         setRoundNumber(payload.roundNumber)
         setQuestion(payload.question)
@@ -275,6 +279,13 @@ export function GameScreen({
   // Show resurrection banner briefly at start of answering phase
   return (
     <>
+      {isSuddenDeath && (
+        <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <div className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+            ⚡ Sudden Death — last player standing wins!
+          </div>
+        </div>
+      )}
       {resurrected && (
         <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">

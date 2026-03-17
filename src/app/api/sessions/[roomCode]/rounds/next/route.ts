@@ -95,32 +95,27 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
 
-  // Resurrection logic: every 5th round, resurrect one eliminated player if enough alive
+  const MAX_ROUNDS = 50
+  const isSuddenDeath = newRoundNumber > MAX_ROUNDS
+
+  // Resurrection logic: every 5th round, resurrect one eliminated player
   let resurrected: { playerId: string; nickname: string } | null = null
 
   if (newRoundNumber % 5 === 0) {
-    const { count: aliveCount } = await supabase
+    const { data: eliminated } = await supabase
       .from('players')
-      .select('id', { count: 'exact', head: true })
+      .select('id, nickname')
       .eq('session_id', session.id)
-      .eq('is_alive', true)
+      .eq('is_alive', false)
 
-    if ((aliveCount ?? 0) >= 7) {
-      const { data: eliminated } = await supabase
+    const pool = (eliminated ?? []) as Array<{ id: string; nickname: string }>
+    if (pool.length > 0) {
+      const chosen = pool[Math.floor(Math.random() * pool.length)]
+      await supabase
         .from('players')
-        .select('id, nickname')
-        .eq('session_id', session.id)
-        .eq('is_alive', false)
-
-      const pool = (eliminated ?? []) as Array<{ id: string; nickname: string }>
-      if (pool.length > 0) {
-        const chosen = pool[Math.floor(Math.random() * pool.length)]
-        await supabase
-          .from('players')
-          .update({ is_alive: true })
-          .eq('id', chosen.id)
-        resurrected = { playerId: chosen.id, nickname: chosen.nickname }
-      }
+        .update({ is_alive: true })
+        .eq('id', chosen.id)
+      resurrected = { playerId: chosen.id, nickname: chosen.nickname }
     }
   }
 
@@ -130,5 +125,6 @@ export async function POST(
     question: { id: question.id, text: question.text, timeLimit: question.time_limit, category: question.category },
     startedAt: round.started_at,
     resurrected,
+    isSuddenDeath,
   })
 }
