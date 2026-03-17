@@ -88,7 +88,7 @@ export function GameScreen({
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { isExpired } = useCountdown(phase === 'answering' || phase === 'waiting' ? deadlineMs : FAR_FUTURE_MS)
 
-  const GRACE_PERIOD_MS = 5000
+  const GRACE_PERIOD_MS = 10000
 
   // Timer expired → grace period → race to close the round
   useEffect(() => {
