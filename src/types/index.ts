@@ -7,6 +7,8 @@ export interface Session {
   status: 'lobby' | 'active' | 'finished'
   category: string
   created_at: string
+  phase?: GamePhase       // bracket mode phase (added in migration 004)
+  bracket?: BracketState  // bracket tournament state
 }
 
 export interface Player {
