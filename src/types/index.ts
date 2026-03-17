@@ -67,3 +67,30 @@ export interface WinnerInfo {
   playerId: string
   nickname: string
 }
+
+export interface BracketMatch {
+  p1id: string
+  p1: string
+  p2id: string
+  p2: string
+  wins: [number, number] // [p1wins, p2wins]
+}
+
+export interface BracketState {
+  sf1: BracketMatch
+  sf2: BracketMatch
+  currentSF: 1 | 2 | null // null = in final
+  finalists: string[] // player IDs [winner_sf1_id, winner_sf2_id]
+  finalWins?: [number, number] // [p1wins, p2wins] during Final
+}
+
+export type GamePhase = 'normal' | 'semifinal' | 'final'
+
+export type UIPhase =
+  | 'answering'
+  | 'waiting'
+  | 'reveal'
+  | 'spectating'
+  | 'bracket'
+  | 'match-result'
+  | 'winner'
