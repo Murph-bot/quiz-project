@@ -70,6 +70,7 @@ export function GameScreen({
   const [gameOver, setGameOver] = useState(initialWinner !== null)
   const [resurrected, setResurrected] = useState<{ playerId: string; nickname: string } | null>(null)
   const [isSuddenDeath, setIsSuddenDeath] = useState(false)
+  const [isGracePeriod, setIsGracePeriod] = useState(false)
   const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
@@ -87,16 +88,21 @@ export function GameScreen({
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { isExpired } = useCountdown(phase === 'answering' || phase === 'waiting' ? deadlineMs : FAR_FUTURE_MS)
 
-  // Timer expired → race to close the round
+  const GRACE_PERIOD_MS = 5000
+
+  // Timer expired → grace period → race to close the round
   useEffect(() => {
     if (!isExpired || (phase !== 'answering' && phase !== 'waiting')) return
-    fetch(`/api/sessions/${roomCode}/rounds/${roundId}/close`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-      .then(r => r.json())
-      .then(data => {
+    setIsGracePeriod(true)
+    const grace = setTimeout(() => {
+      setIsGracePeriod(false)
+      fetch(`/api/sessions/${roomCode}/rounds/${roundId}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then(r => r.json())
+        .then(data => {
         if (!data.wasAlreadyClosed) {
           // Won the race — update own state (won't receive own broadcast)
           setEliminated(data.eliminated ?? [])
@@ -126,8 +132,10 @@ export function GameScreen({
             },
           })
         }
-        // wasAlreadyClosed: true → another client already broadcast, we'll receive it
-      })
+          // wasAlreadyClosed: true → another client already broadcast, we'll receive it
+        })
+    }, GRACE_PERIOD_MS)
+    return () => clearTimeout(grace)
   }, [isExpired, phase, roundId, roomCode, playerId])
 
   // Auto-advance after reveal
@@ -167,6 +175,7 @@ export function GameScreen({
           setStartedAt(data.startedAt)
           setRevealData(null)
           setEliminated([])
+          setIsGracePeriod(false)
           setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
           channelRef.current?.send({
             type: 'broadcast',
@@ -233,6 +242,7 @@ export function GameScreen({
         setStartedAt(payload.startedAt)
         setRevealData(null)
         setEliminated([])
+        setIsGracePeriod(false)
         setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
       })
       .on('broadcast', { event: 'game:over' }, () => {
@@ -298,6 +308,7 @@ export function GameScreen({
         question={question}
         startedAt={startedAt}
         isWaiting={phase === 'waiting'}
+        isGracePeriod={isGracePeriod}
         onSubmit={handleSubmit}
       />
     </>

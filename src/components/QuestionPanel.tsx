@@ -8,15 +8,16 @@ interface Props {
   question: { id: string; text: string; timeLimit: number; category: string }
   startedAt: string
   isWaiting: boolean
+  isGracePeriod: boolean
   onSubmit: (value: number) => void
 }
 
-export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, onSubmit }: Props) {
+export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isGracePeriod, onSubmit }: Props) {
   const [input, setInput] = useState('')
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { secondsLeft } = useCountdown(deadlineMs)
   const progress = Math.round((secondsLeft / question.timeLimit) * 100)
-  const disabled = isWaiting || secondsLeft === 0
+  const disabled = isWaiting || (secondsLeft === 0 && !isGracePeriod)
   const isUrgent = secondsLeft <= 4 && secondsLeft > 0
 
   function handleSubmit() {
@@ -85,6 +86,9 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, onS
 
         {isWaiting && (
           <p className="text-center text-white/70 text-sm">Waiting for round to close...</p>
+        )}
+        {isGracePeriod && !isWaiting && (
+          <p className="text-center text-white/70 text-sm">⏳ Last chance to answer...</p>
         )}
       </div>
     </div>
