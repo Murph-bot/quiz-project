@@ -1,0 +1,2 @@
+ALTER TABLE sessions ADD COLUMN phase TEXT NOT NULL DEFAULT 'normal';
+ALTER TABLE sessions ADD COLUMN bracket JSONB;
