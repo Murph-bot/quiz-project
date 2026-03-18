@@ -117,6 +117,10 @@ export async function POST(
         gameOver: false,
         wasAlreadyClosed: false,
         isTie: true,
+        sfComplete: false,
+        finalReady: false,
+        matchWinnerId: null,
+        matchWinnerNickname: null,
         bracketReady: false,
         bracket: bracket,
       })
