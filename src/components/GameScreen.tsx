@@ -78,6 +78,7 @@ export function GameScreen({
   const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
+  const [aliveCount, setAliveCount] = useState<number>(0)
 
   // Bracket state
   const [bracketData, setBracketData] = useState<BracketState | null>(null)
@@ -327,6 +328,10 @@ export function GameScreen({
             setWinner(data.winner ?? null)
           }
 
+          if (data.eliminated?.length > 0) {
+            setAliveCount(prev => Math.max(0, prev - data.eliminated.length))
+          }
+
           if (data.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
             isSpectatingRef.current = true
             setIsSpectating(true)
@@ -405,6 +410,9 @@ export function GameScreen({
           if (data.resurrected?.playerId === playerId) {
             isSpectatingRef.current = false
             setIsSpectating(false)
+          }
+          if (data.resurrected) {
+            setAliveCount(prev => prev + 1)
           }
           setResurrected(data.resurrected ?? null)
           if (data.isSuddenDeath) setIsSuddenDeath(true)
@@ -486,6 +494,10 @@ export function GameScreen({
           setWinner(payload.winner ?? null)
         }
 
+        if (payload.eliminated?.length > 0) {
+          setAliveCount(prev => Math.max(0, prev - payload.eliminated.length))
+        }
+
         if (payload.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
           isSpectatingRef.current = true
           setIsSpectating(true)
@@ -495,6 +507,9 @@ export function GameScreen({
         if (payload.resurrected?.playerId === playerId) {
           isSpectatingRef.current = false
           setIsSpectating(false)
+        }
+        if (payload.resurrected) {
+          setAliveCount(prev => prev + 1)
         }
         setResurrected(payload.resurrected ?? null)
         if (payload.isSuddenDeath) setIsSuddenDeath(true)
@@ -719,7 +734,14 @@ export function GameScreen({
         </>
       )
     }
-    return <SpectatorScreen roundNumber={roundNumber} />
+    return (
+      <SpectatorScreen
+        roundNumber={roundNumber}
+        question={question ? { text: question.text, timeLimit: question.timeLimit } : null}
+        startedAt={startedAt}
+        aliveCount={aliveCount}
+      />
+    )
   }
 
   // Show resurrection banner briefly at start of answering phase
