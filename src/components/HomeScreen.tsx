@@ -86,7 +86,8 @@ export default function HomeScreen() {
             maxLength={20}
             value={nickname}
             onChange={e => { setNickname(e.target.value); setError('') }}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-bold text-sm focus:outline-none focus:border-orange-400"
+            autoComplete="nickname"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-bold text-base focus:outline-none focus:border-orange-400"
           />
 
           <button
@@ -106,16 +107,20 @@ export default function HomeScreen() {
           <div className="flex gap-2">
             <input
               type="text"
+              inputMode="text"
               placeholder="Room code"
               maxLength={4}
               value={roomCode}
               onChange={e => { setRoomCode(e.target.value.toUpperCase()); setError('') }}
-              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-sm uppercase tracking-widest focus:outline-none focus:border-orange-400"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-base uppercase tracking-widest focus:outline-none focus:border-orange-400"
             />
             <button
               onClick={handleJoin}
               disabled={loading}
-              className="bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 disabled:opacity-50 active:scale-95 transition-transform"
+              className="bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 min-w-[80px] disabled:opacity-50 active:scale-95 transition-transform"
             >
               Join
             </button>
