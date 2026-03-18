@@ -117,11 +117,15 @@ function makeDetectionMock({
         if (n === 3) {
           // Two possible paths:
           //   tiebreak detection: .select('question_id').eq('session_id',x)  → await eq()
-          //   bracketReady:       .select(...).eq('session_id',x).eq('status','closed') → await second eq()
-          // Make .eq() return a thenable that also has .eq() so both patterns work.
+          //   bracketReady:       .select(...).eq('session_id',x).eq('status','closed').is('tiebreak_players',null) → await is()
+          // Make each method return a thenable that also has the next method so both patterns work.
           const roundsData = { data: [], error: null }
+          const chainableIs: any = Object.assign(Promise.resolve(roundsData), {
+            is: jest.fn().mockResolvedValue(roundsData),
+          })
           const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
-            eq: jest.fn().mockResolvedValue(roundsData),
+            eq: jest.fn().mockReturnValue(chainableIs),
+            is: jest.fn().mockResolvedValue(roundsData),
           })
           return {
             select: jest.fn().mockReturnValue({
@@ -338,12 +342,21 @@ function makeResolutionMock({
         }
         if (n === 3) {
           // SELECT question_id (used rounds) for still-tied path
-          // OR SELECT rounds with answers for generateBracketForSession
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
+          // OR SELECT rounds with answers for generateBracketForSession (chains .eq().eq().is())
+          const roundsData3 = { data: [], error: null }
+          const chainableIs3: any = Object.assign(Promise.resolve(roundsData3), {
+            is: jest.fn().mockResolvedValue(roundsData3),
+          })
+          const chainableEq3: any = Object.assign(Promise.resolve(roundsData3), {
+            eq: jest.fn().mockReturnValue(chainableIs3),
+            is: jest.fn().mockResolvedValue(roundsData3),
             order: jest.fn().mockReturnThis(),
-            limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+            limit: jest.fn().mockResolvedValue(roundsData3),
+          })
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue(chainableEq3),
+            }),
           }
         }
         if (n === 4) {
