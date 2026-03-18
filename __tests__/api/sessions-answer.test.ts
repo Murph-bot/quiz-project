@@ -113,4 +113,10 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
     expect(res.status).toBe(200)
   })
+
+  it('returns 403 for any player when tiebreak_players is an empty array', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ tiebreakPlayers: [] }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(403)
+  })
 })

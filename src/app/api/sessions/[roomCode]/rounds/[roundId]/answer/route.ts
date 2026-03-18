@@ -47,7 +47,7 @@ export async function POST(
     return NextResponse.json({ error: 'Round already closed' }, { status: 409 })
   }
 
-  const tiebreakPlayers = (round as any).tiebreak_players as string[] | null
+  const tiebreakPlayers = (round as import('@/types').Round).tiebreak_players ?? null
   if (Array.isArray(tiebreakPlayers) && !tiebreakPlayers.includes(playerId)) {
     return NextResponse.json({ error: 'Not a tiebreak participant' }, { status: 403 })
   }
