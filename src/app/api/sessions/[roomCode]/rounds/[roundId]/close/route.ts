@@ -299,47 +299,69 @@ export async function POST(
   }
 
   let bracketReady = false
-  let bracket = null
+  let bracket: import('@/types').BracketState | null = null
 
   // Transition to bracket mode when exactly 4 players remain (normal phase only)
   if ((session as any).phase === 'normal' && (aliveCount ?? 0) === 4 && !gameOver) {
-    // Rank the 4 survivors by total delta across all rounds (lower = better)
-    const { data: roundsWithAnswers } = await supabase
-      .from('rounds')
-      .select('question_id, answers(player_id, value), questions(answer)')
-      .eq('session_id', session.id)
-
-    const totalDelta: Record<string, number> = {}
-    for (const round of (roundsWithAnswers ?? []) as any[]) {
-      const correct = round.questions?.answer ?? 0
-      for (const ans of round.answers ?? []) {
-        totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
-      }
-    }
-
+    // Fetch alive players first so we can penalize unanswered rounds
     const { data: alivePlayers } = await supabase
       .from('players')
       .select('id, nickname')
       .eq('session_id', session.id)
       .eq('is_alive', true)
 
-    const ranked = ((alivePlayers ?? []) as Array<{ id: string; nickname: string }>)
-      .sort((a, b) => (totalDelta[a.id] ?? 0) - (totalDelta[b.id] ?? 0))
-    // ranked[0] = best (#1), ranked[3] = worst (#4)
+    const aliveList = (alivePlayers ?? []) as Array<{ id: string; nickname: string }>
 
-    bracket = {
-      sf1: { p1id: ranked[0].id, p1: ranked[0].nickname, p2id: ranked[3].id, p2: ranked[3].nickname, wins: [0, 0] },
-      sf2: { p1id: ranked[1].id, p1: ranked[1].nickname, p2id: ranked[2].id, p2: ranked[2].nickname, wins: [0, 0] },
-      currentSF: 1,
-      finalists: [],
+    // Race guard: between the count query and this query, a player could have been eliminated
+    if (aliveList.length !== 4) {
+      // Skip bracket generation — state changed between queries
+    } else {
+      // Rank the 4 survivors by total delta across all closed rounds (lower = better)
+      // Players who did not answer a round receive a large penalty for that round
+      const { data: roundsWithAnswers } = await supabase
+        .from('rounds')
+        .select('question_id, answers(player_id, value), questions(answer)')
+        .eq('session_id', session.id)
+        .eq('status', 'closed')
+
+      const totalDelta: Record<string, number> = {}
+      for (const p of aliveList) totalDelta[p.id] = 0
+
+      for (const r of (roundsWithAnswers ?? []) as any[]) {
+        const correct = r.questions?.answer ?? 0
+        const answeredIds = new Set((r.answers ?? []).map((a: any) => a.player_id as string))
+        for (const ans of r.answers ?? []) {
+          totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
+        }
+        // Penalize players who did not answer this round
+        for (const p of aliveList) {
+          if (!answeredIds.has(p.id)) {
+            totalDelta[p.id] = (totalDelta[p.id] ?? 0) + 999999
+          }
+        }
+      }
+
+      const ranked = [...aliveList].sort((a, b) => (totalDelta[a.id] ?? 0) - (totalDelta[b.id] ?? 0))
+      // ranked[0] = best (#1), ranked[3] = worst (#4)
+
+      bracket = {
+        sf1: { p1id: ranked[0].id, p1: ranked[0].nickname, p2id: ranked[3].id, p2: ranked[3].nickname, wins: [0, 0] },
+        sf2: { p1id: ranked[1].id, p1: ranked[1].nickname, p2id: ranked[2].id, p2: ranked[2].nickname, wins: [0, 0] },
+        currentSF: 1,
+        finalists: [],
+      }
+
+      const { error: bracketUpdateError } = await supabase
+        .from('sessions')
+        .update({ phase: 'semifinal', bracket })
+        .eq('id', session.id)
+
+      if (!bracketUpdateError) {
+        bracketReady = true
+      } else {
+        bracket = null // don't send stale bracket if DB write failed
+      }
     }
-
-    await supabase
-      .from('sessions')
-      .update({ phase: 'semifinal', bracket })
-      .eq('id', session.id)
-
-    bracketReady = true
   }
 
   return NextResponse.json({
