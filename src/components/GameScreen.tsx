@@ -35,6 +35,7 @@ interface Props {
   initialStartedAt: string
   initialRevealData: RevealData | null
   initialWinner: WinnerInfo | null
+  initialAliveCount: number
 }
 
 const FAR_FUTURE_MS = Date.now() + 1e9
@@ -50,6 +51,7 @@ export function GameScreen({
   initialStartedAt,
   initialRevealData,
   initialWinner,
+  initialAliveCount,
 }: Props) {
   const router = useRouter()
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
@@ -78,7 +80,7 @@ export function GameScreen({
   const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
-  const [aliveCount, setAliveCount] = useState<number>(0)
+  const [aliveCount, setAliveCount] = useState<number>(initialAliveCount)
 
   // Bracket state
   const [bracketData, setBracketData] = useState<BracketState | null>(null)

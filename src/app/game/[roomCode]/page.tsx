@@ -62,6 +62,13 @@ export default async function GamePage({ params }: Props) {
     }
   }
 
+  // Count alive players for spectator display
+  const { count: aliveCount } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', session.id)
+    .eq('is_alive', true)
+
   // If finished, resolve winner info (if any) and show WinnerScreen instead of redirecting
   let initialWinner: WinnerInfo | null = null
   if (session.status === 'finished' && session.winner_id) {
@@ -91,6 +98,7 @@ export default async function GamePage({ params }: Props) {
         initialStartedAt={round.started_at}
         initialRevealData={revealData}
         initialWinner={initialWinner}
+        initialAliveCount={aliveCount ?? 0}
       />
     </div>
   )
