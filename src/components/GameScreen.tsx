@@ -143,13 +143,17 @@ export function GameScreen({
 
   // Countdown for current question — used to trigger close when expired
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
-  const { isExpired } = useCountdown(phase === 'answering' || phase === 'waiting' ? deadlineMs : FAR_FUTURE_MS)
+  const { isExpired } = useCountdown(
+    phase === 'answering' || phase === 'waiting' || phase === 'tiebreak-waiting'
+      ? deadlineMs
+      : FAR_FUTURE_MS
+  )
 
   const GRACE_PERIOD_MS = 5000
 
   // Timer expired → grace period → race to close the round
   useEffect(() => {
-    if (!isExpired || (phase !== 'answering' && phase !== 'waiting')) return
+    if (!isExpired || (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting')) return
     setIsGracePeriod(true)
     const grace = setTimeout(() => {
       setIsGracePeriod(false)
