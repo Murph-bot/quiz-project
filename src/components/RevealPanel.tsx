@@ -28,7 +28,7 @@ export function RevealPanel({
   const eliminatedIds = new Set(eliminated.map(e => e.playerId))
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
       <div className="w-full max-w-sm flex flex-col gap-4">
 
         <div className="text-center">

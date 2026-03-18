@@ -7,7 +7,7 @@ interface Props {
 
 export function WinnerScreen({ winnerNickname, autoRedirectIn }: Props) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh p-4 text-center">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
 
         <div

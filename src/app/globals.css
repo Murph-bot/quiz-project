@@ -40,3 +40,15 @@ body {
   background-size: 400% 400% !important;
   animation: gradientShift 2s ease infinite !important;
 }
+
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@utility pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom);
+}

@@ -27,7 +27,7 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center min-h-dvh p-4 ${isUrgent ? 'urgent-bg' : ''}`}>
+    <div className={`flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe ${isUrgent ? 'urgent-bg' : ''}`}>
       <div className="w-full max-w-sm flex flex-col gap-5">
 
         <div className="flex justify-between items-center">

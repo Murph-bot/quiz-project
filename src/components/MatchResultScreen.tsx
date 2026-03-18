@@ -26,7 +26,7 @@ export function MatchResultScreen({ winnerNickname, matchLabel, finalScore, next
   }, [])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh p-4">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
       <div className="w-full max-w-sm flex flex-col gap-5 text-center">
         <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{matchLabel} Result</p>
         <div className="bg-white rounded-2xl shadow-md p-6">
