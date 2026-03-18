@@ -101,7 +101,7 @@ export async function POST(
   // Resurrection logic: every 5th round, resurrect one eliminated player (normal phase only)
   let resurrected: { playerId: string; nickname: string } | null = null
 
-  if (newRoundNumber % 5 === 0 && (session as any).phase === 'normal') {
+  if (newRoundNumber % 5 === 0 && (session as any).phase === 'normal' && !isSuddenDeath) {
     const { data: eliminated } = await supabase
       .from('players')
       .select('id, nickname')

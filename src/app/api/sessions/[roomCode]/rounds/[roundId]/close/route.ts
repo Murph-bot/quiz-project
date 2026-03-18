@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
+const MAX_ROUNDS = 50
+
 async function generateBracketForSession(
   supabase: ReturnType<typeof createServerClient>,
   sessionId: string
@@ -132,7 +134,7 @@ export async function POST(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status, question_id, tiebreak_players')
+    .select('id, status, question_id, tiebreak_players, round_number')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()
@@ -416,6 +418,32 @@ export async function POST(
     tiebreakQuestion = tbResult.question
   }
   // --- END TIEBREAK DETECTION ---
+
+  // --- SUDDEN DEATH ALL-TIE ---
+  // If ALL remaining players tie for worst in sudden death, replay the round for everyone
+  // rather than eliminating all players (which would produce no winner).
+  const isSuddenDeathRound = !isTiebreakRound && ((round as any).round_number as number) > MAX_ROUNDS
+
+  if (isSuddenDeathRound && !tiebreakNeeded && eliminated.length > 0 && eliminated.length === activeList.length) {
+    // Everyone tied — create a replay round for all alive players
+    const allAliveIds = activeList.map(p => p.id)
+    const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', allAliveIds)
+
+    if (!tbResult.ok) {
+      return NextResponse.json(
+        { error: tbResult.error === 'no_questions' ? 'No questions available for replay' : 'Failed to create replay round' },
+        { status: 500 }
+      )
+    }
+
+    skippedElimination = true
+    tiebreakNeeded = true
+    tiebreakRoundId = tbResult.roundId
+    tiebreakStartedAt = tbResult.startedAt
+    tiebreakPlayerIds = allAliveIds
+    tiebreakQuestion = tbResult.question
+  }
+  // --- END SUDDEN DEATH ALL-TIE ---
 
   // --- TIEBREAK ROUND RESOLUTION ---
   if (isTiebreakRound) {
