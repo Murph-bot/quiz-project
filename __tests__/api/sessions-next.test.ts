@@ -14,7 +14,7 @@ function makeRequest(roomCode: string, body: object) {
 
 const params = (roomCode: string) => ({ params: Promise.resolve({ roomCode }) })
 
-const mockSession = { id: 'sess-1', category: 'all', host_id: 'p1' }
+const mockSession = { id: 'sess-1', category: 'all', host_id: 'p1', phase: 'normal' }
 const mockQuestion = { id: 'q-2', text: 'How many?', answer: 42, category: 'science', time_limit: 10 }
 const mockNewRound = { id: 'round-2', started_at: '2026-03-15T10:01:00Z' }
 
@@ -28,16 +28,14 @@ const mockNewRound = { id: 'round-2', started_at: '2026-03-15T10:01:00Z' }
  *   rounds    2: SELECT used question_ids (eq resolves array)
  *   questions 1: SELECT all questions (thenable)
  *   rounds    3: INSERT new round
- *   (if newRoundNumber % 5 === 0 && aliveCount >= 7):
- *     players 2: SELECT COUNT alive
- *     players 3: SELECT eliminated players
- *     players 4: UPDATE resurrected player
+ *   (if newRoundNumber % 5 === 0 && phase === 'normal' && eliminatedPlayers.length > 0):
+ *     players 2: SELECT eliminated players
+ *     players 3: UPDATE resurrected player
  */
 function makeNextMock({
   latestRoundNumber = 1,
   latestRoundStatus = 'closed' as 'active' | 'closed',
   noQuestions = false,
-  aliveCount = 3,
   eliminatedPlayers = [] as Array<{ id: string; nickname: string }>,
 } = {}) {
   const callMap: Record<string, number> = {}
@@ -73,16 +71,6 @@ function makeNextMock({
           }
         }
         if (n === 2) {
-          // COUNT alive: .select('id', {count:'exact',head:true}).eq().eq()
-          return {
-            select: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                eq: jest.fn().mockResolvedValue({ count: aliveCount, error: null }),
-              }),
-            }),
-          }
-        }
-        if (n === 3) {
           // SELECT eliminated players: .select().eq().eq()
           return {
             select: jest.fn().mockReturnValue({
@@ -92,7 +80,7 @@ function makeNextMock({
             }),
           }
         }
-        if (n === 4) {
+        if (n === 3) {
           // UPDATE resurrected player: .update().eq()
           return {
             update: jest.fn().mockReturnThis(),
@@ -199,10 +187,10 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     expect(body.roundNumber).toBe(2)
   })
 
-  it('returns resurrected:null when round is a multiple of 5 but active player count < 7', async () => {
-    // round 4 → new round 5, multiple of 5, but only 4 alive players
+  it('returns resurrected:null when round is a multiple of 5 but no eliminated players', async () => {
+    // round 4 → new round 5, multiple of 5, no eliminated pool to choose from
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeNextMock({ latestRoundNumber: 4, aliveCount: 4 })
+      makeNextMock({ latestRoundNumber: 4 })
     )
     const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
     expect(res.status).toBe(200)
@@ -211,12 +199,11 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     expect(body.roundNumber).toBe(5)
   })
 
-  it('returns resurrected:{playerId,nickname} when round is multiple of 5 and count >= 7', async () => {
-    // round 4 → new round 5, 8 alive, 1 eliminated
+  it('returns resurrected:{playerId,nickname} when round is multiple of 5 and eliminated pool is non-empty', async () => {
+    // round 4 → new round 5, 1 eliminated player available for resurrection
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeNextMock({
         latestRoundNumber: 4,
-        aliveCount: 8,
         eliminatedPlayers: [{ id: 'p-elim', nickname: 'Ghost' }],
       })
     )
