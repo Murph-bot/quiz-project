@@ -11,6 +11,7 @@ import { WinnerScreen } from './WinnerScreen'
 import { BracketScreen } from './BracketScreen'
 import { MatchScoreBar } from './MatchScoreBar'
 import { MatchResultScreen } from './MatchResultScreen'
+import { TiebreakWaitingScreen } from './TiebreakWaitingScreen'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState } from '@/types'
 
 interface QuestionData {
@@ -38,7 +39,7 @@ interface Props {
 
 const FAR_FUTURE_MS = Date.now() + 1e9
 
-type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner'
+type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner' | 'tiebreak-waiting'
 
 export function GameScreen({
   roomCode,
@@ -88,6 +89,27 @@ export function GameScreen({
     finalScore: string
     nextLabel: string
   } | null>(null)
+
+  // Tiebreak state
+  const [tiebreakPlayerIds, setTiebreakPlayerIds] = useState<string[] | null>(null)
+  const [tiebreakDeadlineMs, setTiebreakDeadlineMs] = useState<number>(FAR_FUTURE_MS)
+  const [pendingTiebreak, setPendingTiebreak] = useState<{
+    roundId: string
+    question: QuestionData
+    startedAt: string
+    playerIds: string[]
+  } | null>(null)
+
+  const tiebreakPlayerIdsRef = useRef<string[] | null>(null)
+  const pendingTiebreakRef = useRef<{
+    roundId: string
+    question: QuestionData
+    startedAt: string
+    playerIds: string[]
+  } | null>(null)
+
+  useEffect(() => { tiebreakPlayerIdsRef.current = tiebreakPlayerIds }, [tiebreakPlayerIds])
+  useEffect(() => { pendingTiebreakRef.current = pendingTiebreak }, [pendingTiebreak])
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const isSpectatingRef = useRef(false)
@@ -142,6 +164,48 @@ export function GameScreen({
         .then(r => r.json())
         .then(data => {
           if (data.wasAlreadyClosed) return
+
+          // --- TIEBREAK NEEDED ---
+          if (data.tiebreakNeeded && data.tiebreakRoundId) {
+            setEliminated([])
+            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+            setPhase('reveal')
+
+            const tbQuestion: QuestionData = {
+              id: data.tiebreakQuestion.id,
+              text: data.tiebreakQuestion.text,
+              timeLimit: data.tiebreakQuestion.timeLimit,
+              category: data.tiebreakQuestion.category,
+            }
+            const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
+            setTiebreakPlayerIds(data.tiebreakPlayerIds ?? null)
+            setTiebreakDeadlineMs(deadline)
+            setPendingTiebreak({
+              roundId: data.tiebreakRoundId,
+              question: tbQuestion,
+              startedAt: data.tiebreakStartedAt,
+              playerIds: data.tiebreakPlayerIds ?? [],
+            })
+
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'round:closed',
+              payload: {
+                correctAnswer: data.correctAnswer,
+                answers: data.answers,
+                eliminated: [],
+                winner: null,
+                gameOver: false,
+                tiebreakNeeded: true,
+                tiebreakRoundId: data.tiebreakRoundId,
+                tiebreakQuestion: data.tiebreakQuestion,
+                tiebreakPlayerIds: data.tiebreakPlayerIds,
+                tiebreakStartedAt: data.tiebreakStartedAt,
+              },
+            })
+            return
+          }
+          // --- END TIEBREAK NEEDED ---
 
           // --- BRACKET MODE: bracket just generated ---
           if (data.bracketReady && data.bracket) {
@@ -300,6 +364,34 @@ export function GameScreen({
         })
         return
       }
+
+      // --- PENDING TIEBREAK: broadcast tiebreak:started instead of /rounds/next ---
+      const pending = pendingTiebreakRef.current
+      if (pending) {
+        const amITiebreaker = pending.playerIds.includes(playerId ?? '')
+        setRoundId(pending.roundId)
+        setQuestion(pending.question)
+        setStartedAt(pending.startedAt)
+        setRevealData(null)
+        setEliminated([])
+        setIsGracePeriod(false)
+        setPendingTiebreak(null)
+        setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
+
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'tiebreak:started',
+          payload: {
+            roundId: pending.roundId,
+            question: pending.question,
+            startedAt: pending.startedAt,
+            playerIds: pending.playerIds,
+          },
+        })
+        return
+      }
+      // --- END PENDING TIEBREAK ---
+
       fetch(`/api/sessions/${roomCode}/rounds/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -362,6 +454,28 @@ export function GameScreen({
     const channel = supabase
       .channel(`room:${roomCode}`)
       .on('broadcast', { event: 'round:closed' }, ({ payload }) => {
+        if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
+          setEliminated([])
+          setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
+          setPhase('reveal')
+          const tbQ: QuestionData = {
+            id: payload.tiebreakQuestion.id,
+            text: payload.tiebreakQuestion.text,
+            timeLimit: payload.tiebreakQuestion.timeLimit,
+            category: payload.tiebreakQuestion.category,
+          }
+          const deadline = new Date(payload.tiebreakStartedAt).getTime() + payload.tiebreakQuestion.timeLimit * 1000
+          setTiebreakPlayerIds(payload.tiebreakPlayerIds ?? null)
+          setTiebreakDeadlineMs(deadline)
+          setPendingTiebreak({
+            roundId: payload.tiebreakRoundId,
+            question: tbQ,
+            startedAt: payload.tiebreakStartedAt,
+            playerIds: payload.tiebreakPlayerIds ?? [],
+          })
+          return
+        }
+
         setEliminated(payload.eliminated ?? [])
         setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
         setPhase('reveal')
@@ -434,6 +548,17 @@ export function GameScreen({
           nextLabel: 'The Final is next!',
         })
         setPhase('match-result')
+      })
+      .on('broadcast', { event: 'tiebreak:started' }, ({ payload }) => {
+        const amITiebreaker = (tiebreakPlayerIdsRef.current ?? []).includes(playerId ?? '')
+        setRoundId(payload.roundId)
+        setQuestion(payload.question)
+        setStartedAt(payload.startedAt)
+        setRevealData(null)
+        setEliminated([])
+        setIsGracePeriod(false)
+        setPendingTiebreak(null)
+        setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
       })
       .subscribe()
     channelRef.current = channel
@@ -539,6 +664,15 @@ export function GameScreen({
               })
           }
         }}
+      />
+    )
+  }
+
+  if (phase === 'tiebreak-waiting') {
+    return (
+      <TiebreakWaitingScreen
+        roundNumber={roundNumber}
+        deadlineMs={tiebreakDeadlineMs}
       />
     )
   }
