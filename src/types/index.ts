@@ -34,6 +34,7 @@ export interface Round {
   round_number: number
   started_at: string
   status: 'active' | 'closed'
+  tiebreak_players?: string[] | null
 }
 
 export interface Answer {
@@ -93,6 +94,7 @@ export type UIPhase =
   | 'waiting'
   | 'reveal'
   | 'spectating'
+  | 'tiebreak-waiting'
   | 'bracket'
   | 'match-result'
   | 'winner'
