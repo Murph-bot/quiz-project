@@ -3,6 +3,10 @@
     {
       "path": "/api/ping",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cleanup",
+      "schedule": "0 3 * * *"
     }
   ]
 }
