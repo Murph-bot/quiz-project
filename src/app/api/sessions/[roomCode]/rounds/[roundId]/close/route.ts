@@ -3,6 +3,108 @@ import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
+async function generateBracketForSession(
+  supabase: ReturnType<typeof createServerClient>,
+  sessionId: string
+): Promise<import('@/types').BracketState | null> {
+  const { data: alivePlayers } = await supabase
+    .from('players')
+    .select('id, nickname')
+    .eq('session_id', sessionId)
+    .eq('is_alive', true)
+
+  const aliveList = (alivePlayers ?? []) as Array<{ id: string; nickname: string }>
+  if (aliveList.length !== 4) return null
+
+  const { data: roundsWithAnswers } = await supabase
+    .from('rounds')
+    .select('question_id, answers(player_id, value), questions(answer)')
+    .eq('session_id', sessionId)
+    .eq('status', 'closed')
+
+  const totalDelta: Record<string, number> = {}
+  for (const p of aliveList) totalDelta[p.id] = 0
+
+  for (const r of (roundsWithAnswers ?? []) as any[]) {
+    const correct = r.questions?.answer ?? 0
+    const answeredIds = new Set((r.answers ?? []).map((a: any) => a.player_id as string))
+    for (const ans of r.answers ?? []) {
+      totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
+    }
+    for (const p of aliveList) {
+      if (!answeredIds.has(p.id)) {
+        totalDelta[p.id] = (totalDelta[p.id] ?? 0) + 999999
+      }
+    }
+  }
+
+  const ranked = [...aliveList].sort((a, b) => (totalDelta[a.id] ?? 0) - (totalDelta[b.id] ?? 0))
+  return {
+    sf1: { p1id: ranked[0].id, p1: ranked[0].nickname, p2id: ranked[3].id, p2: ranked[3].nickname, wins: [0, 0] },
+    sf2: { p1id: ranked[1].id, p1: ranked[1].nickname, p2id: ranked[2].id, p2: ranked[2].nickname, wins: [0, 0] },
+    currentSF: 1,
+    finalists: [],
+  }
+}
+
+async function createTiebreakRound(
+  supabase: ReturnType<typeof createServerClient>,
+  sessionId: string,
+  category: string,
+  tiebreakPlayerIds: string[]
+): Promise<{
+  roundId: string
+  startedAt: string
+  question: { id: string; text: string; timeLimit: number; category: string }
+} | null> {
+  const { data: usedRows } = await supabase
+    .from('rounds')
+    .select('question_id')
+    .eq('session_id', sessionId)
+  const usedIds = (usedRows ?? []).map((r: any) => r.question_id as string)
+
+  let questionQuery = supabase.from('questions').select('id, text, answer, category, time_limit')
+  if (category !== 'all') questionQuery = questionQuery.eq('category', category)
+  const { data: questionRows } = await questionQuery
+  const available = ((questionRows ?? []) as any[]).filter((q: any) => !usedIds.includes(q.id))
+
+  if (available.length === 0) return null
+
+  const tbQuestion = available[Math.floor(Math.random() * available.length)]
+
+  const { data: latestRoundRows } = await supabase
+    .from('rounds')
+    .select('round_number')
+    .eq('session_id', sessionId)
+    .order('round_number', { ascending: false })
+    .limit(1)
+  const latestRoundNumber = ((latestRoundRows ?? [])[0] as any)?.round_number ?? 0
+
+  const { data: newRound, error } = await supabase
+    .from('rounds')
+    .insert({
+      session_id: sessionId,
+      question_id: tbQuestion.id,
+      round_number: latestRoundNumber + 1,
+      tiebreak_players: tiebreakPlayerIds,
+    })
+    .select('id, started_at')
+    .single()
+
+  if (error || !newRound) return null
+
+  return {
+    roundId: (newRound as any).id,
+    startedAt: (newRound as any).started_at,
+    question: {
+      id: tbQuestion.id,
+      text: tbQuestion.text,
+      timeLimit: tbQuestion.time_limit,
+      category: tbQuestion.category,
+    },
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string; roundId: string }> }
@@ -17,7 +119,7 @@ export async function POST(
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, phase, bracket')
+    .select('id, phase, bracket, category')
     .eq('room_code', roomCode)
     .single()
 
@@ -27,7 +129,7 @@ export async function POST(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status, question_id')
+    .select('id, status, question_id, tiebreak_players')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()
@@ -273,8 +375,119 @@ export async function POST(
     .filter(a => a.delta === maxDelta)
     .map(a => ({ playerId: a.playerId, nickname: a.nickname }))
 
-  // Apply eliminations (skip if we're entering bracket mode)
-  if (!skippedElimination && eliminated.length > 0) {
+  const isTiebreakRound = Array.isArray((round as any).tiebreak_players)
+
+  let tiebreakNeeded = false
+  let tiebreakRoundId: string | null = null
+  let tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null = null
+  let tiebreakPlayerIds: string[] | null = null
+  let tiebreakStartedAt: string | null = null
+
+  // --- TIEBREAK DETECTION ---
+  if (
+    !isTiebreakRound &&
+    (session as any).phase === 'normal' &&
+    activeList.length === 5 &&
+    eliminated.length === 2
+  ) {
+    tiebreakNeeded = true
+    skippedElimination = true
+
+    const tbResult = await createTiebreakRound(
+      supabase,
+      session.id,
+      (session as any).category ?? 'all',
+      [eliminated[0].playerId, eliminated[1].playerId]
+    )
+
+    if (!tbResult) {
+      return NextResponse.json({ error: 'No questions available for tiebreak' }, { status: 500 })
+    }
+
+    tiebreakRoundId = tbResult.roundId
+    tiebreakStartedAt = tbResult.startedAt
+    tiebreakPlayerIds = [eliminated[0].playerId, eliminated[1].playerId]
+    tiebreakQuestion = tbResult.question
+  }
+  // --- END TIEBREAK DETECTION ---
+
+  // --- TIEBREAK ROUND RESOLUTION ---
+  if (isTiebreakRound) {
+    const tbPlayers = (round as any).tiebreak_players as string[]
+    const p1 = answers.find(a => a.playerId === tbPlayers[0])
+    const p2 = answers.find(a => a.playerId === tbPlayers[1])
+    const p1delta = p1?.delta ?? Number.MAX_SAFE_INTEGER
+    const p2delta = p2?.delta ?? Number.MAX_SAFE_INTEGER
+
+    if (p1delta === p2delta) {
+      // Still tied — create another tiebreak round
+      const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', tbPlayers)
+      if (!tbResult) {
+        return NextResponse.json({ error: 'No questions available for tiebreak' }, { status: 500 })
+      }
+      return NextResponse.json({
+        correctAnswer,
+        answers,
+        eliminated: [],
+        winner: null,
+        gameOver: false,
+        wasAlreadyClosed: false,
+        bracketReady: false,
+        bracket: null,
+        tiebreakNeeded: true,
+        tiebreakRoundId: tbResult.roundId,
+        tiebreakQuestion: tbResult.question,
+        tiebreakPlayerIds: tbPlayers,
+        tiebreakStartedAt: tbResult.startedAt,
+      })
+    }
+
+    // Resolved — eliminate the loser
+    const loserId = p1delta > p2delta ? tbPlayers[0] : tbPlayers[1]
+    await supabase.from('players').update({ is_alive: false }).in('id', [loserId])
+
+    const { count: aliveAfterTB } = await supabase
+      .from('players')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session.id)
+      .eq('is_alive', true)
+
+    let bracketReadyTB = false
+    let bracketTB: import('@/types').BracketState | null = null
+
+    if ((aliveAfterTB ?? 0) === 4) {
+      bracketTB = await generateBracketForSession(supabase, session.id)
+      if (bracketTB) {
+        const { error: bErr } = await supabase
+          .from('sessions')
+          .update({ phase: 'semifinal', bracket: bracketTB })
+          .eq('id', session.id)
+        if (!bErr) bracketReadyTB = true
+        else bracketTB = null
+      }
+    }
+
+    const loserEntry = answers.find(a => a.playerId === loserId)
+    return NextResponse.json({
+      correctAnswer,
+      answers,
+      eliminated: loserEntry ? [{ playerId: loserEntry.playerId, nickname: loserEntry.nickname }] : [],
+      winner: null,
+      gameOver: false,
+      wasAlreadyClosed: false,
+      bracketReady: bracketReadyTB,
+      bracket: bracketTB,
+      tiebreakNeeded: false,
+      tiebreakRoundId: null,
+      tiebreakQuestion: null,
+      tiebreakPlayerIds: null,
+      tiebreakStartedAt: null,
+    })
+  }
+  // --- END TIEBREAK ROUND RESOLUTION ---
+
+  // Apply eliminations (skip if we're entering bracket mode or need tiebreak)
+  if (!skippedElimination && !tiebreakNeeded && eliminated.length > 0) {
     await supabase
       .from('players')
       .update({ is_alive: false })
@@ -323,63 +536,15 @@ export async function POST(
 
   // Transition to bracket mode when exactly 4 players remain (normal phase only)
   if ((session as any).phase === 'normal' && (aliveCount ?? 0) === 4 && !gameOver) {
-    // Fetch alive players first so we can penalize unanswered rounds
-    const { data: alivePlayers } = await supabase
-      .from('players')
-      .select('id, nickname')
-      .eq('session_id', session.id)
-      .eq('is_alive', true)
-
-    const aliveList = (alivePlayers ?? []) as Array<{ id: string; nickname: string }>
-
-    // Race guard: between the count query and this query, a player could have been eliminated
-    if (aliveList.length !== 4) {
-      // Skip bracket generation — state changed between queries
-    } else {
-      // Rank the 4 survivors by total delta across all closed rounds (lower = better)
-      // Players who did not answer a round receive a large penalty for that round
-      const { data: roundsWithAnswers } = await supabase
-        .from('rounds')
-        .select('question_id, answers(player_id, value), questions(answer)')
-        .eq('session_id', session.id)
-        .eq('status', 'closed')
-
-      const totalDelta: Record<string, number> = {}
-      for (const p of aliveList) totalDelta[p.id] = 0
-
-      for (const r of (roundsWithAnswers ?? []) as any[]) {
-        const correct = r.questions?.answer ?? 0
-        const answeredIds = new Set((r.answers ?? []).map((a: any) => a.player_id as string))
-        for (const ans of r.answers ?? []) {
-          totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
-        }
-        // Penalize players who did not answer this round
-        for (const p of aliveList) {
-          if (!answeredIds.has(p.id)) {
-            totalDelta[p.id] = (totalDelta[p.id] ?? 0) + 999999
-          }
-        }
-      }
-
-      const ranked = [...aliveList].sort((a, b) => (totalDelta[a.id] ?? 0) - (totalDelta[b.id] ?? 0))
-      // ranked[0] = best (#1), ranked[3] = worst (#4)
-
-      bracket = {
-        sf1: { p1id: ranked[0].id, p1: ranked[0].nickname, p2id: ranked[3].id, p2: ranked[3].nickname, wins: [0, 0] },
-        sf2: { p1id: ranked[1].id, p1: ranked[1].nickname, p2id: ranked[2].id, p2: ranked[2].nickname, wins: [0, 0] },
-        currentSF: 1,
-        finalists: [],
-      }
-
+    const generatedBracket = await generateBracketForSession(supabase, session.id)
+    if (generatedBracket) {
       const { error: bracketUpdateError } = await supabase
         .from('sessions')
-        .update({ phase: 'semifinal', bracket })
+        .update({ phase: 'semifinal', bracket: generatedBracket })
         .eq('id', session.id)
-
       if (!bracketUpdateError) {
         bracketReady = true
-      } else {
-        bracket = null // don't send stale bracket if DB write failed
+        bracket = generatedBracket
       }
     }
   }
@@ -387,11 +552,16 @@ export async function POST(
   return NextResponse.json({
     correctAnswer,
     answers,
-    eliminated,
+    eliminated: tiebreakNeeded ? [] : eliminated,
     winner,
     gameOver,
     wasAlreadyClosed: false,
     bracketReady,
     bracket,
+    tiebreakNeeded,
+    tiebreakRoundId,
+    tiebreakQuestion,
+    tiebreakPlayerIds,
+    tiebreakStartedAt,
   })
 }
