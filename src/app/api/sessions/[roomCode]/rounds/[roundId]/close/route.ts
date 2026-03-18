@@ -242,8 +242,16 @@ export async function POST(
     .eq('session_id', session.id)
     .eq('is_alive', true)
 
+  const activeList = (activePlayers ?? []) as Array<{ id: string; nickname: string }>
+
+  // If exactly 4 players are alive before elimination, skip elimination and go straight to bracket
+  let skippedElimination = false
+  if ((session as any).phase === 'normal' && activeList.length === 4) {
+    skippedElimination = true
+  }
+
   const answeredIds = new Set(answeredPlayers.map(a => a.playerId))
-  const noAnswerPlayers: RankedAnswer[] = ((activePlayers ?? []) as Array<{ id: string; nickname: string }>)
+  const noAnswerPlayers: RankedAnswer[] = activeList
     .filter(p => !answeredIds.has(p.id))
     .map(p => ({
       playerId: p.id,
@@ -265,8 +273,8 @@ export async function POST(
     .filter(a => a.delta === maxDelta)
     .map(a => ({ playerId: a.playerId, nickname: a.nickname }))
 
-  // Apply eliminations
-  if (eliminated.length > 0) {
+  // Apply eliminations (skip if we're entering bracket mode)
+  if (!skippedElimination && eliminated.length > 0) {
     await supabase
       .from('players')
       .update({ is_alive: false })
