@@ -107,6 +107,16 @@ export function GameScreen({
     return bd.finalists.includes(pid)
   }
 
+  // Helper: resolve a finalist's display name from the bracket match data
+  // finalists[] stores player IDs — look up the nickname via sf1/sf2 records
+  function getFinalistNickname(bd: BracketState, id: string): string {
+    if (bd.sf1.p1id === id) return bd.sf1.p1
+    if (bd.sf1.p2id === id) return bd.sf1.p2
+    if (bd.sf2.p1id === id) return bd.sf2.p1
+    if (bd.sf2.p2id === id) return bd.sf2.p2
+    return id // fallback (should not happen)
+  }
+
   // Redirect if no identity
   useEffect(() => {
     if (!playerId) router.push('/')
@@ -558,8 +568,8 @@ export function GameScreen({
         ? 'Semi-Final 1 · Best of 3'
         : 'Semi-Final 2 · Best of 3'
       const winsToWinSpec = currentMatchPhase === 'final' ? 3 : 2
-      const p1Spec = sfSpec ? sfSpec.p1 : (bracketData.finalists[0] ?? '')
-      const p2Spec = sfSpec ? sfSpec.p2 : (bracketData.finalists[1] ?? '')
+      const p1Spec = sfSpec ? sfSpec.p1 : getFinalistNickname(bracketData, bracketData.finalists[0] ?? '')
+      const p2Spec = sfSpec ? sfSpec.p2 : getFinalistNickname(bracketData, bracketData.finalists[1] ?? '')
       return (
         <>
           <MatchScoreBar p1={p1Spec} p2={p2Spec} wins={matchWins} matchLabel={matchLabelSpec} winsToWin={winsToWinSpec} />
@@ -603,8 +613,8 @@ export function GameScreen({
           ? 'Semi-Final 1 · Best of 3'
           : 'Semi-Final 2 · Best of 3'
         const winsToWin = currentMatchPhase === 'final' ? 3 : 2
-        const p1 = sf ? sf.p1 : (bracketData.finalists[0] ?? '')
-        const p2 = sf ? sf.p2 : (bracketData.finalists[1] ?? '')
+        const p1 = sf ? sf.p1 : getFinalistNickname(bracketData, bracketData.finalists[0] ?? '')
+        const p2 = sf ? sf.p2 : getFinalistNickname(bracketData, bracketData.finalists[1] ?? '')
         return <MatchScoreBar p1={p1} p2={p2} wins={matchWins} matchLabel={matchLabel} winsToWin={winsToWin} />
       })()}
       <QuestionPanel
