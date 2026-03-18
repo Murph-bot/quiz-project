@@ -65,13 +65,17 @@ export async function POST(
       .eq('round_id', roundId)
       .in('player_id', [p1id, p2id])
 
-    const { data: question } = await supabase
+    const { data: question, error: bracketQuestionError } = await supabase
       .from('questions')
       .select('answer')
       .eq('id', round.question_id)
       .single()
 
-    const correctAnswer = question?.answer ?? 0
+    if (bracketQuestionError || !question) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 500 })
+    }
+
+    const correctAnswer = question.answer
 
     type AnswerRow = { player_id: string; value: number; players: { nickname: string } }
     const answerMap = Object.fromEntries(
@@ -157,24 +161,28 @@ export async function POST(
         // Game over
         gameOver = true
         gameWinner = { playerId: matchWinnerId, nickname: winnerNickname }
-        await supabase.from('sessions').update({ status: 'finished', winner_id: matchWinnerId, bracket }).eq('id', session.id)
+        const { error: finishErr } = await supabase.from('sessions').update({ status: 'finished', winner_id: matchWinnerId, bracket }).eq('id', session.id)
+        if (finishErr) return NextResponse.json({ error: 'Failed to finish session' }, { status: 500 })
       } else {
         sfComplete = true
         bracket.finalists.push(matchWinnerId)
         if (bracket.finalists.length === 2) {
           // Both SFs done — start final
           bracket.currentSF = null
-          await supabase.from('sessions').update({ phase: 'final', bracket }).eq('id', session.id)
+          const { error: finalErr } = await supabase.from('sessions').update({ phase: 'final', bracket }).eq('id', session.id)
+          if (finalErr) return NextResponse.json({ error: 'Failed to start final' }, { status: 500 })
           finalReady = true
         } else {
           // Advance to SF2
           bracket.currentSF = 2
-          await supabase.from('sessions').update({ bracket }).eq('id', session.id)
+          const { error: sf2Err } = await supabase.from('sessions').update({ bracket }).eq('id', session.id)
+          if (sf2Err) return NextResponse.json({ error: 'Failed to advance bracket' }, { status: 500 })
         }
       }
     } else {
       // Match continues — save updated wins
-      await supabase.from('sessions').update({ bracket }).eq('id', session.id)
+      const { error: winsErr } = await supabase.from('sessions').update({ bracket }).eq('id', session.id)
+      if (winsErr) return NextResponse.json({ error: 'Failed to save bracket' }, { status: 500 })
     }
 
     return NextResponse.json({
