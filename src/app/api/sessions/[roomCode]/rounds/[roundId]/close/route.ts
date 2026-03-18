@@ -21,6 +21,7 @@ async function generateBracketForSession(
     .select('question_id, answers(player_id, value), questions(answer)')
     .eq('session_id', sessionId)
     .eq('status', 'closed')
+    .is('tiebreak_players', null)
 
   const totalDelta: Record<string, number> = {}
   for (const p of aliveList) totalDelta[p.id] = 0
@@ -47,16 +48,16 @@ async function generateBracketForSession(
   }
 }
 
+type TiebreakRoundResult =
+  | { ok: true; roundId: string; startedAt: string; question: { id: string; text: string; timeLimit: number; category: string } }
+  | { ok: false; error: 'no_questions' | 'insert_failed' }
+
 async function createTiebreakRound(
   supabase: ReturnType<typeof createServerClient>,
   sessionId: string,
   category: string,
   tiebreakPlayerIds: string[]
-): Promise<{
-  roundId: string
-  startedAt: string
-  question: { id: string; text: string; timeLimit: number; category: string }
-} | null> {
+): Promise<TiebreakRoundResult> {
   const { data: usedRows } = await supabase
     .from('rounds')
     .select('question_id')
@@ -68,7 +69,7 @@ async function createTiebreakRound(
   const { data: questionRows } = await questionQuery
   const available = ((questionRows ?? []) as any[]).filter((q: any) => !usedIds.includes(q.id))
 
-  if (available.length === 0) return null
+  if (available.length === 0) return { ok: false, error: 'no_questions' }
 
   const tbQuestion = available[Math.floor(Math.random() * available.length)]
 
@@ -91,9 +92,10 @@ async function createTiebreakRound(
     .select('id, started_at')
     .single()
 
-  if (error || !newRound) return null
+  if (error || !newRound) return { ok: false, error: 'insert_failed' }
 
   return {
+    ok: true,
     roundId: (newRound as any).id,
     startedAt: (newRound as any).started_at,
     question: {
@@ -400,8 +402,11 @@ export async function POST(
       [eliminated[0].playerId, eliminated[1].playerId]
     )
 
-    if (!tbResult) {
-      return NextResponse.json({ error: 'No questions available for tiebreak' }, { status: 500 })
+    if (!tbResult.ok) {
+      const msg = tbResult.error === 'no_questions'
+        ? 'No questions available for tiebreak'
+        : 'Failed to create tiebreak round'
+      return NextResponse.json({ error: msg }, { status: 500 })
     }
 
     tiebreakRoundId = tbResult.roundId
@@ -422,8 +427,11 @@ export async function POST(
     if (p1delta === p2delta) {
       // Still tied — create another tiebreak round
       const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', tbPlayers)
-      if (!tbResult) {
-        return NextResponse.json({ error: 'No questions available for tiebreak' }, { status: 500 })
+      if (!tbResult.ok) {
+        const msg = tbResult.error === 'no_questions'
+          ? 'No questions available for tiebreak'
+          : 'Failed to create tiebreak round'
+        return NextResponse.json({ error: msg }, { status: 500 })
       }
       return NextResponse.json({
         correctAnswer,
