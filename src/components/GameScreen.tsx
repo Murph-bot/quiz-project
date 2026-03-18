@@ -8,7 +8,10 @@ import { QuestionPanel } from './QuestionPanel'
 import { RevealPanel } from './RevealPanel'
 import { SpectatorScreen } from './SpectatorScreen'
 import { WinnerScreen } from './WinnerScreen'
-import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
+import { BracketScreen } from './BracketScreen'
+import { MatchScoreBar } from './MatchScoreBar'
+import { MatchResultScreen } from './MatchResultScreen'
+import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState } from '@/types'
 
 interface QuestionData {
   id: string
@@ -35,7 +38,7 @@ interface Props {
 
 const FAR_FUTURE_MS = Date.now() + 1e9
 
-type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'winner'
+type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner'
 
 export function GameScreen({
   roomCode,
@@ -75,9 +78,34 @@ export function GameScreen({
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
 
+  // Bracket state
+  const [bracketData, setBracketData] = useState<BracketState | null>(null)
+  const [matchWins, setMatchWins] = useState<[number, number]>([0, 0])
+  const [currentMatchPhase, setCurrentMatchPhase] = useState<'sf1' | 'sf2' | 'final' | null>(null)
+  const [matchResultData, setMatchResultData] = useState<{
+    winnerNickname: string
+    matchLabel: string
+    finalScore: string
+    nextLabel: string
+  } | null>(null)
+
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const isSpectatingRef = useRef(false)
   const gameOverRef = useRef(initialWinner !== null)
+  const bracketDataRef = useRef<BracketState | null>(null)
+  const currentMatchPhaseRef = useRef<'sf1' | 'sf2' | 'final' | null>(null)
+
+  // Keep refs in sync with state
+  useEffect(() => { bracketDataRef.current = bracketData }, [bracketData])
+  useEffect(() => { currentMatchPhaseRef.current = currentMatchPhase }, [currentMatchPhase])
+
+  // Helper: am I competing in the current bracket match?
+  function computeAmICompeting(bd: BracketState | null, phase: 'sf1' | 'sf2' | 'final' | null, pid: string | null): boolean {
+    if (!bd || !phase || !pid) return true
+    if (phase === 'sf1') return bd.sf1.p1id === pid || bd.sf1.p2id === pid
+    if (phase === 'sf2') return bd.sf2.p1id === pid || bd.sf2.p2id === pid
+    return bd.finalists.includes(pid)
+  }
 
   // Redirect if no identity
   useEffect(() => {
@@ -103,8 +131,118 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => {
-        if (!data.wasAlreadyClosed) {
-          // Won the race — update own state (won't receive own broadcast)
+          if (data.wasAlreadyClosed) return
+
+          // --- BRACKET MODE: bracket just generated ---
+          if (data.bracketReady && data.bracket) {
+            setBracketData(data.bracket)
+            setCurrentMatchPhase('sf1')
+            setPhase('bracket')
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'bracket:ready',
+              payload: { bracket: data.bracket },
+            })
+            return
+          }
+
+          // --- BRACKET MODE: tie — replay with new question ---
+          if (data.isTie) {
+            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+            setPhase('reveal')
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'tie:replay',
+              payload: { correctAnswer: data.correctAnswer, answers: data.answers },
+            })
+            // auto-advance useEffect will call /rounds/next after 5s
+            return
+          }
+
+          // --- BRACKET MODE: game over (Final winner) ---
+          if (data.gameOver && data.winner) {
+            setGameOver(true)
+            gameOverRef.current = true
+            setWinner(data.winner ?? null)
+            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+            setPhase('reveal')
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'round:closed',
+              payload: {
+                correctAnswer: data.correctAnswer,
+                answers: data.answers,
+                eliminated: [],
+                winner: data.winner,
+                gameOver: true,
+              },
+            })
+            return
+          }
+
+          // --- BRACKET MODE: SF or Final match complete ---
+          if (data.sfComplete || data.finalReady) {
+            const currentBracketSF = bracketDataRef.current?.currentSF
+            const sfLabel = currentBracketSF === 1 ? 'Semi-Final 1' : 'Semi-Final 2'
+            const sfKey = currentBracketSF === 1 ? 'sf1' : 'sf2'
+            const sfWins = (data.bracket as any)?.[sfKey]?.wins ?? [0, 0]
+            const finalScore = `${sfWins[0]} \u2013 ${sfWins[1]}`
+            const nextLabel = data.finalReady ? 'The Final is next!' : 'Semi-Final 2 up next'
+            const nextMatchPhase = data.finalReady ? 'final' : 'sf2'
+
+            setBracketData(data.bracket)
+            setMatchWins([0, 0])
+            setCurrentMatchPhase(nextMatchPhase as 'sf1' | 'sf2' | 'final')
+            setMatchResultData({
+              winnerNickname: data.matchWinnerNickname ?? '',
+              matchLabel: sfLabel,
+              finalScore,
+              nextLabel,
+            })
+            setPhase('match-result')
+
+            const eventName = data.finalReady ? 'final:ready' : 'match:complete'
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: eventName,
+              payload: {
+                bracket: data.bracket,
+                matchWinnerNickname: data.matchWinnerNickname,
+                matchLabel: sfLabel,
+                finalScore,
+                nextLabel,
+                nextMatchPhase,
+              },
+            })
+            return
+          }
+
+          // --- BRACKET MODE: match continues (no winner yet) ---
+          if (data.bracket && currentMatchPhaseRef.current) {
+            const sfKey2 = data.bracket.currentSF === 1 ? 'sf1' : data.bracket.currentSF === 2 ? 'sf2' : null
+            const newWins: [number, number] = sfKey2
+              ? (data.bracket as any)[sfKey2].wins
+              : [data.bracket.finalWins?.[0] ?? 0, data.bracket.finalWins?.[1] ?? 0]
+            setMatchWins(newWins)
+            setBracketData(data.bracket)
+            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+            setPhase('reveal')
+            channelRef.current?.send({ type: 'broadcast', event: 'match:point', payload: { wins: newWins, bracket: data.bracket } })
+            channelRef.current?.send({
+              type: 'broadcast',
+              event: 'round:closed',
+              payload: {
+                correctAnswer: data.correctAnswer,
+                answers: data.answers,
+                eliminated: [],
+                winner: null,
+                gameOver: false,
+              },
+            })
+            return
+          }
+
+          // --- NORMAL MODE ---
           setEliminated(data.eliminated ?? [])
           setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
           setPhase('reveal')
@@ -131,8 +269,6 @@ export function GameScreen({
               gameOver: data.gameOver,
             },
           })
-        }
-          // wasAlreadyClosed: true → another client already broadcast, we'll receive it
         })
     }, GRACE_PERIOD_MS)
     return () => clearTimeout(grace)
@@ -176,7 +312,9 @@ export function GameScreen({
           setRevealData(null)
           setEliminated([])
           setIsGracePeriod(false)
-          setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
+          const bd = bracketDataRef.current
+          const mp = currentMatchPhaseRef.current
+          setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
           channelRef.current?.send({
             type: 'broadcast',
             event: 'round:started',
@@ -243,10 +381,49 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
-        setPhase(isSpectatingRef.current ? 'spectating' : 'answering')
+        const bd = bracketDataRef.current
+        const mp = currentMatchPhaseRef.current
+        setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
       })
       .on('broadcast', { event: 'game:over' }, () => {
         setPhase('winner')
+      })
+      .on('broadcast', { event: 'bracket:ready' }, ({ payload }) => {
+        setBracketData(payload.bracket)
+        setCurrentMatchPhase('sf1')
+        setPhase('bracket')
+      })
+      .on('broadcast', { event: 'match:point' }, ({ payload }) => {
+        setMatchWins(payload.wins)
+        setBracketData(payload.bracket)
+      })
+      .on('broadcast', { event: 'match:complete' }, ({ payload }) => {
+        setBracketData(payload.bracket)
+        setCurrentMatchPhase(payload.nextMatchPhase ?? 'sf2')
+        setMatchWins([0, 0])
+        setMatchResultData({
+          winnerNickname: payload.matchWinnerNickname,
+          matchLabel: payload.matchLabel,
+          finalScore: payload.finalScore,
+          nextLabel: payload.nextLabel,
+        })
+        setPhase('match-result')
+      })
+      .on('broadcast', { event: 'tie:replay' }, ({ payload }) => {
+        setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
+        setPhase('reveal')
+      })
+      .on('broadcast', { event: 'final:ready' }, ({ payload }) => {
+        setBracketData(payload.bracket)
+        setCurrentMatchPhase('final')
+        setMatchWins([0, 0])
+        setMatchResultData({
+          winnerNickname: payload.matchWinnerNickname,
+          matchLabel: payload.matchLabel,
+          finalScore: payload.finalScore,
+          nextLabel: 'The Final is next!',
+        })
+        setPhase('match-result')
       })
       .subscribe()
     channelRef.current = channel
@@ -263,8 +440,97 @@ export function GameScreen({
     if (res.ok) setPhase('waiting')
   }
 
+  const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
+
   if (phase === 'winner') {
     return <WinnerScreen winnerNickname={winner?.nickname ?? null} autoRedirectIn={autoRedirectIn} />
+  }
+
+  if (phase === 'bracket' && bracketData) {
+    return (
+      <BracketScreen
+        bracket={bracketData}
+        myPlayerId={playerId ?? ''}
+        onReady={() => {
+          // All players advance their own UI phase
+          setPhase(amICompeting ? 'answering' : 'spectating')
+          // Host also triggers next round
+          if (isHost) {
+            fetch(`/api/sessions/${roomCode}/rounds/next`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ playerId }),
+            })
+              .then(r => r.json())
+              .then(nextData => {
+                if (!nextData.roundId) return
+                setRoundId(nextData.roundId)
+                setRoundNumber(nextData.roundNumber)
+                setQuestion(nextData.question)
+                setStartedAt(nextData.startedAt)
+                setRevealData(null)
+                setIsGracePeriod(false)
+                channelRef.current?.send({
+                  type: 'broadcast',
+                  event: 'round:started',
+                  payload: {
+                    roundId: nextData.roundId,
+                    roundNumber: nextData.roundNumber,
+                    question: nextData.question,
+                    startedAt: nextData.startedAt,
+                    resurrected: null,
+                    isSuddenDeath: false,
+                  },
+                })
+              })
+          }
+        }}
+      />
+    )
+  }
+
+  if (phase === 'match-result' && matchResultData) {
+    return (
+      <MatchResultScreen
+        winnerNickname={matchResultData.winnerNickname}
+        matchLabel={matchResultData.matchLabel}
+        finalScore={matchResultData.finalScore}
+        nextLabel={matchResultData.nextLabel}
+        onContinue={() => {
+          setMatchResultData(null)
+          setPhase(amICompeting ? 'answering' : 'spectating')
+          if (isHost) {
+            fetch(`/api/sessions/${roomCode}/rounds/next`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ playerId }),
+            })
+              .then(r => r.json())
+              .then(nextData => {
+                if (!nextData.roundId) return
+                setRoundId(nextData.roundId)
+                setRoundNumber(nextData.roundNumber)
+                setQuestion(nextData.question)
+                setStartedAt(nextData.startedAt)
+                setRevealData(null)
+                setIsGracePeriod(false)
+                channelRef.current?.send({
+                  type: 'broadcast',
+                  event: 'round:started',
+                  payload: {
+                    roundId: nextData.roundId,
+                    roundNumber: nextData.roundNumber,
+                    question: nextData.question,
+                    startedAt: nextData.startedAt,
+                    resurrected: null,
+                    isSuddenDeath: false,
+                  },
+                })
+              })
+          }
+        }}
+      />
+    )
   }
 
   if (phase === 'reveal' && revealData) {
@@ -283,6 +549,31 @@ export function GameScreen({
   }
 
   if (phase === 'spectating') {
+    if (bracketData && currentMatchPhase) {
+      const sfSpec = currentMatchPhase === 'sf1' ? bracketData.sf1
+        : currentMatchPhase === 'sf2' ? bracketData.sf2 : null
+      const matchLabelSpec = currentMatchPhase === 'final'
+        ? 'Final · Best of 5'
+        : currentMatchPhase === 'sf1'
+        ? 'Semi-Final 1 · Best of 3'
+        : 'Semi-Final 2 · Best of 3'
+      const winsToWinSpec = currentMatchPhase === 'final' ? 3 : 2
+      const p1Spec = sfSpec ? sfSpec.p1 : (bracketData.finalists[0] ?? '')
+      const p2Spec = sfSpec ? sfSpec.p2 : (bracketData.finalists[1] ?? '')
+      return (
+        <>
+          <MatchScoreBar p1={p1Spec} p2={p2Spec} wins={matchWins} matchLabel={matchLabelSpec} winsToWin={winsToWinSpec} />
+          <QuestionPanel
+            roundNumber={roundNumber}
+            question={question}
+            startedAt={startedAt}
+            isWaiting={true}
+            isGracePeriod={false}
+            onSubmit={() => {}}
+          />
+        </>
+      )
+    }
     return <SpectatorScreen roundNumber={roundNumber} />
   }
 
@@ -303,6 +594,19 @@ export function GameScreen({
           </div>
         </div>
       )}
+      {bracketData && currentMatchPhase && (() => {
+        const sf = currentMatchPhase === 'sf1' ? bracketData.sf1
+          : currentMatchPhase === 'sf2' ? bracketData.sf2 : null
+        const matchLabel = currentMatchPhase === 'final'
+          ? 'Final · Best of 5'
+          : currentMatchPhase === 'sf1'
+          ? 'Semi-Final 1 · Best of 3'
+          : 'Semi-Final 2 · Best of 3'
+        const winsToWin = currentMatchPhase === 'final' ? 3 : 2
+        const p1 = sf ? sf.p1 : (bracketData.finalists[0] ?? '')
+        const p2 = sf ? sf.p2 : (bracketData.finalists[1] ?? '')
+        return <MatchScoreBar p1={p1} p2={p2} wins={matchWins} matchLabel={matchLabel} winsToWin={winsToWin} />
+      })()}
       <QuestionPanel
         roundNumber={roundNumber}
         question={question}
