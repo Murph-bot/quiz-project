@@ -91,7 +91,6 @@ export function GameScreen({
   } | null>(null)
 
   // Tiebreak state
-  const [tiebreakPlayerIds, setTiebreakPlayerIds] = useState<string[] | null>(null)
   const [tiebreakDeadlineMs, setTiebreakDeadlineMs] = useState<number>(FAR_FUTURE_MS)
   const [pendingTiebreak, setPendingTiebreak] = useState<{
     roundId: string
@@ -100,7 +99,6 @@ export function GameScreen({
     playerIds: string[]
   } | null>(null)
 
-  const tiebreakPlayerIdsRef = useRef<string[] | null>(null)
   const pendingTiebreakRef = useRef<{
     roundId: string
     question: QuestionData
@@ -108,7 +106,6 @@ export function GameScreen({
     playerIds: string[]
   } | null>(null)
 
-  useEffect(() => { tiebreakPlayerIdsRef.current = tiebreakPlayerIds }, [tiebreakPlayerIds])
   useEffect(() => { pendingTiebreakRef.current = pendingTiebreak }, [pendingTiebreak])
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -178,7 +175,6 @@ export function GameScreen({
               category: data.tiebreakQuestion.category,
             }
             const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
-            setTiebreakPlayerIds(data.tiebreakPlayerIds ?? null)
             setTiebreakDeadlineMs(deadline)
             setPendingTiebreak({
               roundId: data.tiebreakRoundId,
@@ -376,6 +372,7 @@ export function GameScreen({
         setEliminated([])
         setIsGracePeriod(false)
         setPendingTiebreak(null)
+        setTiebreakDeadlineMs(FAR_FUTURE_MS)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
 
         channelRef.current?.send({
@@ -465,7 +462,6 @@ export function GameScreen({
             category: payload.tiebreakQuestion.category,
           }
           const deadline = new Date(payload.tiebreakStartedAt).getTime() + payload.tiebreakQuestion.timeLimit * 1000
-          setTiebreakPlayerIds(payload.tiebreakPlayerIds ?? null)
           setTiebreakDeadlineMs(deadline)
           setPendingTiebreak({
             roundId: payload.tiebreakRoundId,
@@ -550,7 +546,7 @@ export function GameScreen({
         setPhase('match-result')
       })
       .on('broadcast', { event: 'tiebreak:started' }, ({ payload }) => {
-        const amITiebreaker = (tiebreakPlayerIdsRef.current ?? []).includes(playerId ?? '')
+        const amITiebreaker = (pendingTiebreakRef.current?.playerIds ?? []).includes(playerId ?? '')
         setRoundId(payload.roundId)
         setQuestion(payload.question)
         setStartedAt(payload.startedAt)
@@ -558,6 +554,7 @@ export function GameScreen({
         setEliminated([])
         setIsGracePeriod(false)
         setPendingTiebreak(null)
+        setTiebreakDeadlineMs(FAR_FUTURE_MS)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
       })
       .subscribe()
