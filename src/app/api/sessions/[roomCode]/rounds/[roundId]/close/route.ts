@@ -94,10 +94,11 @@ async function createTiebreakRound(
 
   if (error || !newRound) return { ok: false, error: 'insert_failed' }
 
+  const nr = newRound as { id: string; started_at: string }
   return {
     ok: true,
-    roundId: (newRound as any).id,
-    startedAt: (newRound as any).started_at,
+    roundId: nr.id,
+    startedAt: nr.started_at,
     question: {
       id: tbQuestion.id,
       text: tbQuestion.text,
@@ -465,14 +466,15 @@ export async function POST(
 
     if ((aliveAfterTB ?? 0) === 4) {
       bracketTB = await generateBracketForSession(supabase, session.id)
-      if (bracketTB) {
-        const { error: bErr } = await supabase
-          .from('sessions')
-          .update({ phase: 'semifinal', bracket: bracketTB })
-          .eq('id', session.id)
-        if (!bErr) bracketReadyTB = true
-        else bracketTB = null
+      if (!bracketTB) {
+        return NextResponse.json({ error: 'Failed to generate bracket after tiebreak' }, { status: 500 })
       }
+      const { error: bErr } = await supabase
+        .from('sessions')
+        .update({ phase: 'semifinal', bracket: bracketTB })
+        .eq('id', session.id)
+      if (!bErr) bracketReadyTB = true
+      else bracketTB = null
     }
 
     const loserEntry = answers.find(a => a.playerId === loserId)
