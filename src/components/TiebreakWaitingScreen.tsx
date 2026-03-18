@@ -1,0 +1,42 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+interface Props {
+  roundNumber: number
+  deadlineMs: number   // epoch ms when the tiebreak round expires
+}
+
+export function TiebreakWaitingScreen({ roundNumber, deadlineMs }: Props) {
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+  )
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
+    }, 500)
+    return () => clearInterval(interval)
+  }, [deadlineMs])
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-dvh p-4 text-center">
+      <div className="w-full max-w-sm flex flex-col items-center gap-6">
+        <div className="text-6xl">⚔️</div>
+        <div className="bg-white rounded-2xl shadow-md px-6 py-5 w-full">
+          <div className="text-lg font-black text-gray-900">Tiebreak in progress</div>
+          <div className="text-sm text-gray-500 mt-1">
+            Don&apos;t worry — you&apos;ve made it to the semi-finals!
+          </div>
+        </div>
+        <div className="bg-white/10 rounded-xl px-6 py-4 w-full">
+          <div className="text-white/70 text-sm mb-1">Time remaining</div>
+          <div className="text-4xl font-black text-white tabular-nums">
+            {secondsLeft}s
+          </div>
+        </div>
+        <p className="text-white/60 text-sm">Round {roundNumber} · Tiebreak</p>
+      </div>
+    </div>
+  )
+}
