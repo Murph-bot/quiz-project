@@ -19,7 +19,11 @@ const params = (roomCode: string, roundId: string) => ({
 const mockSession = { id: 'sess-1' }
 const mockRound = { id: 'round-1', session_id: 'sess-1', status: 'active' }
 
-function makeSupabase({ roundStatus = 'active', insertError = null as null | { code: string; message: string } } = {}) {
+function makeSupabase({
+  roundStatus = 'active',
+  insertError = null as null | { code: string; message: string },
+  tiebreakPlayers = undefined as string[] | null | undefined,
+} = {}) {
   return {
     from: jest.fn().mockImplementation((table: string) => {
       if (table === 'sessions') {
@@ -34,7 +38,7 @@ function makeSupabase({ roundStatus = 'active', insertError = null as null | { c
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           single: jest.fn().mockResolvedValue({
-            data: { ...mockRound, status: roundStatus },
+            data: { ...mockRound, status: roundStatus, tiebreak_players: tiebreakPlayers ?? null },
             error: null,
           }),
         }
@@ -86,6 +90,26 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
 
   it('returns 200 on success', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase())
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 403 when player is not in tiebreak_players list', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ tiebreakPlayers: ['p2', 'p3'] }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('Not a tiebreak participant')
+  })
+
+  it('returns 200 when player IS in tiebreak_players list', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ tiebreakPlayers: ['p1', 'p2'] }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 200 for normal round (tiebreak_players is null)', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ tiebreakPlayers: null }))
     const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', value: 1989 }), params('AB12', 'round-1'))
     expect(res.status).toBe(200)
   })

@@ -34,7 +34,7 @@ export async function POST(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status')
+    .select('id, status, tiebreak_players')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()
@@ -45,6 +45,11 @@ export async function POST(
 
   if (round.status === 'closed') {
     return NextResponse.json({ error: 'Round already closed' }, { status: 409 })
+  }
+
+  const tiebreakPlayers = (round as any).tiebreak_players as string[] | null
+  if (Array.isArray(tiebreakPlayers) && !tiebreakPlayers.includes(playerId)) {
+    return NextResponse.json({ error: 'Not a tiebreak participant' }, { status: 403 })
   }
 
   const { error: insertError } = await supabase
