@@ -21,7 +21,7 @@ export async function POST(
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, category, host_id')
+    .select('id, category, host_id, phase')
     .eq('room_code', roomCode)
     .single()
 
@@ -98,10 +98,10 @@ export async function POST(
   const MAX_ROUNDS = 50
   const isSuddenDeath = newRoundNumber > MAX_ROUNDS
 
-  // Resurrection logic: every 5th round, resurrect one eliminated player
+  // Resurrection logic: every 5th round, resurrect one eliminated player (normal phase only)
   let resurrected: { playerId: string; nickname: string } | null = null
 
-  if (newRoundNumber % 5 === 0) {
+  if (newRoundNumber % 5 === 0 && (session as any).phase === 'normal') {
     const { data: eliminated } = await supabase
       .from('players')
       .select('id, nickname')

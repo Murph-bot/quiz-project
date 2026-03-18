@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BracketState } from '@/types'
 
 interface Props {
@@ -11,16 +11,18 @@ interface Props {
 
 export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
   const [countdown, setCountdown] = useState(5)
+  const onReadyRef = useRef(onReady)
+  useEffect(() => { onReadyRef.current = onReady }, [onReady])
 
   useEffect(() => {
     const t = setInterval(() => {
       setCountdown(s => {
-        if (s <= 1) { clearInterval(t); onReady(); return 0 }
+        if (s <= 1) { clearInterval(t); onReadyRef.current(); return 0 }
         return s - 1
       })
     }, 1000)
     return () => clearInterval(t)
-  }, [onReady])
+  }, [])
 
   const isInSF1 = bracket.sf1.p1id === myPlayerId || bracket.sf1.p2id === myPlayerId
   const isInSF2 = bracket.sf2.p1id === myPlayerId || bracket.sf2.p2id === myPlayerId

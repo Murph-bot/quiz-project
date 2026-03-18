@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Props {
   winnerNickname: string
@@ -12,16 +12,18 @@ interface Props {
 
 export function MatchResultScreen({ winnerNickname, matchLabel, finalScore, nextLabel, onContinue }: Props) {
   const [countdown, setCountdown] = useState(5)
+  const onContinueRef = useRef(onContinue)
+  useEffect(() => { onContinueRef.current = onContinue }, [onContinue])
 
   useEffect(() => {
     const t = setInterval(() => {
       setCountdown(s => {
-        if (s <= 1) { clearInterval(t); onContinue(); return 0 }
+        if (s <= 1) { clearInterval(t); onContinueRef.current(); return 0 }
         return s - 1
       })
     }, 1000)
     return () => clearInterval(t)
-  }, [onContinue])
+  }, [])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh p-4">
