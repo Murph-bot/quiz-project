@@ -16,7 +16,7 @@ export async function loginAction(formData: FormData) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     maxAge: 86400,
-    path: '/admin',
+    path: '/',
   })
   redirect('/admin')
 }
