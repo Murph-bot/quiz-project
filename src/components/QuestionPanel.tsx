@@ -9,10 +9,11 @@ interface Props {
   startedAt: string
   isWaiting: boolean
   isGracePeriod: boolean
+  graceSecondsLeft?: number
   onSubmit: (value: number) => void
 }
 
-export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isGracePeriod, onSubmit }: Props) {
+export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isGracePeriod, graceSecondsLeft, onSubmit }: Props) {
   const [input, setInput] = useState('')
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { secondsLeft } = useCountdown(deadlineMs)
@@ -28,6 +29,14 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
 
   return (
     <div className={`flex flex-col min-h-dvh px-4 pt-4 pb-safe ${isUrgent ? 'urgent-bg' : ''}`}>
+      {isGracePeriod && (
+        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-3">
+          <div className="bg-amber-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+            <span>⏳ Grace period</span>
+            <span className="font-black tabular-nums">{graceSecondsLeft ?? 0}s</span>
+          </div>
+        </div>
+      )}
       {/* Timer + question float centered in remaining space above the input */}
       <div className="flex-1 flex flex-col items-center justify-center gap-5 w-full max-w-sm mx-auto">
 

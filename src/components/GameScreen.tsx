@@ -82,6 +82,23 @@ export function GameScreen({
   const [isSpectating, setIsSpectating] = useState(false)
   const [aliveCount, setAliveCount] = useState<number>(initialAliveCount)
 
+  // Grace period state
+  const [answeredCount, setAnsweredCount] = useState(0)
+  const answeredCountRef = useRef(0)
+  useEffect(() => { answeredCountRef.current = answeredCount }, [answeredCount])
+
+  const [graceDeadlineMs, setGraceDeadlineMs] = useState<number>(FAR_FUTURE_MS)
+
+  const graceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // roundId ref for stale closure guard in broadcast listeners
+  const roundIdRef = useRef(roundId)
+  useEffect(() => { roundIdRef.current = roundId }, [roundId])
+
+  // aliveCount ref for stale closure guard in grace useEffect
+  const aliveCountRef = useRef(aliveCount)
+  useEffect(() => { aliveCountRef.current = aliveCount }, [aliveCount])
+
   // Bracket state
   const [bracketData, setBracketData] = useState<BracketState | null>(null)
   const [matchWins, setMatchWins] = useState<[number, number]>([0, 0])
@@ -152,208 +169,265 @@ export function GameScreen({
       : FAR_FUTURE_MS
   )
 
-  const GRACE_PERIOD_MS = 5000
+  // Grace period countdown for banner
+  const { secondsLeft: graceSecondsLeft } = useCountdown(isGracePeriod ? graceDeadlineMs : FAR_FUTURE_MS)
 
-  // Timer expired → grace period → race to close the round
+  // Shared close-handling logic extracted to avoid duplication
+  function handleCloseData(data: any) {
+    if (data.wasAlreadyClosed) return
+
+    // --- TIEBREAK NEEDED ---
+    if (data.tiebreakNeeded && data.tiebreakRoundId) {
+      setEliminated([])
+      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+      setPhase('reveal')
+
+      const tbQuestion: QuestionData = {
+        id: data.tiebreakQuestion.id,
+        text: data.tiebreakQuestion.text,
+        timeLimit: data.tiebreakQuestion.timeLimit,
+        category: data.tiebreakQuestion.category,
+      }
+      const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
+      setTiebreakDeadlineMs(deadline)
+      setPendingTiebreak({
+        roundId: data.tiebreakRoundId,
+        question: tbQuestion,
+        startedAt: data.tiebreakStartedAt,
+        playerIds: data.tiebreakPlayerIds ?? [],
+      })
+
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'round:closed',
+        payload: {
+          correctAnswer: data.correctAnswer,
+          answers: data.answers,
+          eliminated: [],
+          winner: null,
+          gameOver: false,
+          tiebreakNeeded: true,
+          tiebreakRoundId: data.tiebreakRoundId,
+          tiebreakQuestion: data.tiebreakQuestion,
+          tiebreakPlayerIds: data.tiebreakPlayerIds,
+          tiebreakStartedAt: data.tiebreakStartedAt,
+        },
+      })
+      return
+    }
+    // --- END TIEBREAK NEEDED ---
+
+    // --- BRACKET MODE: bracket just generated ---
+    if (data.bracketReady && data.bracket) {
+      setBracketData(data.bracket)
+      setCurrentMatchPhase('sf1')
+      setPhase('bracket')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'bracket:ready',
+        payload: { bracket: data.bracket },
+      })
+      return
+    }
+
+    // --- BRACKET MODE: tie — replay with new question ---
+    if (data.isTie) {
+      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+      setPhase('reveal')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'tie:replay',
+        payload: { correctAnswer: data.correctAnswer, answers: data.answers },
+      })
+      // auto-advance useEffect will call /rounds/next after 5s
+      return
+    }
+
+    // --- BRACKET MODE: game over (Final winner) ---
+    if (data.gameOver && data.winner) {
+      setGameOver(true)
+      gameOverRef.current = true
+      setWinner(data.winner ?? null)
+      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+      setPhase('reveal')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'round:closed',
+        payload: {
+          correctAnswer: data.correctAnswer,
+          answers: data.answers,
+          eliminated: [],
+          winner: data.winner,
+          gameOver: true,
+        },
+      })
+      return
+    }
+
+    // --- BRACKET MODE: SF or Final match complete ---
+    if (data.sfComplete || data.finalReady) {
+      const currentBracketSF = bracketDataRef.current?.currentSF
+      const sfLabel = currentBracketSF === 1 ? 'Semi-Final 1' : 'Semi-Final 2'
+      const sfKey = currentBracketSF === 1 ? 'sf1' : 'sf2'
+      const sfWins = (data.bracket as any)?.[sfKey]?.wins ?? [0, 0]
+      const finalScore = `${sfWins[0]} \u2013 ${sfWins[1]}`
+      const nextLabel = data.finalReady ? 'The Final is next!' : 'Semi-Final 2 up next'
+      const nextMatchPhase = data.finalReady ? 'final' : 'sf2'
+
+      setBracketData(data.bracket)
+      setMatchWins([0, 0])
+      setCurrentMatchPhase(nextMatchPhase as 'sf1' | 'sf2' | 'final')
+      setMatchResultData({
+        winnerNickname: data.matchWinnerNickname ?? '',
+        matchLabel: sfLabel,
+        finalScore,
+        nextLabel,
+      })
+      setPhase('match-result')
+
+      const eventName = data.finalReady ? 'final:ready' : 'match:complete'
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: eventName,
+        payload: {
+          bracket: data.bracket,
+          matchWinnerNickname: data.matchWinnerNickname,
+          matchLabel: sfLabel,
+          finalScore,
+          nextLabel,
+          nextMatchPhase,
+        },
+      })
+      return
+    }
+
+    // --- BRACKET MODE: match continues (no winner yet) ---
+    if (data.bracket && currentMatchPhaseRef.current) {
+      const sfKey2 = data.bracket.currentSF === 1 ? 'sf1' : data.bracket.currentSF === 2 ? 'sf2' : null
+      const newWins: [number, number] = sfKey2
+        ? (data.bracket as any)[sfKey2].wins
+        : [data.bracket.finalWins?.[0] ?? 0, data.bracket.finalWins?.[1] ?? 0]
+      setMatchWins(newWins)
+      setBracketData(data.bracket)
+      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+      setPhase('reveal')
+      channelRef.current?.send({ type: 'broadcast', event: 'match:point', payload: { wins: newWins, bracket: data.bracket } })
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'round:closed',
+        payload: {
+          correctAnswer: data.correctAnswer,
+          answers: data.answers,
+          eliminated: [],
+          winner: null,
+          gameOver: false,
+        },
+      })
+      return
+    }
+
+    // --- NORMAL MODE ---
+    setEliminated(data.eliminated ?? [])
+    setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
+    setPhase('reveal')
+
+    if (data.gameOver) {
+      setGameOver(true)
+      gameOverRef.current = true
+      setWinner(data.winner ?? null)
+    }
+
+    if (data.eliminated?.length > 0) {
+      setAliveCount(prev => Math.max(0, prev - data.eliminated.length))
+    }
+
+    if (data.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
+      isSpectatingRef.current = true
+      setIsSpectating(true)
+    }
+
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'round:closed',
+      payload: {
+        correctAnswer: data.correctAnswer,
+        answers: data.answers,
+        eliminated: data.eliminated,
+        winner: data.winner,
+        gameOver: data.gameOver,
+      },
+    })
+  }
+
+  // Timer expired → 40s grace period → close the round (host only)
   useEffect(() => {
-    if (!isExpired || (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting')) return
-    setIsGracePeriod(true)
-    const grace = setTimeout(() => {
+    if (!isHost) return
+    if (!isExpired) return
+    if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
+
+    const doClose = () => {
       setIsGracePeriod(false)
-      fetch(`/api/sessions/${roomCode}/rounds/${roundId}/close`, {
+      setGraceDeadlineMs(FAR_FUTURE_MS)
+      fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
         .then(r => r.json())
-        .then(data => {
-          if (data.wasAlreadyClosed) return
+        .then(data => handleCloseData(data))
+    }
 
-          // --- TIEBREAK NEEDED ---
-          if (data.tiebreakNeeded && data.tiebreakRoundId) {
-            setEliminated([])
-            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-            setPhase('reveal')
+    // If everyone already answered, close immediately (no grace)
+    if (answeredCountRef.current >= aliveCountRef.current && aliveCountRef.current > 0) {
+      doClose()
+      return
+    }
 
-            const tbQuestion: QuestionData = {
-              id: data.tiebreakQuestion.id,
-              text: data.tiebreakQuestion.text,
-              timeLimit: data.tiebreakQuestion.timeLimit,
-              category: data.tiebreakQuestion.category,
-            }
-            const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
-            setTiebreakDeadlineMs(deadline)
-            setPendingTiebreak({
-              roundId: data.tiebreakRoundId,
-              question: tbQuestion,
-              startedAt: data.tiebreakStartedAt,
-              playerIds: data.tiebreakPlayerIds ?? [],
-            })
+    // Start 40s grace period
+    const deadline = Date.now() + 40_000
+    setIsGracePeriod(true)
+    setGraceDeadlineMs(deadline)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'grace:started',
+      payload: { graceDeadlineMs: deadline, roundId: roundIdRef.current },
+    })
 
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'round:closed',
-              payload: {
-                correctAnswer: data.correctAnswer,
-                answers: data.answers,
-                eliminated: [],
-                winner: null,
-                gameOver: false,
-                tiebreakNeeded: true,
-                tiebreakRoundId: data.tiebreakRoundId,
-                tiebreakQuestion: data.tiebreakQuestion,
-                tiebreakPlayerIds: data.tiebreakPlayerIds,
-                tiebreakStartedAt: data.tiebreakStartedAt,
-              },
-            })
-            return
-          }
-          // --- END TIEBREAK NEEDED ---
+    graceTimeoutRef.current = setTimeout(() => {
+      graceTimeoutRef.current = null
+      doClose()
+    }, 40_000)
 
-          // --- BRACKET MODE: bracket just generated ---
-          if (data.bracketReady && data.bracket) {
-            setBracketData(data.bracket)
-            setCurrentMatchPhase('sf1')
-            setPhase('bracket')
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'bracket:ready',
-              payload: { bracket: data.bracket },
-            })
-            return
-          }
+    return () => {
+      if (graceTimeoutRef.current) {
+        clearTimeout(graceTimeoutRef.current)
+        graceTimeoutRef.current = null
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, phase, isHost, roomCode])
 
-          // --- BRACKET MODE: tie — replay with new question ---
-          if (data.isTie) {
-            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-            setPhase('reveal')
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'tie:replay',
-              payload: { correctAnswer: data.correctAnswer, answers: data.answers },
-            })
-            // auto-advance useEffect will call /rounds/next after 5s
-            return
-          }
+  // Early-close watcher: if all alive players answer during grace period, close early (host only)
+  useEffect(() => {
+    if (!isHost) return
+    if (!isGracePeriod) return
+    if (answeredCount < aliveCount || aliveCount === 0) return
 
-          // --- BRACKET MODE: game over (Final winner) ---
-          if (data.gameOver && data.winner) {
-            setGameOver(true)
-            gameOverRef.current = true
-            setWinner(data.winner ?? null)
-            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-            setPhase('reveal')
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'round:closed',
-              payload: {
-                correctAnswer: data.correctAnswer,
-                answers: data.answers,
-                eliminated: [],
-                winner: data.winner,
-                gameOver: true,
-              },
-            })
-            return
-          }
-
-          // --- BRACKET MODE: SF or Final match complete ---
-          if (data.sfComplete || data.finalReady) {
-            const currentBracketSF = bracketDataRef.current?.currentSF
-            const sfLabel = currentBracketSF === 1 ? 'Semi-Final 1' : 'Semi-Final 2'
-            const sfKey = currentBracketSF === 1 ? 'sf1' : 'sf2'
-            const sfWins = (data.bracket as any)?.[sfKey]?.wins ?? [0, 0]
-            const finalScore = `${sfWins[0]} \u2013 ${sfWins[1]}`
-            const nextLabel = data.finalReady ? 'The Final is next!' : 'Semi-Final 2 up next'
-            const nextMatchPhase = data.finalReady ? 'final' : 'sf2'
-
-            setBracketData(data.bracket)
-            setMatchWins([0, 0])
-            setCurrentMatchPhase(nextMatchPhase as 'sf1' | 'sf2' | 'final')
-            setMatchResultData({
-              winnerNickname: data.matchWinnerNickname ?? '',
-              matchLabel: sfLabel,
-              finalScore,
-              nextLabel,
-            })
-            setPhase('match-result')
-
-            const eventName = data.finalReady ? 'final:ready' : 'match:complete'
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: eventName,
-              payload: {
-                bracket: data.bracket,
-                matchWinnerNickname: data.matchWinnerNickname,
-                matchLabel: sfLabel,
-                finalScore,
-                nextLabel,
-                nextMatchPhase,
-              },
-            })
-            return
-          }
-
-          // --- BRACKET MODE: match continues (no winner yet) ---
-          if (data.bracket && currentMatchPhaseRef.current) {
-            const sfKey2 = data.bracket.currentSF === 1 ? 'sf1' : data.bracket.currentSF === 2 ? 'sf2' : null
-            const newWins: [number, number] = sfKey2
-              ? (data.bracket as any)[sfKey2].wins
-              : [data.bracket.finalWins?.[0] ?? 0, data.bracket.finalWins?.[1] ?? 0]
-            setMatchWins(newWins)
-            setBracketData(data.bracket)
-            setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-            setPhase('reveal')
-            channelRef.current?.send({ type: 'broadcast', event: 'match:point', payload: { wins: newWins, bracket: data.bracket } })
-            channelRef.current?.send({
-              type: 'broadcast',
-              event: 'round:closed',
-              payload: {
-                correctAnswer: data.correctAnswer,
-                answers: data.answers,
-                eliminated: [],
-                winner: null,
-                gameOver: false,
-              },
-            })
-            return
-          }
-
-          // --- NORMAL MODE ---
-          setEliminated(data.eliminated ?? [])
-          setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-          setPhase('reveal')
-
-          if (data.gameOver) {
-            setGameOver(true)
-            gameOverRef.current = true
-            setWinner(data.winner ?? null)
-          }
-
-          if (data.eliminated?.length > 0) {
-            setAliveCount(prev => Math.max(0, prev - data.eliminated.length))
-          }
-
-          if (data.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
-            isSpectatingRef.current = true
-            setIsSpectating(true)
-          }
-
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'round:closed',
-            payload: {
-              correctAnswer: data.correctAnswer,
-              answers: data.answers,
-              eliminated: data.eliminated,
-              winner: data.winner,
-              gameOver: data.gameOver,
-            },
-          })
-        })
-    }, GRACE_PERIOD_MS)
-    return () => clearTimeout(grace)
-  }, [isExpired, phase, roundId, roomCode, playerId])
+    if (graceTimeoutRef.current) {
+      clearTimeout(graceTimeoutRef.current)
+      graceTimeoutRef.current = null
+    }
+    setIsGracePeriod(false)
+    setGraceDeadlineMs(FAR_FUTURE_MS)
+    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then(r => r.json())
+      .then(data => handleCloseData(data))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answeredCount, isGracePeriod, isHost, aliveCount, roomCode])
 
   // Auto-advance after reveal
   useEffect(() => {
@@ -382,6 +456,8 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
+        setAnsweredCount(0)
+        setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
         setTiebreakDeadlineMs(FAR_FUTURE_MS)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
@@ -425,6 +501,8 @@ export function GameScreen({
           setRevealData(null)
           setEliminated([])
           setIsGracePeriod(false)
+          setAnsweredCount(0)
+          setGraceDeadlineMs(FAR_FUTURE_MS)
           const bd = bracketDataRef.current
           const mp = currentMatchPhaseRef.current
           setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
@@ -522,6 +600,8 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
+        setAnsweredCount(0)
+        setGraceDeadlineMs(FAR_FUTURE_MS)
         const bd = bracketDataRef.current
         const mp = currentMatchPhaseRef.current
         setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
@@ -574,9 +654,20 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
+        setAnsweredCount(0)
+        setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
         setTiebreakDeadlineMs(FAR_FUTURE_MS)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
+      })
+      .on('broadcast', { event: 'round:answered' }, ({ payload }) => {
+        if (payload.roundId !== roundIdRef.current) return
+        setAnsweredCount(prev => prev + 1)
+      })
+      .on('broadcast', { event: 'grace:started' }, ({ payload }) => {
+        if (payload.roundId !== roundIdRef.current) return
+        setIsGracePeriod(true)
+        setGraceDeadlineMs(payload.graceDeadlineMs)
       })
       .subscribe()
     channelRef.current = channel
@@ -590,7 +681,14 @@ export function GameScreen({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, value }),
     })
-    if (res.ok) setPhase('waiting')
+    if (res.ok) {
+      setPhase('waiting')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'round:answered',
+        payload: { roundId: roundIdRef.current },
+      })
+    }
   }
 
   const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
@@ -623,6 +721,8 @@ export function GameScreen({
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
+                setAnsweredCount(0)
+                setGraceDeadlineMs(FAR_FUTURE_MS)
                 channelRef.current?.send({
                   type: 'broadcast',
                   event: 'round:started',
@@ -667,6 +767,8 @@ export function GameScreen({
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
+                setAnsweredCount(0)
+                setGraceDeadlineMs(FAR_FUTURE_MS)
                 channelRef.current?.send({
                   type: 'broadcast',
                   event: 'round:started',
@@ -688,10 +790,20 @@ export function GameScreen({
 
   if (phase === 'tiebreak-waiting') {
     return (
-      <TiebreakWaitingScreen
-        roundNumber={roundNumber}
-        deadlineMs={tiebreakDeadlineMs}
-      />
+      <>
+        {isGracePeriod && (
+          <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-3">
+            <div className="bg-amber-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
+              <span>⏳ Grace period</span>
+              <span className="font-black tabular-nums">{graceSecondsLeft}s</span>
+            </div>
+          </div>
+        )}
+        <TiebreakWaitingScreen
+          roundNumber={roundNumber}
+          deadlineMs={tiebreakDeadlineMs}
+        />
+      </>
     )
   }
 
@@ -731,6 +843,7 @@ export function GameScreen({
             startedAt={startedAt}
             isWaiting={true}
             isGracePeriod={false}
+            graceSecondsLeft={0}
             onSubmit={() => {}}
           />
         </>
@@ -742,6 +855,8 @@ export function GameScreen({
         question={question ? { text: question.text, timeLimit: question.timeLimit } : null}
         startedAt={startedAt}
         aliveCount={aliveCount}
+        isGracePeriod={isGracePeriod}
+        graceSecondsLeft={graceSecondsLeft}
       />
     )
   }
@@ -782,6 +897,7 @@ export function GameScreen({
         startedAt={startedAt}
         isWaiting={phase === 'waiting'}
         isGracePeriod={isGracePeriod}
+        graceSecondsLeft={graceSecondsLeft}
         onSubmit={handleSubmit}
       />
     </>
