@@ -6,6 +6,7 @@ export interface Session {
   host_id: string
   status: 'lobby' | 'active' | 'finished'
   category: string
+  resurrection_interval: number
   created_at: string
   phase?: GamePhase       // bracket mode phase (added in migration 004)
   bracket?: BracketState  // bracket tournament state

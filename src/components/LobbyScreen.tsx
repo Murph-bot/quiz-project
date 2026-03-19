@@ -27,6 +27,13 @@ const VALID_CATEGORIES = [
   '00s nostalgia',
 ]
 const MIN_PLAYERS = 3
+const RESURRECTION_OPTIONS = [
+  { value: 0, label: 'Off' },
+  { value: 3, label: 'Every 3rd round' },
+  { value: 5, label: 'Every 5th round' },
+  { value: 7, label: 'Every 7th round' },
+  { value: 10, label: 'Every 10th round' },
+]
 
 interface Props {
   roomCode: string
@@ -37,6 +44,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   const router = useRouter()
   const [players, setPlayers] = useState<PresencePlayer[]>([])
   const [category, setCategory] = useState(initialSession.category)
+  const [resurrectionInterval, setResurrectionInterval] = useState(initialSession.resurrection_interval ?? 5)
   const [starting, setStarting] = useState(false)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
@@ -91,6 +99,17 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     }
   }
 
+  async function handleResurrectionChange(value: number) {
+    const previous = resurrectionInterval
+    setResurrectionInterval(value)
+    const res = await fetch(`/api/sessions/${roomCode}/resurrection`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resurrectionInterval: value, playerId }),
+    })
+    if (!res.ok) setResurrectionInterval(previous)
+  }
+
   async function handleStart() {
     if (players.length < MIN_PLAYERS || !isHost || !playerId) return
     setStarting(true)
@@ -141,6 +160,24 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
               >
                 {VALID_CATEGORIES.map(c => (
                   <option key={c} value={c} className="capitalize">{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Resurrection interval (host only) */}
+        {isHost && (
+          <div className="flex flex-col gap-2">
+            <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Resurrection</p>
+            <div className="bg-white rounded-2xl shadow-md px-4 py-1">
+              <select
+                value={resurrectionInterval}
+                onChange={e => handleResurrectionChange(Number(e.target.value))}
+                className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none w-full py-2"
+              >
+                {RESURRECTION_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
             </div>

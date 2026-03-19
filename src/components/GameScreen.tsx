@@ -432,7 +432,7 @@ export function GameScreen({
   // Auto-advance after reveal
   useEffect(() => {
     if (phase !== 'reveal') return
-    setAutoAdvanceIn(5)
+    setAutoAdvanceIn(12)
     const tick = setInterval(() => setAutoAdvanceIn(s => Math.max(0, s - 1)), 1000)
     const advance = setTimeout(() => {
       if (!isHost || !playerId) return
@@ -519,7 +519,7 @@ export function GameScreen({
             },
           })
         })
-    }, 5000)
+    }, 12000)
     return () => {
       clearInterval(tick)
       clearTimeout(advance)
