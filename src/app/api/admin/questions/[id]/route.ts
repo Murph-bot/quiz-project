@@ -1,0 +1,48 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase-server'
+import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
+
+const VALID_CATEGORIES = ['history', 'science', 'geography', 'sports', 'money', 'nature']
+
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
+  return !!token && verifyAdminToken(token)
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+  const body = await req.json()
+  const update: Record<string, unknown> = {}
+  if (body.text !== undefined) {
+    if (typeof body.text !== 'string' || body.text.trim().length === 0) return NextResponse.json({ error: 'text is invalid' }, { status: 400 })
+    update.text = body.text.trim()
+  }
+  if (body.answer !== undefined) {
+    if (!Number.isInteger(body.answer)) return NextResponse.json({ error: 'answer must be an integer' }, { status: 400 })
+    update.answer = body.answer
+  }
+  if (body.category !== undefined) {
+    if (!VALID_CATEGORIES.includes(body.category)) return NextResponse.json({ error: 'invalid category' }, { status: 400 })
+    update.category = body.category
+  }
+  if (body.time_limit !== undefined) {
+    if (!Number.isInteger(body.time_limit) || body.time_limit < 5 || body.time_limit > 60) return NextResponse.json({ error: 'time_limit must be 5–60' }, { status: 400 })
+    update.time_limit = body.time_limit
+  }
+  if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('questions').update(update).eq('id', id).select().single()
+  if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  return NextResponse.json(data)
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('questions').delete().eq('id', id).select()
+  if (error) return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
+  if (!data || data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  return new NextResponse(null, { status: 204 })
+}
