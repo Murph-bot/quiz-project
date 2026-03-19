@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 
-const VALID_CATEGORIES = ['history', 'science', 'geography', 'sports', 'money', 'nature']
+const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -44,11 +44,12 @@ export async function POST(req: NextRequest) {
     if (!rawText || rawText.trim().length === 0) errors.push({ row, field: 'text', message: 'Required' })
     const answer = parseInt(rawAnswer, 10)
     if (isNaN(answer) || String(answer) !== rawAnswer.trim()) errors.push({ row, field: 'answer', message: `Must be an integer, got "${rawAnswer}"` })
-    if (!VALID_CATEGORIES.includes(rawCategory?.toLowerCase())) errors.push({ row, field: 'category', message: `Invalid category "${rawCategory}". Must be one of: ${VALID_CATEGORIES.join(', ')}` })
+    const canonicalCategory = VALID_CATEGORIES.find(c => c.toLowerCase() === rawCategory?.toLowerCase())
+    if (!canonicalCategory) errors.push({ row, field: 'category', message: `Invalid category "${rawCategory}". Must be one of: ${VALID_CATEGORIES.join(', ')}` })
     const time_limit = parseInt(rawTimeLimit, 10)
     if (isNaN(time_limit) || time_limit < 5 || time_limit > 60) errors.push({ row, field: 'time_limit', message: `Must be an integer 5–60, got "${rawTimeLimit}"` })
     if (errors.length === 0 || errors[errors.length - 1].row !== row) {
-      rows.push({ text: rawText.trim(), answer, category: rawCategory.toLowerCase(), time_limit })
+      rows.push({ text: rawText.trim(), answer, category: canonicalCategory!, time_limit })
     }
   }
   if (errors.length > 0) return NextResponse.json({ errors }, { status: 422 })

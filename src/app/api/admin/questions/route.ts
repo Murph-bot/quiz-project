@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 
-const VALID_CATEGORIES = ['history', 'science', 'geography', 'sports', 'money', 'nature']
+const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value

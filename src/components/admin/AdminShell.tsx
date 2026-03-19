@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
-const VALID_CATEGORIES = ['history', 'science', 'geography', 'sports', 'money', 'nature']
+const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
 
 interface Question {
   id: string
