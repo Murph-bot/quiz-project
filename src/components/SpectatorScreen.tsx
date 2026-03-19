@@ -41,7 +41,7 @@ export function SpectatorScreen({ roundNumber, question, startedAt, aliveCount, 
         <div className="bg-white rounded-2xl shadow-md px-6 py-5 w-full">
           <div className="text-lg font-black text-gray-900">You&apos;ve been eliminated</div>
           <div className="text-sm text-gray-500 mt-1">
-            Hang tight — a resurrection could bring you back every 5 rounds.
+            Hang tight — a resurrection could bring you back into the game!
           </div>
         </div>
 

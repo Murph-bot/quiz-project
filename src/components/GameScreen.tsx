@@ -56,7 +56,10 @@ export function GameScreen({
   const router = useRouter()
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
   const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
-  const isHost = playerId !== null && playerId === sessionHostId
+  const [currentHostId, setCurrentHostId] = useState(sessionHostId)
+  const currentHostIdRef = useRef(sessionHostId)
+  useEffect(() => { currentHostIdRef.current = currentHostId }, [currentHostId])
+  const isHost = playerId !== null && playerId === currentHostId
 
   const [roundId, setRoundId] = useState(initialRoundId)
   const [roundNumber, setRoundNumber] = useState(initialRoundNumber)
@@ -81,6 +84,8 @@ export function GameScreen({
   const [autoRedirectIn, setAutoRedirectIn] = useState(30)
   const [isSpectating, setIsSpectating] = useState(false)
   const [aliveCount, setAliveCount] = useState<number>(initialAliveCount)
+  const [showResurrectionSelf, setShowResurrectionSelf] = useState(false)
+  const [questionsExhausted, setQuestionsExhausted] = useState(false)
 
   // Grace period state
   const [answeredCount, setAnsweredCount] = useState(0)
@@ -365,6 +370,9 @@ export function GameScreen({
     if (!isExpired) return
     if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
 
+    // Skip if already in grace period (new host takeover handled by separate effect)
+    if (isGracePeriod) return
+
     const doClose = () => {
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
@@ -405,7 +413,31 @@ export function GameScreen({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpired, phase, isHost, roomCode])
+  }, [isExpired, phase, isHost, isGracePeriod, roomCode])
+
+  // Grace recovery: if a new host takes over while grace period is already running
+  useEffect(() => {
+    if (!isHost || !isGracePeriod || graceTimeoutRef.current) return
+    const remaining = graceDeadlineMs - Date.now()
+    const closeRound = () => {
+      setIsGracePeriod(false)
+      setGraceDeadlineMs(FAR_FUTURE_MS)
+      fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }).then(r => r.json()).then(data => handleCloseData(data))
+    }
+    if (remaining <= 0) { closeRound(); return }
+    graceTimeoutRef.current = setTimeout(() => {
+      graceTimeoutRef.current = null
+      closeRound()
+    }, remaining)
+    return () => {
+      if (graceTimeoutRef.current) { clearTimeout(graceTimeoutRef.current); graceTimeoutRef.current = null }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, isGracePeriod, graceDeadlineMs, roomCode])
 
   // Early-close watcher: if all alive players answer during grace period, close early (host only)
   useEffect(() => {
@@ -483,11 +515,19 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => {
-          if (!data.roundId) return
+          if (!data.roundId) {
+            if (data.error === 'No questions available') {
+              setQuestionsExhausted(true)
+              channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
+            }
+            return
+          }
           // Check if this player was resurrected
           if (data.resurrected?.playerId === playerId) {
             isSpectatingRef.current = false
             setIsSpectating(false)
+            setShowResurrectionSelf(true)
+            setTimeout(() => setShowResurrectionSelf(false), 4000)
           }
           if (data.resurrected) {
             setAliveCount(prev => prev + 1)
@@ -587,6 +627,8 @@ export function GameScreen({
         if (payload.resurrected?.playerId === playerId) {
           isSpectatingRef.current = false
           setIsSpectating(false)
+          setShowResurrectionSelf(true)
+          setTimeout(() => setShowResurrectionSelf(false), 4000)
         }
         if (payload.resurrected) {
           setAliveCount(prev => prev + 1)
@@ -669,7 +711,36 @@ export function GameScreen({
         setIsGracePeriod(true)
         setGraceDeadlineMs(payload.graceDeadlineMs)
       })
-      .subscribe()
+      .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
+        setCurrentHostId(payload.hostId)
+        currentHostIdRef.current = payload.hostId
+      })
+      .on('broadcast', { event: 'game:exhausted' }, () => {
+        setQuestionsExhausted(true)
+      })
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState<{ playerId: string }>()
+        const onlineIds = Object.values(state).flat().map((p: { playerId: string }) => p.playerId)
+        if (onlineIds.length === 0) return
+        if (!onlineIds.includes(currentHostIdRef.current)) {
+          const newHostId = [...onlineIds].sort()[0]
+          setCurrentHostId(newHostId)
+          currentHostIdRef.current = newHostId
+          if (newHostId === playerId) {
+            channel.send({ type: 'broadcast', event: 'host:changed', payload: { hostId: newHostId } })
+            fetch(`/api/sessions/${roomCode}/host`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ playerId: newHostId }),
+            })
+          }
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && playerId) {
+          await channel.track({ playerId })
+        }
+      })
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
   }, [roomCode, playerId])
@@ -692,6 +763,20 @@ export function GameScreen({
   }
 
   const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
+
+  if (questionsExhausted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
+        <div className="w-full max-w-sm flex flex-col items-center gap-6">
+          <div className="text-6xl">📭</div>
+          <div className="bg-white rounded-2xl shadow-md px-6 py-5 w-full">
+            <div className="text-lg font-black text-gray-900">No more questions!</div>
+            <div className="text-sm text-gray-500 mt-1">The question bank has been exhausted. The game has ended.</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (phase === 'winner') {
     return <WinnerScreen winnerNickname={winner?.nickname ?? null} autoRedirectIn={autoRedirectIn} />
@@ -875,6 +960,15 @@ export function GameScreen({
         <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
             🔄 {resurrected.nickname} has been resurrected!
+          </div>
+        </div>
+      )}
+      {showResurrectionSelf && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl px-8 py-10 text-center shadow-2xl max-w-xs w-full">
+            <div className="text-5xl mb-4">🎉</div>
+            <div className="text-white text-2xl font-black mb-2">You&apos;re back!</div>
+            <div className="text-white/80 text-sm">You&apos;ve been resurrected. Get back in the game!</div>
           </div>
         </div>
       )}

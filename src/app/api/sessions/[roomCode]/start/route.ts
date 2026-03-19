@@ -49,7 +49,7 @@ export async function POST(
     .from('questions')
     .select('id, text, answer, category, time_limit')
   if (session.category !== 'all') {
-    questionQuery = questionQuery.eq('category', session.category)
+    questionQuery = questionQuery.ilike('category', session.category)
   }
   const { data: questions } = await questionQuery
 

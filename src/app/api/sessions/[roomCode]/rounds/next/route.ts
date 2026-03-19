@@ -68,7 +68,7 @@ export async function POST(
   // Pick next question (filter in JS — ~300 questions is fine)
   let questionQuery = supabase.from('questions').select('id, text, answer, category, time_limit')
   if (session.category !== 'all') {
-    questionQuery = questionQuery.eq('category', session.category)
+    questionQuery = questionQuery.ilike('category', session.category)
   }
   const { data: allQuestions } = await questionQuery
   const available = (allQuestions ?? []).filter((q: { id: string }) => !usedIds.includes(q.id))
