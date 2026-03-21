@@ -88,9 +88,9 @@ export function GameScreen({
   const [questionsExhausted, setQuestionsExhausted] = useState(false)
 
   // Grace period state
-  const [answeredCount, setAnsweredCount] = useState(0)
+  const [answeredPlayerIds, setAnsweredPlayerIds] = useState<Set<string>>(new Set())
   const answeredCountRef = useRef(0)
-  useEffect(() => { answeredCountRef.current = answeredCount }, [answeredCount])
+  useEffect(() => { answeredCountRef.current = answeredPlayerIds.size }, [answeredPlayerIds])
 
   const [graceDeadlineMs, setGraceDeadlineMs] = useState<number>(FAR_FUTURE_MS)
 
@@ -177,9 +177,16 @@ export function GameScreen({
   // Grace period countdown for banner
   const { secondsLeft: graceSecondsLeft } = useCountdown(isGracePeriod ? graceDeadlineMs : FAR_FUTURE_MS)
 
+  const roundClosedRef = useRef(false)
+  // Reset when roundId changes so a new round can be closed
+  useEffect(() => { roundClosedRef.current = false }, [roundId])
+
   // Shared close-handling logic extracted to avoid duplication
   function handleCloseData(data: any) {
+    if (data.error) return  // API error — don't process, allow retry
     if (data.wasAlreadyClosed) return
+    if (roundClosedRef.current) return
+    roundClosedRef.current = true
 
     // --- TIEBREAK NEEDED ---
     if (data.tiebreakNeeded && data.tiebreakRoundId) {
@@ -373,16 +380,23 @@ export function GameScreen({
     // Skip if already in grace period (new host takeover handled by separate effect)
     if (isGracePeriod) return
 
-    const doClose = () => {
+    const doClose = (skipGrace = false) => {
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
       fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ playerId }),
       })
         .then(r => r.json())
         .then(data => handleCloseData(data))
+        .catch(() => {})
+    }
+
+    // If the timer expired long before this effect ran (stale reconnect), skip grace
+    if (Date.now() - deadlineMs > 40_000) {
+      doClose()
+      return
     }
 
     // If everyone already answered, close immediately (no grace)
@@ -425,8 +439,8 @@ export function GameScreen({
       fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      }).then(r => r.json()).then(data => handleCloseData(data))
+        body: JSON.stringify({ playerId }),
+      }).then(r => r.json()).then(data => handleCloseData(data)).catch(() => {})
     }
     if (remaining <= 0) { closeRound(); return }
     graceTimeoutRef.current = setTimeout(() => {
@@ -443,7 +457,7 @@ export function GameScreen({
   useEffect(() => {
     if (!isHost) return
     if (!isGracePeriod) return
-    if (answeredCount < aliveCount || aliveCount === 0) return
+    if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
 
     if (graceTimeoutRef.current) {
       clearTimeout(graceTimeoutRef.current)
@@ -454,12 +468,31 @@ export function GameScreen({
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ playerId }),
     })
       .then(r => r.json())
       .then(data => handleCloseData(data))
+      .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answeredCount, isGracePeriod, isHost, aliveCount, roomCode])
+  }, [answeredPlayerIds, isGracePeriod, isHost, aliveCount, roomCode])
+
+  // Pre-timer early close: all players answered before the timer expires — close immediately (host only)
+  useEffect(() => {
+    if (!isHost) return
+    if (isExpired || isGracePeriod) return
+    if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
+    if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
+
+    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId }),
+    })
+      .then(r => r.json())
+      .then(data => handleCloseData(data))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answeredPlayerIds, isExpired, isGracePeriod, phase, isHost, aliveCount, roomCode])
 
   // Auto-advance after reveal
   useEffect(() => {
@@ -488,7 +521,7 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
-        setAnsweredCount(0)
+        setAnsweredPlayerIds(new Set())
         setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
         setTiebreakDeadlineMs(FAR_FUTURE_MS)
@@ -541,7 +574,7 @@ export function GameScreen({
           setRevealData(null)
           setEliminated([])
           setIsGracePeriod(false)
-          setAnsweredCount(0)
+          setAnsweredPlayerIds(new Set())
           setGraceDeadlineMs(FAR_FUTURE_MS)
           const bd = bracketDataRef.current
           const mp = currentMatchPhaseRef.current
@@ -642,7 +675,7 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
-        setAnsweredCount(0)
+        setAnsweredPlayerIds(new Set())
         setGraceDeadlineMs(FAR_FUTURE_MS)
         const bd = bracketDataRef.current
         const mp = currentMatchPhaseRef.current
@@ -696,7 +729,7 @@ export function GameScreen({
         setRevealData(null)
         setEliminated([])
         setIsGracePeriod(false)
-        setAnsweredCount(0)
+        setAnsweredPlayerIds(new Set())
         setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
         setTiebreakDeadlineMs(FAR_FUTURE_MS)
@@ -704,7 +737,9 @@ export function GameScreen({
       })
       .on('broadcast', { event: 'round:answered' }, ({ payload }) => {
         if (payload.roundId !== roundIdRef.current) return
-        setAnsweredCount(prev => prev + 1)
+        if (payload.playerId) {
+          setAnsweredPlayerIds(prev => new Set([...prev, payload.playerId]))
+        }
       })
       .on('broadcast', { event: 'grace:started' }, ({ payload }) => {
         if (payload.roundId !== roundIdRef.current) return
@@ -754,10 +789,12 @@ export function GameScreen({
     })
     if (res.ok) {
       setPhase('waiting')
+      // Track own answer locally — Supabase broadcasts are not delivered back to sender
+      setAnsweredPlayerIds(prev => new Set([...prev, playerId]))
       channelRef.current?.send({
         type: 'broadcast',
         event: 'round:answered',
-        payload: { roundId: roundIdRef.current },
+        payload: { roundId: roundIdRef.current, playerId },
       })
     }
   }
@@ -806,7 +843,7 @@ export function GameScreen({
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
-                setAnsweredCount(0)
+                setAnsweredPlayerIds(new Set())
                 setGraceDeadlineMs(FAR_FUTURE_MS)
                 channelRef.current?.send({
                   type: 'broadcast',
@@ -852,7 +889,7 @@ export function GameScreen({
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
-                setAnsweredCount(0)
+                setAnsweredPlayerIds(new Set())
                 setGraceDeadlineMs(FAR_FUTURE_MS)
                 channelRef.current?.send({
                   type: 'broadcast',

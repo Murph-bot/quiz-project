@@ -25,6 +25,7 @@ const VALID_CATEGORIES = [
   'food & drink',
   'technology',
   '00s nostalgia',
+  'money',
 ]
 const MIN_PLAYERS = 3
 const RESURRECTION_OPTIONS = [
@@ -50,7 +51,8 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
   const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
-  const isHost = playerId !== null && initialSession.host_id === playerId
+  const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
+  const isHost = playerId !== null && currentHostId === playerId
 
   useEffect(() => {
     if (!playerId || !nickname) {
@@ -61,14 +63,35 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     const channel = supabase.channel(`room:${roomCode}`)
     channelRef.current = channel
 
+    let currentHostIdSnapshot = initialSession.host_id
+
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<PresencePlayer>()
         const list = Object.values(state).flat()
         setPlayers(list)
+
+        // Host failover: elect new host if current host is no longer online
+        const onlineIds = list.map((p) => p.playerId).filter(Boolean)
+        if (onlineIds.length > 0 && !onlineIds.includes(currentHostIdSnapshot)) {
+          const newHostId = [...onlineIds].sort()[0]
+          currentHostIdSnapshot = newHostId
+          setCurrentHostId(newHostId)
+          if (newHostId === playerId) {
+            channel.send({ type: 'broadcast', event: 'host:changed', payload: { hostId: newHostId } })
+            fetch(`/api/sessions/${roomCode}/host`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ playerId: newHostId }),
+            })
+          }
+        }
+      })
+      .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
+        currentHostIdSnapshot = payload.hostId
+        setCurrentHostId(payload.hostId)
       })
       .on('broadcast', { event: 'game:started' }, () => {
-        // Layer 3: navigate to game screen (404 until Layer 3 is built)
         router.push(`/game/${roomCode}`)
       })
       .subscribe(async (status) => {

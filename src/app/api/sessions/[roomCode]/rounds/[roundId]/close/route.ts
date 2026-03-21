@@ -120,16 +120,27 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
 
+  const body = await req.json().catch(() => ({}))
+  const { playerId } = body
+
+  if (!playerId) {
+    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  }
+
   const supabase = createServerClient()
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, phase, bracket, category')
+    .select('id, phase, bracket, category, host_id')
     .eq('room_code', roomCode)
     .single()
 
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  }
+
+  if ((session as any).host_id !== playerId) {
+    return NextResponse.json({ error: 'Only the host can close a round' }, { status: 403 })
   }
 
   const { data: round, error: roundError } = await supabase
