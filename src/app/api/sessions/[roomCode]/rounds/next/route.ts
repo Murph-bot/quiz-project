@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 
 function generateOptions(correct: number): number[] {
+  if (correct === 0) return [0, 1, 5].sort(() => Math.random() - 0.5)
   const nearbyPct = 0.15 + Math.random() * 0.15
   const nearbySign = Math.random() < 0.5 ? 1 : -1
   let nearby = Math.round(correct * (1 + nearbySign * nearbyPct))

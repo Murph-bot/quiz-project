@@ -37,7 +37,6 @@ export async function POST(
       .select('id')
       .eq('session_id', session.id)
       .eq('nickname', nickname)
-      .eq('is_alive', false)
       .single()
 
     if (!existingPlayer) {

@@ -627,6 +627,7 @@ export function GameScreen({
             text: payload.tiebreakQuestion.text,
             timeLimit: payload.tiebreakQuestion.timeLimit,
             category: payload.tiebreakQuestion.category,
+            options: payload.tiebreakQuestion.options ?? undefined,
           }
           const deadline = new Date(payload.tiebreakStartedAt).getTime() + payload.tiebreakQuestion.timeLimit * 1000
           setTiebreakDeadlineMs(deadline)
@@ -724,7 +725,7 @@ export function GameScreen({
         setPhase('match-result')
       })
       .on('broadcast', { event: 'tiebreak:started' }, ({ payload }) => {
-        const amITiebreaker = (pendingTiebreakRef.current?.playerIds ?? []).includes(playerId ?? '')
+        const amITiebreaker = (payload.playerIds ?? []).includes(playerId ?? '')
         setRoundId(payload.roundId)
         setQuestion(payload.question)
         setStartedAt(payload.startedAt)
