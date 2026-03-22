@@ -19,6 +19,7 @@ interface QuestionData {
   text: string
   timeLimit: number
   category: string
+  options?: number[]
 }
 
 interface RevealData {
@@ -199,6 +200,7 @@ export function GameScreen({
         text: data.tiebreakQuestion.text,
         timeLimit: data.tiebreakQuestion.timeLimit,
         category: data.tiebreakQuestion.category,
+        options: data.tiebreakOptions ?? undefined,
       }
       const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
       setTiebreakDeadlineMs(deadline)
@@ -220,7 +222,7 @@ export function GameScreen({
           gameOver: false,
           tiebreakNeeded: true,
           tiebreakRoundId: data.tiebreakRoundId,
-          tiebreakQuestion: data.tiebreakQuestion,
+          tiebreakQuestion: { ...data.tiebreakQuestion, options: data.tiebreakOptions },
           tiebreakPlayerIds: data.tiebreakPlayerIds,
           tiebreakStartedAt: data.tiebreakStartedAt,
         },
@@ -569,7 +571,7 @@ export function GameScreen({
           if (data.isSuddenDeath) setIsSuddenDeath(true)
           setRoundId(data.roundId)
           setRoundNumber(data.roundNumber)
-          setQuestion(data.question)
+          setQuestion({ ...data.question, options: data.options })
           setStartedAt(data.startedAt)
           setRevealData(null)
           setEliminated([])
@@ -585,7 +587,7 @@ export function GameScreen({
             payload: {
               roundId: data.roundId,
               roundNumber: data.roundNumber,
-              question: data.question,
+              question: { ...data.question, options: data.options },
               startedAt: data.startedAt,
               resurrected: data.resurrected ?? null,
               isSuddenDeath: data.isSuddenDeath ?? false,
@@ -754,11 +756,15 @@ export function GameScreen({
         setQuestionsExhausted(true)
       })
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ playerId: string }>()
-        const onlineIds = Object.values(state).flat().map((p: { playerId: string }) => p.playerId)
-        if (onlineIds.length === 0) return
-        if (!onlineIds.includes(currentHostIdRef.current)) {
-          const newHostId = [...onlineIds].sort()[0]
+        const state = channel.presenceState<{ playerId: string; isAlive?: boolean }>()
+        const entries = Object.values(state).flat()
+        if (entries.length === 0) return
+        // Prefer alive players for host; fall back to anyone if no alive players online
+        const aliveEntries = entries.filter(p => p.isAlive !== false)
+        const candidates = aliveEntries.length > 0 ? aliveEntries : entries
+        const candidateIds = candidates.map(p => p.playerId)
+        if (!candidateIds.includes(currentHostIdRef.current)) {
+          const newHostId = [...candidateIds].sort()[0]
           setCurrentHostId(newHostId)
           currentHostIdRef.current = newHostId
           if (newHostId === playerId) {
@@ -773,7 +779,7 @@ export function GameScreen({
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && playerId) {
-          await channel.track({ playerId })
+          await channel.track({ playerId, isAlive: !isSpectatingRef.current })
         }
       })
     channelRef.current = channel
@@ -839,7 +845,7 @@ export function GameScreen({
                 if (!nextData.roundId) return
                 setRoundId(nextData.roundId)
                 setRoundNumber(nextData.roundNumber)
-                setQuestion(nextData.question)
+                setQuestion({ ...nextData.question, options: nextData.options })
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
@@ -851,7 +857,7 @@ export function GameScreen({
                   payload: {
                     roundId: nextData.roundId,
                     roundNumber: nextData.roundNumber,
-                    question: nextData.question,
+                    question: { ...nextData.question, options: nextData.options },
                     startedAt: nextData.startedAt,
                     resurrected: null,
                     isSuddenDeath: false,
@@ -885,7 +891,7 @@ export function GameScreen({
                 if (!nextData.roundId) return
                 setRoundId(nextData.roundId)
                 setRoundNumber(nextData.roundNumber)
-                setQuestion(nextData.question)
+                setQuestion({ ...nextData.question, options: nextData.options })
                 setStartedAt(nextData.startedAt)
                 setRevealData(null)
                 setIsGracePeriod(false)
@@ -897,7 +903,7 @@ export function GameScreen({
                   payload: {
                     roundId: nextData.roundId,
                     roundNumber: nextData.roundNumber,
-                    question: nextData.question,
+                    question: { ...nextData.question, options: nextData.options },
                     startedAt: nextData.startedAt,
                     resurrected: null,
                     isSuddenDeath: false,

@@ -63,7 +63,11 @@ export default function HomeScreen() {
       if (!res.ok) { setError(data.error ?? 'Failed to join game'); return }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
-      router.push(`/lobby/${code}`)
+      if (data.spectatorReconnect) {
+        router.push(`/game/${code}`)
+      } else {
+        router.push(`/lobby/${code}`)
+      }
     } catch {
       setError('Network error — please try again')
     } finally {

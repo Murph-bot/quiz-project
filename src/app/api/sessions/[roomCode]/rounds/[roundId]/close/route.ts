@@ -3,6 +3,23 @@ import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
+function generateOptions(correct: number): number[] {
+  const nearbyPct = 0.15 + Math.random() * 0.15
+  const nearbySign = Math.random() < 0.5 ? 1 : -1
+  let nearby = Math.round(correct * (1 + nearbySign * nearbyPct))
+  if (nearby === correct) nearby = correct + nearbySign * Math.max(1, Math.round(correct * 0.15))
+  if (nearby <= 0) nearby = correct + Math.max(1, Math.round(correct * 0.15))
+
+  const outlierPct = 0.5 + Math.random()
+  const outlierSign = Math.random() < 0.5 ? 1 : -1
+  let outlier = Math.round(correct * (1 + outlierSign * outlierPct))
+  if (outlier <= 0 || outlier === correct || outlier === nearby) {
+    outlier = Math.round(correct * 3)
+  }
+
+  return [correct, nearby, outlier].sort(() => Math.random() - 0.5)
+}
+
 const MAX_ROUNDS = 50
 
 async function generateBracketForSession(
@@ -51,7 +68,7 @@ async function generateBracketForSession(
 }
 
 type TiebreakRoundResult =
-  | { ok: true; roundId: string; startedAt: string; question: { id: string; text: string; timeLimit: number; category: string } }
+  | { ok: true; roundId: string; startedAt: string; question: { id: string; text: string; timeLimit: number; category: string }; options: number[] }
   | { ok: false; error: 'no_questions' | 'insert_failed' }
 
 async function createTiebreakRound(
@@ -83,6 +100,8 @@ async function createTiebreakRound(
     .limit(1)
   const latestRoundNumber = ((latestRoundRows ?? [])[0] as any)?.round_number ?? 0
 
+  const options = generateOptions(tbQuestion.answer)
+
   const { data: newRound, error } = await supabase
     .from('rounds')
     .insert({
@@ -90,6 +109,7 @@ async function createTiebreakRound(
       question_id: tbQuestion.id,
       round_number: latestRoundNumber + 1,
       tiebreak_players: tiebreakPlayerIds,
+      options,
     })
     .select('id, started_at')
     .single()
@@ -107,6 +127,7 @@ async function createTiebreakRound(
       timeLimit: tbQuestion.time_limit,
       category: tbQuestion.category,
     },
+    options,
   }
 }
 
@@ -385,10 +406,9 @@ export async function POST(
     ...noAnswerPlayers,
   ]
 
-  // Find max delta to determine who is eliminated
-  const maxDelta = answers.length > 0 ? Math.max(...answers.map(a => a.delta)) : 0
+  // Binary elimination: all players who answered wrong (delta > 0) are eliminated
   const eliminated: EliminatedPlayer[] = answers
-    .filter(a => a.delta === maxDelta)
+    .filter(a => a.delta > 0)
     .map(a => ({ playerId: a.playerId, nickname: a.nickname }))
 
   const isTiebreakRound = Array.isArray((round as any).tiebreak_players)
@@ -398,37 +418,7 @@ export async function POST(
   let tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null = null
   let tiebreakPlayerIds: string[] | null = null
   let tiebreakStartedAt: string | null = null
-
-  // --- TIEBREAK DETECTION ---
-  if (
-    !isTiebreakRound &&
-    (session as any).phase === 'normal' &&
-    activeList.length === 5 &&
-    eliminated.length === 2
-  ) {
-    tiebreakNeeded = true
-    skippedElimination = true
-
-    const tbResult = await createTiebreakRound(
-      supabase,
-      session.id,
-      (session as any).category ?? 'all',
-      [eliminated[0].playerId, eliminated[1].playerId]
-    )
-
-    if (!tbResult.ok) {
-      const msg = tbResult.error === 'no_questions'
-        ? 'No questions available for tiebreak'
-        : 'Failed to create tiebreak round'
-      return NextResponse.json({ error: msg }, { status: 500 })
-    }
-
-    tiebreakRoundId = tbResult.roundId
-    tiebreakStartedAt = tbResult.startedAt
-    tiebreakPlayerIds = [eliminated[0].playerId, eliminated[1].playerId]
-    tiebreakQuestion = tbResult.question
-  }
-  // --- END TIEBREAK DETECTION ---
+  let tiebreakOptions: number[] | null = null
 
   // --- SUDDEN DEATH ALL-TIE ---
   // If ALL remaining players tie for worst in sudden death, replay the round for everyone
@@ -436,7 +426,7 @@ export async function POST(
   const isSuddenDeathRound = !isTiebreakRound && ((round as any).round_number as number) > MAX_ROUNDS
 
   if (isSuddenDeathRound && !tiebreakNeeded && eliminated.length > 0 && eliminated.length === activeList.length) {
-    // Everyone tied — create a replay round for all alive players
+    // Everyone answered wrong — create a replay round for all alive players
     const allAliveIds = activeList.map(p => p.id)
     const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', allAliveIds)
 
@@ -453,6 +443,7 @@ export async function POST(
     tiebreakStartedAt = tbResult.startedAt
     tiebreakPlayerIds = allAliveIds
     tiebreakQuestion = tbResult.question
+    tiebreakOptions = tbResult.options
   }
   // --- END SUDDEN DEATH ALL-TIE ---
 
@@ -487,6 +478,7 @@ export async function POST(
         tiebreakQuestion: tbResult.question,
         tiebreakPlayerIds: tbPlayers,
         tiebreakStartedAt: tbResult.startedAt,
+        tiebreakOptions: tbResult.options,
       })
     }
 
@@ -612,5 +604,6 @@ export async function POST(
     tiebreakQuestion,
     tiebreakPlayerIds,
     tiebreakStartedAt,
+    tiebreakOptions,
   })
 }

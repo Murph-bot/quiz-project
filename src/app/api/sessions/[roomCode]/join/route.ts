@@ -31,7 +31,20 @@ export async function POST(
   }
 
   if (session.status !== 'lobby') {
-    return NextResponse.json({ error: 'Game already started' }, { status: 409 })
+    // Allow eliminated spectators to reconnect with their original playerId
+    const { data: existingPlayer } = await supabase
+      .from('players')
+      .select('id')
+      .eq('session_id', session.id)
+      .eq('nickname', nickname)
+      .eq('is_alive', false)
+      .single()
+
+    if (!existingPlayer) {
+      return NextResponse.json({ error: 'Game already started' }, { status: 409 })
+    }
+
+    return NextResponse.json({ playerId: existingPlayer.id, spectatorReconnect: true }, { status: 200 })
   }
 
   const playerId = crypto.randomUUID()

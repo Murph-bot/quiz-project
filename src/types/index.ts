@@ -36,6 +36,7 @@ export interface Round {
   started_at: string
   status: 'active' | 'closed'
   tiebreak_players?: string[] | null
+  options?: number[] | null
 }
 
 export interface Answer {
