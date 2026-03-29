@@ -526,7 +526,7 @@ export function GameScreen({
         setAnsweredPlayerIds(new Set())
         setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
-        setTiebreakDeadlineMs(FAR_FUTURE_MS)
+        setTiebreakDeadlineMs(new Date(pending.startedAt).getTime() + pending.question.timeLimit * 1000)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
 
         channelRef.current?.send({
@@ -735,7 +735,7 @@ export function GameScreen({
         setAnsweredPlayerIds(new Set())
         setGraceDeadlineMs(FAR_FUTURE_MS)
         setPendingTiebreak(null)
-        setTiebreakDeadlineMs(FAR_FUTURE_MS)
+        setTiebreakDeadlineMs(new Date(payload.startedAt).getTime() + payload.question.timeLimit * 1000)
         setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
       })
       .on('broadcast', { event: 'round:answered' }, ({ payload }) => {

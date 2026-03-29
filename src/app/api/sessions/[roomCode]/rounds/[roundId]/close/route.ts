@@ -85,7 +85,7 @@ async function createTiebreakRound(
   const usedIds = (usedRows ?? []).map((r: any) => r.question_id as string)
 
   let questionQuery = supabase.from('questions').select('id, text, answer, category, time_limit')
-  if (category !== 'all') questionQuery = questionQuery.eq('category', category)
+  if (category !== 'all') questionQuery = questionQuery.ilike('category', category)
   const { data: questionRows } = await questionQuery
   const available = ((questionRows ?? []) as any[]).filter((q: any) => !usedIds.includes(q.id))
 
