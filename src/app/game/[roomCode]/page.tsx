@@ -23,7 +23,7 @@ export default async function GamePage({ params }: Props) {
   // Get current (latest) round
   const { data: round } = await supabase
     .from('rounds')
-    .select('id, round_number, status, started_at, question_id')
+    .select('id, round_number, status, started_at, question_id, options')
     .eq('session_id', session.id)
     .order('round_number', { ascending: false })
     .limit(1)
@@ -94,6 +94,7 @@ export default async function GamePage({ params }: Props) {
           text: question.text,
           timeLimit: question.time_limit,
           category: question.category,
+          options: round.options ?? undefined,
         }}
         initialStartedAt={round.started_at}
         initialRevealData={revealData}
