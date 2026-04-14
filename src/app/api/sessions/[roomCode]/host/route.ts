@@ -8,13 +8,13 @@ export async function PATCH(
 ) {
   const { roomCode } = await params
   const body = await req.json()
-  const { playerId } = body
+  const { playerId, requesterId } = body
 
   if (!isValidRoomCode(roomCode)) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
-  if (!playerId) {
-    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  if (!playerId || !requesterId) {
+    return NextResponse.json({ error: 'playerId and requesterId required' }, { status: 400 })
   }
 
   const supabase = createServerClient()
@@ -26,6 +26,10 @@ export async function PATCH(
     .single()
 
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+  if (session.host_id !== requesterId) {
+    return NextResponse.json({ error: 'Only the current host can transfer host' }, { status: 403 })
+  }
 
   // Verify new host is a player in this session
   const { data: newHostPlayer } = await supabase

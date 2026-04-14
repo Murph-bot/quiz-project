@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ playerId: 'host-1' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -17,7 +17,7 @@ const params = (roomCode: string, roundId: string) => ({
 })
 
 // A session with 3 active players in normal phase
-const mockSessionSD = { id: 'sess-sd', phase: 'normal', category: 'all' }
+const mockSessionSD = { id: 'sess-sd', phase: 'normal', category: 'all', host_id: 'host-1', bracket: null }
 const mockQuestion = { answer: 1989 }
 
 // 3 active players for sudden death tests
@@ -104,10 +104,17 @@ function makeSuddenDeathAllTieMock({
           }
         }
         if (n === 2) {
-          // UPDATE status=closed
+          // UPDATE status=closed (atomic: .eq('id').eq('status','active').select().single())
           return {
-            update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockResolvedValue({ error: null }),
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-51' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
           }
         }
         if (n === 3) {
@@ -277,10 +284,17 @@ function makeSuddenDeathNormalElimMock({
           }
         }
         if (n === 2) {
-          // UPDATE status=closed
+          // UPDATE status=closed (atomic: .eq('id').eq('status','active').select().single())
           return {
-            update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockResolvedValue({ error: null }),
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-51' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
           }
         }
         return {
@@ -373,12 +387,12 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — sudden death'
   })
 
   it('eliminates normally in sudden death when not all players are tied', async () => {
-    // p3 has the worst delta alone — normal single elimination, no replay
-    // correct answer = 1989; p1→delta=0, p2→delta=2, p3→delta=100
+    // p1 and p2 answer correctly, p3 answers wrong — binary scoring eliminates only p3
+    // correct answer = 1989; p1→correct, p2→correct, p3→wrong
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // delta=0
-      { player_id: 'p2', value: 1991, players: { nickname: 'Bob' } },   // delta=2
-      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } }, // delta=100 (sole worst)
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
+      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } }, // wrong → eliminated
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeSuddenDeathNormalElimMock({ rawAnswers: answers, aliveCountAfterElim: 2, roundNumber: 51 })

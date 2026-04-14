@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ playerId: 'host-1' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -17,7 +17,7 @@ const params = (roomCode: string, roundId: string) => ({
 })
 
 // A session with 5 active players in normal phase
-const mockSession5 = { id: 'sess-5', phase: 'normal', category: 'all' }
+const mockSession5 = { id: 'sess-5', phase: 'normal', category: 'all', host_id: 'host-1', bracket: null }
 const mockQuestion = { answer: 1989 }
 
 // 5 active players
@@ -108,10 +108,17 @@ function makeDetectionMock({
           }
         }
         if (n === 2) {
-          // UPDATE status=closed
+          // UPDATE status=closed (atomic: .eq('id').eq('status','active').select().single())
           return {
-            update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockResolvedValue({ error: null }),
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
           }
         }
         if (n === 3) {
@@ -334,10 +341,17 @@ function makeResolutionMock({
           }
         }
         if (n === 2) {
-          // UPDATE status=closed
+          // UPDATE status=closed (atomic: .eq('id').eq('status','active').select().single())
           return {
-            update: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockResolvedValue({ error: null }),
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'tb-round-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
           }
         }
         if (n === 3) {
@@ -476,43 +490,38 @@ function makeResolutionMock({
 describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — tiebreak', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  // ---- DETECTION TESTS ----
+  // ---- BINARY SCORING TESTS (5-player rounds) ----
 
-  it('returns tiebreakNeeded:true and empty eliminated when 5 alive and exactly 2 tied for max delta', async () => {
-    // p4 and p5 both have delta=100 (farthest), p1/p2/p3 have smaller deltas
-    // correct answer = 1989; 1889 → delta=100, 2089 → delta=100
+  it('eliminates all wrong-answer players from a 5-player round', async () => {
+    // p1/p2/p3 answer correctly, p4/p5 answer wrong → p4 and p5 eliminated, 3 remain
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // delta=0
-      { player_id: 'p2', value: 1991, players: { nickname: 'Bob' } },   // delta=2
-      { player_id: 'p3', value: 1995, players: { nickname: 'Carol' } }, // delta=6
-      { player_id: 'p4', value: 1889, players: { nickname: 'Dave' } },  // delta=100
-      { player_id: 'p5', value: 2089, players: { nickname: 'Eve' } },   // delta=100
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
+      { player_id: 'p3', value: 1989, players: { nickname: 'Carol' } }, // correct
+      { player_id: 'p4', value: 1889, players: { nickname: 'Dave' } },  // wrong → eliminated
+      { player_id: 'p5', value: 2089, players: { nickname: 'Eve' } },   // wrong → eliminated
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 5, tiebreakDetected: true })
+      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 3 })
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.tiebreakNeeded).toBe(true)
-    expect(body.eliminated).toEqual([])
-    expect(body.tiebreakRoundId).toBe('tb-round-1')
-    expect(body.tiebreakQuestion).not.toBeNull()
-    expect(body.tiebreakQuestion.id).toBe('q-tb')
-    expect(body.tiebreakPlayerIds).toHaveLength(2)
-    expect(body.tiebreakPlayerIds).toContain('p4')
-    expect(body.tiebreakPlayerIds).toContain('p5')
-    expect(body.tiebreakStartedAt).toBe('2024-01-01T00:00:00Z')
+    expect(body.tiebreakNeeded).toBe(false)
+    expect(body.eliminated).toHaveLength(2)
+    const nicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
+    expect(nicknames).toEqual(['Dave', 'Eve'])
+    expect(body.bracketReady).toBe(false)
   })
 
-  it('eliminates normally (4 remain, bracketReady:true) when 5 alive but only 1 player has max delta', async () => {
-    // Only p5 has the max delta — normal elimination, 4 remain → bracketReady
+  it('bracketReady:true when exactly 4 players remain after binary elimination', async () => {
+    // p1-p4 answer correctly, p5 answers wrong → 1 eliminated, 4 remain → bracketReady
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // delta=0
-      { player_id: 'p2', value: 1991, players: { nickname: 'Bob' } },   // delta=2
-      { player_id: 'p3', value: 1995, players: { nickname: 'Carol' } }, // delta=6
-      { player_id: 'p4', value: 1985, players: { nickname: 'Dave' } },  // delta=4
-      { player_id: 'p5', value: 1889, players: { nickname: 'Eve' } },   // delta=100 (sole worst)
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
+      { player_id: 'p3', value: 1989, players: { nickname: 'Carol' } }, // correct
+      { player_id: 'p4', value: 1989, players: { nickname: 'Dave' } },  // correct
+      { player_id: 'p5', value: 1889, players: { nickname: 'Eve' } },   // wrong → eliminated
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 4 })
@@ -527,14 +536,14 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — tiebreak', ()
     expect(body.bracket).not.toBeNull()
   })
 
-  it('eliminates all 3 normally when 5 alive but 3 tied for worst', async () => {
-    // p3, p4, p5 all have delta=100 — 3 tied → normal elimination (not a 2-way tie)
+  it('eliminates multiple wrong-answer players, bracketReady:false when 2 remain', async () => {
+    // p1/p2 answer correctly, p3/p4/p5 answer wrong → 3 eliminated, 2 remain
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // delta=0
-      { player_id: 'p2', value: 1991, players: { nickname: 'Bob' } },   // delta=2
-      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } }, // delta=100
-      { player_id: 'p4', value: 2089, players: { nickname: 'Dave' } },  // delta=100
-      { player_id: 'p5', value: 1889, players: { nickname: 'Eve' } },   // delta=100
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
+      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } }, // wrong → eliminated
+      { player_id: 'p4', value: 2089, players: { nickname: 'Dave' } },  // wrong → eliminated
+      { player_id: 'p5', value: 1889, players: { nickname: 'Eve' } },   // wrong → eliminated
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 2 })

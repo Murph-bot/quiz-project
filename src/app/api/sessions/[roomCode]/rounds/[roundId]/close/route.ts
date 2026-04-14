@@ -244,8 +244,20 @@ export async function POST(
       }))
       .sort((a, b) => a.delta - b.delta)
 
-    // Mark round as closed
-    await supabase.from('rounds').update({ status: 'closed' }).eq('id', roundId)
+    // Atomic close for bracket phase
+    const { data: bracketClosedRound, error: bracketUpdateError } = await supabase
+      .from('rounds')
+      .update({ status: 'closed' })
+      .eq('id', roundId)
+      .eq('status', 'active')
+      .select('id')
+      .single()
+    if (bracketUpdateError && bracketUpdateError.code !== 'PGRST116') {
+      return NextResponse.json({ error: 'Failed to close round' }, { status: 500 })
+    }
+    if (!bracketClosedRound) {
+      return NextResponse.json({ wasAlreadyClosed: true })
+    }
 
     // Handle missing answer (treat as infinite delta)
     const p1delta = p1ans?.delta ?? Number.MAX_SAFE_INTEGER
@@ -343,10 +355,21 @@ export async function POST(
   }
   // --- END BRACKET PHASE LOGIC ---
 
-  const { error: updateError } = await supabase.from('rounds').update({ status: 'closed' }).eq('id', roundId)
+  // Atomic close: only succeeds if the round is still active.
+  // If another concurrent request already closed it, data will be null → return wasAlreadyClosed.
+  const { data: closedRound, error: updateError } = await supabase
+    .from('rounds')
+    .update({ status: 'closed' })
+    .eq('id', roundId)
+    .eq('status', 'active')
+    .select('id')
+    .single()
 
-  if (updateError) {
+  if (updateError && updateError.code !== 'PGRST116') {
     return NextResponse.json({ error: 'Failed to close round' }, { status: 500 })
+  }
+  if (!closedRound) {
+    return NextResponse.json({ wasAlreadyClosed: true })
   }
 
   const { data: question, error: questionError } = await supabase

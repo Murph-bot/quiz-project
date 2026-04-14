@@ -23,6 +23,7 @@ function makeSupabase({
   roundStatus = 'active',
   insertError = null as null | { code: string; message: string },
   tiebreakPlayers = undefined as string[] | null | undefined,
+  playerInSession = true,
 } = {}) {
   return {
     from: jest.fn().mockImplementation((table: string) => {
@@ -40,6 +41,20 @@ function makeSupabase({
           single: jest.fn().mockResolvedValue({
             data: { ...mockRound, status: roundStatus, tiebreak_players: tiebreakPlayers ?? null },
             error: null,
+          }),
+        }
+      }
+      if (table === 'players') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: playerInSession ? { id: 'p1' } : null,
+                  error: playerInSession ? null : { message: 'not found' },
+                }),
+              }),
+            }),
           }),
         }
       }

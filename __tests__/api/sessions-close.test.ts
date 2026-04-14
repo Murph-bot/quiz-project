@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify({ playerId: 'host-1' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -16,7 +16,7 @@ const params = (roomCode: string, roundId: string) => ({
   params: Promise.resolve({ roomCode, roundId }),
 })
 
-const mockSession = { id: 'sess-1' }
+const mockSession = { id: 'sess-1', host_id: 'host-1', phase: 'normal', category: 'all', bracket: null }
 const mockQuestion = { answer: 1989 }
 const mockRawAnswers = [
   { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
@@ -73,12 +73,22 @@ function makeCloseMock({
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({
-              data: { id: 'round-1', status: roundStatus, question_id: 'q-1' },
+              data: { id: 'round-1', status: roundStatus, question_id: 'q-1', tiebreak_players: null, round_number: 1 },
               error: null,
             }),
           }
         }
-        return { update: jest.fn().mockReturnThis(), eq: jest.fn().mockResolvedValue({ error: null }) }
+        return {
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                select: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                }),
+              }),
+            }),
+          }),
+        }
       }
       if (table === 'questions') {
         return {
@@ -186,11 +196,16 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
 
   // --- Layer 4: new test cases ---
 
-  it('eliminates the player with the highest delta', async () => {
-    ;(createServerClient as jest.Mock).mockReturnValue(makeCloseMock({ aliveCountAfterElim: 2 }))
+  it('eliminates all wrong-answer players (binary scoring)', async () => {
+    // Only Maria answers wrong — Alex and Nick answer correctly
+    const onlyMariaWrong = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },  // delta=0 correct
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } }, // delta=16 wrong → eliminated
+      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },  // delta=0 correct
+    ]
+    ;(createServerClient as jest.Mock).mockReturnValue(makeCloseMock({ rawAnswers: onlyMariaWrong, aliveCountAfterElim: 2 }))
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
-    // Maria has delta=16, the highest
     expect(body.eliminated).toHaveLength(1)
     expect(body.eliminated[0].nickname).toBe('Maria')
     expect(body.eliminated[0].playerId).toBe('p2')
@@ -217,10 +232,10 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
   })
 
   it('eliminates no-answer players (treated as infinite delta)', async () => {
-    // p3 did not answer — only p1 and p2 have answers
+    // p3 did not answer — p1 and p2 both answer correctly, only p3 is eliminated
     const partialAnswers = [
       { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
-      { player_id: 'p2', value: 1991, players: { nickname: 'Maria' } },
+      { player_id: 'p2', value: 1989, players: { nickname: 'Maria' } },
     ]
     const allActivePlayers = [
       { id: 'p1', nickname: 'Alex' },

@@ -82,7 +82,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
             fetch(`/api/sessions/${roomCode}/host`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId: newHostId }),
+              body: JSON.stringify({ playerId: newHostId, requesterId: playerId }),
             })
           }
         }

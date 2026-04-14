@@ -47,11 +47,22 @@ describe('POST /api/sessions/[roomCode]/join', () => {
   })
 
   it('returns 409 if session already started', async () => {
+    let sessionsCalled = 0
     ;(createServerClient as jest.Mock).mockReturnValue({
-      from: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: { ...mockSession, status: 'active' }, error: null }),
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { ...mockSession, status: 'active' }, error: null }),
+          }
+        }
+        // players table: no existing player found (new joiner, not a spectator reconnect)
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: null, error: { message: 'not found' } }),
+        }
       }),
     })
 
