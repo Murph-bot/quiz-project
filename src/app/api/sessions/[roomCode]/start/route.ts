@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
-
-function generateOptions(correct: number): number[] {
-  if (correct === 0) return [0, 1, 5].sort(() => Math.random() - 0.5)
-  const nearbyPct = 0.15 + Math.random() * 0.15
-  const nearbySign = Math.random() < 0.5 ? 1 : -1
-  let nearby = Math.round(correct * (1 + nearbySign * nearbyPct))
-  if (nearby === correct) nearby = correct + nearbySign * Math.max(1, Math.round(correct * 0.15))
-  if (nearby <= 0) nearby = correct + Math.max(1, Math.round(correct * 0.15))
-  const outlierPct = 0.5 + Math.random()
-  const outlierSign = Math.random() < 0.5 ? 1 : -1
-  let outlier = Math.round(correct * (1 + outlierSign * outlierPct))
-  if (outlier <= 0 || outlier === correct || outlier === nearby) {
-    outlier = Math.round(correct * 3)
-  }
-  return [correct, nearby, outlier].sort(() => Math.random() - 0.5)
-}
+import { generateOptions } from '@/lib/generateOptions'
 
 export async function POST(
   req: NextRequest,

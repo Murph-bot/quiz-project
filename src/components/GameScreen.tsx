@@ -750,6 +750,27 @@ export function GameScreen({
         setIsGracePeriod(true)
         setGraceDeadlineMs(payload.graceDeadlineMs)
       })
+      .on('broadcast', { event: 'all:answered' }, ({ payload }) => {
+        if (payload.roundId !== roundIdRef.current) return
+        // Non-host clients: informational only — host will close and broadcast round:closed
+        // Host: close immediately if not already closing
+        if (!isHost) return
+        if (roundClosedRef.current) return
+        if (graceTimeoutRef.current) {
+          clearTimeout(graceTimeoutRef.current)
+          graceTimeoutRef.current = null
+        }
+        setIsGracePeriod(false)
+        setGraceDeadlineMs(FAR_FUTURE_MS)
+        fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, sessionSecret }),
+        })
+          .then(r => r.json())
+          .then(data => handleCloseData(data))
+          .catch(() => {})
+      })
       .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
         setCurrentHostId(payload.hostId)
         currentHostIdRef.current = payload.hostId
@@ -796,6 +817,7 @@ export function GameScreen({
       body: JSON.stringify({ playerId, sessionSecret, value }),
     })
     if (res.ok) {
+      const data = await res.json()
       setPhase('waiting')
       // Track own answer locally — Supabase broadcasts are not delivered back to sender
       setAnsweredPlayerIds(prev => new Set([...prev, playerId]))
@@ -804,6 +826,32 @@ export function GameScreen({
         event: 'round:answered',
         payload: { roundId: roundIdRef.current, playerId },
       })
+
+      // Server confirmed all alive players have answered — close immediately
+      if (data.allAnswered) {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'all:answered',
+          payload: { roundId: roundIdRef.current },
+        })
+        if (isHost) {
+          // Clear any pending grace period timeout before closing
+          if (graceTimeoutRef.current) {
+            clearTimeout(graceTimeoutRef.current)
+            graceTimeoutRef.current = null
+          }
+          setIsGracePeriod(false)
+          setGraceDeadlineMs(FAR_FUTURE_MS)
+          fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId, sessionSecret }),
+          })
+            .then(r => r.json())
+            .then(closeData => handleCloseData(closeData))
+            .catch(() => {})
+        }
+      }
     }
   }
 

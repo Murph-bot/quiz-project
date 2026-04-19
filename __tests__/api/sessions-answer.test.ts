@@ -24,9 +24,19 @@ function makeSupabase({
   insertError = null as null | { code: string; message: string },
   tiebreakPlayers = undefined as string[] | null | undefined,
   playerInSession = true,
+  answerCount = 1,
+  aliveCount = 1,
 } = {}) {
+  // Track how many times each table has been called so we can distinguish
+  // the credential-check players query from the alive-count players query,
+  // and the insert answers query from the count answers query.
+  const callCounts: Record<string, number> = {}
+
   return {
     from: jest.fn().mockImplementation((table: string) => {
+      callCounts[table] = (callCounts[table] ?? 0) + 1
+      const callIndex = callCounts[table] // 1-based
+
       if (table === 'sessions') {
         return {
           select: jest.fn().mockReturnThis(),
@@ -45,27 +55,68 @@ function makeSupabase({
         }
       }
       if (table === 'players') {
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
+        if (callIndex === 1) {
+          // First call: credential check
+          return {
+            select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
-                  single: jest.fn().mockResolvedValue({
-                    data: playerInSession ? { id: 'p1' } : null,
-                    error: playerInSession ? null : { message: 'not found' },
+                  eq: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({
+                      data: playerInSession ? { id: 'p1' } : null,
+                      error: playerInSession ? null : { message: 'not found' },
+                    }),
                   }),
                 }),
               }),
             }),
-          }),
+          }
+        }
+        // Second call: alive count query
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          then: undefined,
+          // Supabase count queries resolve directly on the builder
+          // We simulate it by making the chain thenable
+          __resolved: Promise.resolve({ count: aliveCount, error: null }),
+          ...makeThenableChain({ count: aliveCount, error: null }),
         }
       }
-      // answers
+      if (table === 'answers') {
+        if (callIndex === 1) {
+          // First call: insert
+          return {
+            insert: jest.fn().mockResolvedValue({ error: insertError }),
+          }
+        }
+        // Second call: count query
+        return makeThenableChain({ count: answerCount, error: null })
+      }
       return {
         insert: jest.fn().mockResolvedValue({ error: insertError }),
       }
     }),
   }
+}
+
+// Creates a chainable mock that resolves to `result` when awaited.
+// Supabase builders are awaited directly after chaining .select().eq()...
+function makeThenableChain(result: object) {
+  const chain: Record<string, unknown> = {}
+  const resolved = Promise.resolve(result)
+  // Make the object itself thenable so `await supabase.from(...).select(...).eq(...)` works
+  chain.then = resolved.then.bind(resolved)
+  chain.catch = resolved.catch.bind(resolved)
+  chain.finally = resolved.finally.bind(resolved)
+  // All chaining methods return the same thenable object
+  const proxy: Record<string, unknown> = new Proxy(chain, {
+    get(target, prop) {
+      if (prop in target) return target[prop]
+      return () => proxy
+    },
+  })
+  return proxy
 }
 
 describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
@@ -148,5 +199,31 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ tiebreakPlayers: [] }))
     const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
     expect(res.status).toBe(403)
+  })
+
+  it('returns allAnswered: true when this answer completes the round', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ answerCount: 3, aliveCount: 3 }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.allAnswered).toBe(true)
+  })
+
+  it('returns allAnswered: false when not all players have answered yet', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ answerCount: 2, aliveCount: 3 }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.allAnswered).toBe(false)
+  })
+
+  it('returns allAnswered: false when aliveCount is 0', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ answerCount: 0, aliveCount: 0 }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.allAnswered).toBe(false)
   })
 })
