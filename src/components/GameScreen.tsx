@@ -752,9 +752,8 @@ export function GameScreen({
       })
       .on('broadcast', { event: 'all:answered' }, ({ payload }) => {
         if (payload.roundId !== roundIdRef.current) return
-        // Non-host clients: informational only — host will close and broadcast round:closed
-        // Host: close immediately if not already closing
-        if (!isHost) return
+        // Only the current host should close. Use ref (not stale closure isHost).
+        if (currentHostIdRef.current !== playerId) return
         if (roundClosedRef.current) return
         if (graceTimeoutRef.current) {
           clearTimeout(graceTimeoutRef.current)
