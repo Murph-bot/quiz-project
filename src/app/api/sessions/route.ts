@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (sessionError) {
       // Unique constraint violation on room_code — retry with new code
       if (sessionError.code === '23505') continue
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to create session', _debug: sessionError.message, _code: sessionError.code }, { status: 500 })
     }
 
     const { data: session, error: fetchError } = await supabase
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   })
 
   if (playerError) {
-    return NextResponse.json({ error: 'Failed to create player' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create player', _debug: playerError.message, _code: playerError.code }, { status: 500 })
   }
 
   return NextResponse.json({ roomCode, playerId, sessionSecret }, { status: 201 })
