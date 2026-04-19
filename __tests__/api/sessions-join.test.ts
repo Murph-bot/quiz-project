@@ -121,5 +121,6 @@ describe('POST /api/sessions/[roomCode]/join', () => {
 
     expect(res.status).toBe(201)
     expect(body).toHaveProperty('playerId')
+    expect(body).toHaveProperty('sessionSecret')
   })
 })

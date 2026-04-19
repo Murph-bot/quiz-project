@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServerClient()
   const playerId = crypto.randomUUID()
+  const sessionSecret = crypto.randomUUID()
 
   // Retry on room code collision (unique constraint)
   let roomCode: string | null = null
@@ -57,11 +58,12 @@ export async function POST(req: NextRequest) {
     session_id: sessionId,
     nickname,
     is_host: true,
+    session_secret: sessionSecret,
   })
 
   if (playerError) {
     return NextResponse.json({ error: 'Failed to create player' }, { status: 500 })
   }
 
-  return NextResponse.json({ roomCode, playerId }, { status: 201 })
+  return NextResponse.json({ roomCode, playerId, sessionSecret }, { status: 201 })
 }

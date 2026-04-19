@@ -58,6 +58,7 @@ describe('POST /api/sessions', () => {
     expect(res.status).toBe(201)
     expect(body).toHaveProperty('roomCode')
     expect(body).toHaveProperty('playerId')
+    expect(body).toHaveProperty('sessionSecret')
     expect(body.roomCode).toMatch(/^[A-Z0-9]{4}$/)
   })
 

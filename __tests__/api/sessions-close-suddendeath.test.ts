@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({ playerId: 'host-1' }),
+    body: JSON.stringify({ playerId: 'host-1', sessionSecret: 'host-secret' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -190,6 +190,14 @@ function makeSuddenDeathAllTieMock({
       if (table === 'players') {
         const n = next('players')
         if (n === 1) {
+          // Verify sessionSecret: .select('id').eq('id', playerId).eq('session_secret', secret).single()
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
           // SELECT active players
           return {
             select: jest.fn().mockReturnValue({
@@ -199,7 +207,7 @@ function makeSuddenDeathAllTieMock({
             }),
           }
         }
-        if (n === 2) {
+        if (n === 3) {
           // SELECT COUNT alive (skippedElimination=true so no UPDATE, but aliveCount SELECT always runs)
           return {
             select: jest.fn().mockReturnValue({
@@ -322,6 +330,14 @@ function makeSuddenDeathNormalElimMock({
       if (table === 'players') {
         const n = next('players')
         if (n === 1) {
+          // Verify sessionSecret: .select('id').eq('id', playerId).eq('session_secret', secret).single()
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
           // SELECT active players
           return {
             select: jest.fn().mockReturnValue({
@@ -331,7 +347,7 @@ function makeSuddenDeathNormalElimMock({
             }),
           }
         }
-        if (n === 2) {
+        if (n === 3) {
           // UPDATE is_alive=false for eliminated player
           return {
             update: jest.fn().mockReturnValue({
@@ -339,7 +355,7 @@ function makeSuddenDeathNormalElimMock({
             }),
           }
         }
-        if (n === 3) {
+        if (n === 4) {
           // SELECT COUNT alive after elimination
           return {
             select: jest.fn().mockReturnValue({

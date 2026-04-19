@@ -22,7 +22,7 @@ describe('POST /api/sessions/[roomCode]/start', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('returns 400 for invalid room code', async () => {
-    const res = await POST(makeRequest('!!!', { playerId: 'p1' }), params('!!!'))
+    const res = await POST(makeRequest('!!!', { playerId: 'p1', sessionSecret: 'secret-1' }), params('!!!'))
     expect(res.status).toBe(400)
   })
 
@@ -39,7 +39,7 @@ describe('POST /api/sessions/[roomCode]/start', () => {
         single: jest.fn().mockResolvedValue({ data: null, error: { message: 'not found' } }),
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(404)
   })
 
@@ -60,8 +60,40 @@ describe('POST /api/sessions/[roomCode]/start', () => {
         }
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(403)
+  })
+
+  it('returns 400 if fewer than 3 players', async () => {
+    let playersCallCount = 0
+    ;(createServerClient as jest.Mock).mockReturnValue({
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        // players: first call is host check (has .single()), second call is count (no .single())
+        playersCallCount++
+        if (playersCallCount === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+          }
+        }
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ count: 2, error: null }) }),
+        }
+      }),
+    })
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toBe('Need at least 3 players to start')
   })
 
   it('returns 409 if session is already active', async () => {
@@ -81,11 +113,12 @@ describe('POST /api/sessions/[roomCode]/start', () => {
         }
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 409 if no questions available', async () => {
+    let playersCallCount = 0
     ;(createServerClient as jest.Mock).mockReturnValue({
       from: jest.fn().mockImplementation((table: string) => {
         if (table === 'sessions') {
@@ -96,10 +129,17 @@ describe('POST /api/sessions/[roomCode]/start', () => {
           }
         }
         if (table === 'players') {
+          playersCallCount++
+          if (playersCallCount === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+            }
+          }
           return {
             select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+            eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ count: 5, error: null }) }),
           }
         }
         // questions — empty result, thenable
@@ -107,19 +147,27 @@ describe('POST /api/sessions/[roomCode]/start', () => {
         return { select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue(result), then: result.then.bind(result) }) }
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 200 with round data including question shape on success', async () => {
     let sessionsCount = 0
+    let playersCallCount = 0
     ;(createServerClient as jest.Mock).mockReturnValue({
       from: jest.fn().mockImplementation((table: string) => {
         if (table === 'players') {
+          playersCallCount++
+          if (playersCallCount === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+            }
+          }
           return {
             select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+            eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ count: 5, error: null }) }),
           }
         }
         if (table === 'questions') {
@@ -145,7 +193,7 @@ describe('POST /api/sessions/[roomCode]/start', () => {
         return { update: jest.fn().mockReturnThis(), eq: jest.fn().mockResolvedValue({ error: null }) }
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('roundId', 'round-1')

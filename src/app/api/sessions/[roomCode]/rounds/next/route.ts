@@ -26,13 +26,13 @@ export async function POST(
 ) {
   const { roomCode } = await params
   const body = await req.json()
-  const { playerId } = body
+  const { playerId, sessionSecret } = body
 
   if (!isValidRoomCode(roomCode)) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
-  if (!playerId) {
-    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  if (!playerId || !sessionSecret) {
+    return NextResponse.json({ error: 'playerId and sessionSecret required' }, { status: 400 })
   }
 
   const supabase = createServerClient()
@@ -52,6 +52,7 @@ export async function POST(
     .select('is_host')
     .eq('id', playerId)
     .eq('session_id', session.id)
+    .eq('session_secret', sessionSecret)
     .single()
 
   if (playerError || !player || !player.is_host) {

@@ -40,6 +40,7 @@ export default function HomeScreen() {
       if (!res.ok) { setError(data.error ?? 'Failed to create game'); return }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
+      sessionStorage.setItem('sessionSecret', data.sessionSecret)
       router.push(`/lobby/${data.roomCode}`)
     } catch {
       setError('Network error — please try again')
@@ -63,6 +64,7 @@ export default function HomeScreen() {
       if (!res.ok) { setError(data.error ?? 'Failed to join game'); return }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
+      sessionStorage.setItem('sessionSecret', data.sessionSecret)
       if (data.spectatorReconnect) {
         router.push(`/game/${code}`)
       } else {

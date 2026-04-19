@@ -57,6 +57,7 @@ export function GameScreen({
   const router = useRouter()
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
   const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
+  const sessionSecret = typeof window !== 'undefined' ? sessionStorage.getItem('sessionSecret') : null
   const [currentHostId, setCurrentHostId] = useState(sessionHostId)
   const currentHostIdRef = useRef(sessionHostId)
   useEffect(() => { currentHostIdRef.current = currentHostId }, [currentHostId])
@@ -388,7 +389,7 @@ export function GameScreen({
       fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, sessionSecret }),
       })
         .then(r => r.json())
         .then(data => handleCloseData(data))
@@ -441,7 +442,7 @@ export function GameScreen({
       fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, sessionSecret }),
       }).then(r => r.json()).then(data => handleCloseData(data)).catch(() => {})
     }
     if (remaining <= 0) { closeRound(); return }
@@ -470,7 +471,7 @@ export function GameScreen({
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId }),
+      body: JSON.stringify({ playerId, sessionSecret }),
     })
       .then(r => r.json())
       .then(data => handleCloseData(data))
@@ -488,7 +489,7 @@ export function GameScreen({
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId }),
+      body: JSON.stringify({ playerId, sessionSecret }),
     })
       .then(r => r.json())
       .then(data => handleCloseData(data))
@@ -546,7 +547,7 @@ export function GameScreen({
       fetch(`/api/sessions/${roomCode}/rounds/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId }),
+        body: JSON.stringify({ playerId, sessionSecret }),
       })
         .then(r => r.json())
         .then(data => {
@@ -773,7 +774,7 @@ export function GameScreen({
             fetch(`/api/sessions/${roomCode}/host`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId: newHostId, requesterId: playerId }),
+              body: JSON.stringify({ playerId: newHostId, requesterId: playerId, sessionSecret }),
             })
           }
         }
@@ -792,7 +793,7 @@ export function GameScreen({
     const res = await fetch(`/api/sessions/${roomCode}/rounds/${roundId}/answer`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId, value }),
+      body: JSON.stringify({ playerId, sessionSecret, value }),
     })
     if (res.ok) {
       setPhase('waiting')
@@ -839,7 +840,7 @@ export function GameScreen({
             fetch(`/api/sessions/${roomCode}/rounds/next`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId }),
+              body: JSON.stringify({ playerId, sessionSecret }),
             })
               .then(r => r.json())
               .then(nextData => {
@@ -885,7 +886,7 @@ export function GameScreen({
             fetch(`/api/sessions/${roomCode}/rounds/next`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId }),
+              body: JSON.stringify({ playerId, sessionSecret }),
             })
               .then(r => r.json())
               .then(nextData => {

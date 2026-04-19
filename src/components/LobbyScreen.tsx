@@ -51,6 +51,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
   const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
+  const sessionSecret = typeof window !== 'undefined' ? sessionStorage.getItem('sessionSecret') : null
   const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
   const isHost = playerId !== null && currentHostId === playerId
 
@@ -82,7 +83,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
             fetch(`/api/sessions/${roomCode}/host`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId: newHostId, requesterId: playerId }),
+              body: JSON.stringify({ playerId: newHostId, requesterId: playerId, sessionSecret }),
             })
           }
         }
@@ -139,7 +140,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     const res = await fetch(`/api/sessions/${roomCode}/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId }),
+      body: JSON.stringify({ playerId, sessionSecret }),
     })
     if (!res.ok) {
       setStarting(false)

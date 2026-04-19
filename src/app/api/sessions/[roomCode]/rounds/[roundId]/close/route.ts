@@ -143,10 +143,10 @@ export async function POST(
   }
 
   const body = await req.json().catch(() => ({}))
-  const { playerId } = body
+  const { playerId, sessionSecret } = body
 
-  if (!playerId) {
-    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  if (!playerId || !sessionSecret) {
+    return NextResponse.json({ error: 'playerId and sessionSecret required' }, { status: 400 })
   }
 
   const supabase = createServerClient()
@@ -159,6 +159,18 @@ export async function POST(
 
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  }
+
+  // Verify sessionSecret matches the player
+  const { data: verifiedPlayer } = await supabase
+    .from('players')
+    .select('id')
+    .eq('id', playerId)
+    .eq('session_secret', sessionSecret)
+    .single()
+
+  if (!verifiedPlayer) {
+    return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
   }
 
   if ((session as any).host_id !== playerId) {
@@ -407,11 +419,7 @@ export async function POST(
 
   const activeList = (activePlayers ?? []) as Array<{ id: string; nickname: string }>
 
-  // If exactly 4 players are alive before elimination, skip elimination and go straight to bracket
   let skippedElimination = false
-  if ((session as any).phase === 'normal' && activeList.length === 4) {
-    skippedElimination = true
-  }
 
   const answeredIds = new Set(answeredPlayers.map(a => a.playerId))
   const noAnswerPlayers: RankedAnswer[] = activeList

@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({ playerId: 'host-1' }),
+    body: JSON.stringify({ playerId: 'host-1', sessionSecret: 'host-secret' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -202,6 +202,14 @@ function makeDetectionMock({
       if (table === 'players') {
         const n = next('players')
         if (n === 1) {
+          // Verify sessionSecret: .select('id').eq('id', playerId).eq('session_secret', secret).single()
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
           // SELECT active players (5)
           return {
             select: jest.fn().mockReturnValue({
@@ -211,9 +219,9 @@ function makeDetectionMock({
             }),
           }
         }
-        if (n === 2) {
+        if (n === 3) {
           if (tiebreakDetected) {
-            // Tiebreak path: no player UPDATE, call 2 is COUNT alive
+            // Tiebreak path: no player UPDATE, call 3 is COUNT alive
             return {
               select: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
@@ -229,7 +237,7 @@ function makeDetectionMock({
             }),
           }
         }
-        if (n === 3) {
+        if (n === 4) {
           // SELECT COUNT alive after elimination (normal path only — tiebreak path exits earlier)
           return {
             select: jest.fn().mockReturnValue({
@@ -239,7 +247,7 @@ function makeDetectionMock({
             }),
           }
         }
-        if (n === 4) {
+        if (n === 5) {
           // SELECT alive players for generateBracketForSession
           return {
             select: jest.fn().mockReturnValue({
@@ -430,6 +438,14 @@ function makeResolutionMock({
       if (table === 'players') {
         const n = next('players')
         if (n === 1) {
+          // Verify sessionSecret: .select('id').eq('id', playerId).eq('session_secret', secret).single()
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
           // SELECT active players
           return {
             select: jest.fn().mockReturnValue({
@@ -439,7 +455,7 @@ function makeResolutionMock({
             }),
           }
         }
-        if (n === 2) {
+        if (n === 3) {
           if (stillTied) {
             // Should not be reached in still-tied path — return empty
             return {}
@@ -451,7 +467,7 @@ function makeResolutionMock({
             }),
           }
         }
-        if (n === 3) {
+        if (n === 4) {
           // SELECT COUNT alive after elimination
           return {
             select: jest.fn().mockReturnValue({
@@ -461,7 +477,7 @@ function makeResolutionMock({
             }),
           }
         }
-        if (n === 4) {
+        if (n === 5) {
           // SELECT alive players for generateBracketForSession
           return {
             select: jest.fn().mockReturnValue({

@@ -148,25 +148,25 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
         }
       }),
     })
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(403)
   })
 
   it('returns 409 if current round is still active', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ latestRoundStatus: 'active' }))
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 409 if no questions available', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ noQuestions: true }))
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(409)
   })
 
   it('returns 200 with new round data on success', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock())
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body).toHaveProperty('roundId', 'round-2')
@@ -180,7 +180,7 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
   it('returns resurrected:null when round number is not a multiple of 5', async () => {
     // round 1 → new round 2, not a multiple of 5
     ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ latestRoundNumber: 1 }))
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.resurrected).toBeNull()
@@ -192,7 +192,7 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeNextMock({ latestRoundNumber: 4 })
     )
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.resurrected).toBeNull()
@@ -207,7 +207,7 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
         eliminatedPlayers: [{ id: 'p-elim', nickname: 'Ghost' }],
       })
     )
-    const res = await POST(makeRequest('AB12', { playerId: 'p1' }), params('AB12'))
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.resurrected).not.toBeNull()

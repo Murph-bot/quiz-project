@@ -7,7 +7,7 @@ import { createServerClient } from '@/lib/supabase-server'
 function makeRequest(roomCode: string, roundId: string) {
   return new NextRequest(`http://localhost/api/sessions/${roomCode}/rounds/${roundId}/close`, {
     method: 'POST',
-    body: JSON.stringify({ playerId: 'host-1' }),
+    body: JSON.stringify({ playerId: 'host-1', sessionSecret: 'host-secret' }),
     headers: { 'Content-Type': 'application/json' },
   })
 }
@@ -106,6 +106,14 @@ function makeCloseMock({
       if (table === 'players') {
         const n = next('players')
         if (n === 1) {
+          // Verify sessionSecret: .select('id').eq('id', playerId).eq('session_secret', secret).single()
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
           // SELECT active players: .select('id, nickname').eq('session_id', ...).eq('is_alive', true)
           return {
             select: jest.fn().mockReturnValue({
@@ -115,14 +123,14 @@ function makeCloseMock({
             }),
           }
         }
-        if (n === 2) {
+        if (n === 3) {
           // UPDATE is_alive = false: .update({is_alive: false}).in('id', [...])
           return {
             update: updatePlayersMock,
             in: jest.fn().mockResolvedValue({ error: null }),
           }
         }
-        if (n === 3) {
+        if (n === 4) {
           // SELECT COUNT: .select('id', {count:'exact',head:true}).eq().eq()
           return {
             select: jest.fn().mockReturnValue({
@@ -132,7 +140,7 @@ function makeCloseMock({
             }),
           }
         }
-        if (n === 4) {
+        if (n === 5) {
           // SELECT survivors: .select().eq().eq().limit(1)
           return {
             select: jest.fn().mockReturnValue({
@@ -296,6 +304,205 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     const body = await res.json()
     expect(body.gameOver).toBe(false)
     expect(body.winner).toBeNull()
+  })
+
+  it('eliminates players normally when 4 are alive and some answer wrong', async () => {
+    // 4 players alive, 2 answer wrong → should eliminate 2, leaving 2 alive (no bracket)
+    const fourPlayers = [
+      { id: 'p1', nickname: 'Alex' },
+      { id: 'p2', nickname: 'Maria' },
+      { id: 'p3', nickname: 'Nick' },
+      { id: 'p4', nickname: 'Lena' },
+    ]
+    const fourAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },  // correct
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } }, // wrong
+      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },  // correct
+      { player_id: 'p4', value: 2010, players: { nickname: 'Lena' } },  // wrong
+    ]
+    const updatePlayersMock = jest.fn().mockReturnValue({
+      in: jest.fn().mockResolvedValue({ error: null }),
+    })
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeCloseMock({
+        rawAnswers: fourAnswers,
+        activePlayers: fourPlayers,
+        aliveCountAfterElim: 2,
+        updatePlayersMock,
+      })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    const body = await res.json()
+    expect(body.eliminated).toHaveLength(2)
+    const eliminatedNicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
+    expect(eliminatedNicknames).toEqual(['Lena', 'Maria'])
+    // Elimination update was called (not skipped)
+    expect(updatePlayersMock).toHaveBeenCalled()
+    expect(body.bracketReady).toBe(false)
+    expect(body.gameOver).toBe(false)
+  })
+
+  it('enters bracket when elimination brings alive count to exactly 4', async () => {
+    // 5 players alive, 1 eliminated → 4 remain → bracket transition
+    const fivePlayers = [
+      { id: 'p1', nickname: 'Alex' },
+      { id: 'p2', nickname: 'Maria' },
+      { id: 'p3', nickname: 'Nick' },
+      { id: 'p4', nickname: 'Lena' },
+      { id: 'p5', nickname: 'Kostas' },
+    ]
+    const fiveAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },   // correct
+      { player_id: 'p2', value: 1989, players: { nickname: 'Maria' } },  // correct
+      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },   // correct
+      { player_id: 'p4', value: 1989, players: { nickname: 'Lena' } },   // correct
+      { player_id: 'p5', value: 2005, players: { nickname: 'Kostas' } }, // wrong → eliminated
+    ]
+
+    // Build a custom mock that handles the extra DB calls from generateBracketForSession
+    const callMap: Record<string, number> = {}
+    function next(key: string) {
+      callMap[key] = (callMap[key] ?? 0) + 1
+      return callMap[key]
+    }
+
+    const updatePlayersMock = jest.fn().mockReturnValue({
+      in: jest.fn().mockResolvedValue({ error: null }),
+    })
+
+    const bracketPlayers = [
+      { id: 'p1', nickname: 'Alex' },
+      { id: 'p2', nickname: 'Maria' },
+      { id: 'p3', nickname: 'Nick' },
+      { id: 'p4', nickname: 'Lena' },
+    ]
+
+    const mock = {
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          const n = next('sessions')
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+            }
+          }
+          // UPDATE phase='semifinal', bracket=...
+          return {
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({ error: null }),
+            }),
+          }
+        }
+        if (table === 'rounds') {
+          const n = next('rounds')
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({
+                data: { id: 'round-1', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
+                error: null,
+              }),
+            }
+          }
+          if (n === 2) {
+            // Round update (close)
+            return {
+              update: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockReturnValue({
+                    select: jest.fn().mockReturnValue({
+                      single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                    }),
+                  }),
+                }),
+              }),
+            }
+          }
+          // n === 3: generateBracketForSession rounds query
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  is: jest.fn().mockResolvedValue({ data: [], error: null }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'questions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockQuestion, error: null }),
+          }
+        }
+        if (table === 'answers') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: fiveAnswers, error: null }),
+          }
+        }
+        if (table === 'players') {
+          const n = next('players')
+          if (n === 1) {
+            // Verify sessionSecret
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+            }
+          }
+          if (n === 2) {
+            // SELECT active players
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ data: fivePlayers, error: null }),
+                }),
+              }),
+            }
+          }
+          if (n === 3) {
+            // UPDATE is_alive = false
+            return { update: updatePlayersMock, in: jest.fn().mockResolvedValue({ error: null }) }
+          }
+          if (n === 4) {
+            // SELECT COUNT alive
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ count: 4, error: null }),
+                }),
+              }),
+            }
+          }
+          if (n === 5) {
+            // generateBracketForSession: SELECT alive players
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ data: bracketPlayers, error: null }),
+                }),
+              }),
+            }
+          }
+          return {}
+        }
+        return {}
+      }),
+    }
+
+    ;(createServerClient as jest.Mock).mockReturnValue(mock)
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    const body = await res.json()
+    expect(body.eliminated).toHaveLength(1)
+    expect(body.eliminated[0].nickname).toBe('Kostas')
+    expect(body.bracketReady).toBe(true)
+    expect(body.bracket).not.toBeNull()
+    expect(body.gameOver).toBe(false)
   })
 
   it('does not call player updates on the already-closed path', async () => {

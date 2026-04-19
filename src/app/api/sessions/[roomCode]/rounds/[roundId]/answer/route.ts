@@ -8,13 +8,13 @@ export async function POST(
 ) {
   const { roomCode, roundId } = await params
   const body = await req.json()
-  const { playerId, value } = body
+  const { playerId, sessionSecret, value } = body
 
   if (!isValidRoomCode(roomCode)) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
-  if (!playerId) {
-    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  if (!playerId || !sessionSecret) {
+    return NextResponse.json({ error: 'playerId and sessionSecret required' }, { status: 400 })
   }
   if (value === undefined || value === null || typeof value !== 'number' || !Number.isInteger(value)) {
     return NextResponse.json({ error: 'value must be an integer' }, { status: 400 })
@@ -52,10 +52,11 @@ export async function POST(
     .select('id')
     .eq('id', playerId)
     .eq('session_id', session.id)
+    .eq('session_secret', sessionSecret)
     .single()
 
   if (!player) {
-    return NextResponse.json({ error: 'Player not in session' }, { status: 403 })
+    return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
   }
 
   const tiebreakPlayers = (round as import('@/types').Round).tiebreak_players ?? null
