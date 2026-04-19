@@ -226,4 +226,24 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     const body = await res.json()
     expect(body.allAnswered).toBe(false)
   })
+
+  it('returns allAnswered: true for tiebreak when both tiebreakers have answered', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ tiebreakPlayers: ['p1', 'p2'], answerCount: 2, aliveCount: 5 })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.allAnswered).toBe(true)
+  })
+
+  it('returns allAnswered: false for tiebreak when only one tiebreaker has answered', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ tiebreakPlayers: ['p1', 'p2'], answerCount: 1, aliveCount: 5 })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.allAnswered).toBe(false)
+  })
 })

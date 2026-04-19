@@ -185,7 +185,10 @@ export function GameScreen({
 
   // Shared close-handling logic extracted to avoid duplication
   function handleCloseData(data: any) {
-    if (data.error) return  // API error — don't process, allow retry
+    if (data.error) {
+      console.error('[close] API error:', data.error)
+      return
+    }
     if (data.wasAlreadyClosed) return
     if (roundClosedRef.current) return
     roundClosedRef.current = true
@@ -383,7 +386,7 @@ export function GameScreen({
     // Skip if already in grace period (new host takeover handled by separate effect)
     if (isGracePeriod) return
 
-    const doClose = (skipGrace = false) => {
+    const doClose = () => {
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
       fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
@@ -393,7 +396,7 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => handleCloseData(data))
-        .catch(() => {})
+        .catch(err => console.error('[close] network error (timer):', err))
     }
 
     // If the timer expired long before this effect ran (stale reconnect), skip grace
@@ -443,7 +446,7 @@ export function GameScreen({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerId, sessionSecret }),
-      }).then(r => r.json()).then(data => handleCloseData(data)).catch(() => {})
+      }).then(r => r.json()).then(data => handleCloseData(data)).catch(err => console.error('[close] network error (recovery):', err))
     }
     if (remaining <= 0) { closeRound(); return }
     graceTimeoutRef.current = setTimeout(() => {
@@ -460,6 +463,7 @@ export function GameScreen({
   useEffect(() => {
     if (!isHost) return
     if (!isGracePeriod) return
+    if (roundClosedRef.current) return
     if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
 
     if (graceTimeoutRef.current) {
@@ -475,7 +479,7 @@ export function GameScreen({
     })
       .then(r => r.json())
       .then(data => handleCloseData(data))
-      .catch(() => {})
+      .catch(err => console.error('[close] network error (grace early):', err))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answeredPlayerIds, isGracePeriod, isHost, aliveCount, roomCode])
 
@@ -484,6 +488,7 @@ export function GameScreen({
     if (!isHost) return
     if (isExpired || isGracePeriod) return
     if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
+    if (roundClosedRef.current) return
     if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
 
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
@@ -493,7 +498,7 @@ export function GameScreen({
     })
       .then(r => r.json())
       .then(data => handleCloseData(data))
-      .catch(() => {})
+      .catch(err => console.error('[close] network error:', err))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answeredPlayerIds, isExpired, isGracePeriod, phase, isHost, aliveCount, roomCode])
 
@@ -768,7 +773,7 @@ export function GameScreen({
         })
           .then(r => r.json())
           .then(data => handleCloseData(data))
-          .catch(() => {})
+          .catch(err => console.error('[close] network error (all:answered):', err))
       })
       .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
         setCurrentHostId(payload.hostId)
@@ -848,7 +853,7 @@ export function GameScreen({
           })
             .then(r => r.json())
             .then(closeData => handleCloseData(closeData))
-            .catch(() => {})
+            .catch(err => console.error('[close] network error (submit):', err))
         }
       }
     }

@@ -80,24 +80,32 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to submit answer' }, { status: 500 })
   }
 
-  // Count how many alive players have answered this round. If all have answered,
+  // Count how many eligible players have answered this round. If all have answered,
   // signal the host so it can close immediately without waiting for the timer.
+  // For tiebreak rounds, only the tiebreak participants are eligible.
   const { count: answerCount } = await supabase
     .from('answers')
     .select('*', { count: 'exact', head: true })
     .eq('round_id', roundId)
 
-  const { count: aliveCount } = await supabase
-    .from('players')
-    .select('*', { count: 'exact', head: true })
-    .eq('session_id', session.id)
-    .eq('is_alive', true)
+  const tiebreakParticipants = Array.isArray(tiebreakPlayers) ? tiebreakPlayers : null
+  let eligibleCount: number | null = null
+  if (tiebreakParticipants) {
+    eligibleCount = tiebreakParticipants.length
+  } else {
+    const { count } = await supabase
+      .from('players')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', session.id)
+      .eq('is_alive', true)
+    eligibleCount = count
+  }
 
   const allAnswered =
     typeof answerCount === 'number' &&
-    typeof aliveCount === 'number' &&
-    aliveCount > 0 &&
-    answerCount >= aliveCount
+    typeof eligibleCount === 'number' &&
+    eligibleCount > 0 &&
+    answerCount >= eligibleCount
 
   return NextResponse.json({ ok: true, allAnswered })
 }
