@@ -159,6 +159,173 @@ function makeCloseMock({
   }
 }
 
+const replayQuestion = {
+  id: 'q-replay',
+  text: 'What year was this?',
+  answer: 2000,
+  category: 'History',
+  time_limit: 10,
+}
+
+function makeAllWrongReplayMock({
+  rawAnswers,
+}: {
+  rawAnswers: Array<{ player_id: string; value: number; players: { nickname: string } }>
+}) {
+  const threePlayers = [
+    { id: 'p1', nickname: 'Alex' },
+    { id: 'p2', nickname: 'Maria' },
+    { id: 'p3', nickname: 'Nick' },
+  ]
+  const callMap: Record<string, number> = {}
+  function next(key: string) {
+    callMap[key] = (callMap[key] ?? 0) + 1
+    return callMap[key]
+  }
+
+  return {
+    from: jest.fn().mockImplementation((table: string) => {
+      if (table === 'sessions') {
+        if (next('sessions') === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        return {
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        }
+      }
+
+      if (table === 'rounds') {
+        const n = next('rounds')
+        if (n === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: {
+                id: 'round-1',
+                status: 'active',
+                question_id: 'q-1',
+                tiebreak_players: null,
+                round_number: 1,
+              },
+              error: null,
+            }),
+          }
+        }
+        if (n === 2) {
+          return {
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (n === 3) {
+          const roundsData = { data: [], error: null }
+          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+            eq: jest.fn().mockResolvedValue(roundsData),
+            is: jest.fn().mockResolvedValue(roundsData),
+          })
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue(chainableEq),
+            }),
+          }
+        }
+        if (n === 4) {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                order: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue({ data: [{ round_number: 1 }], error: null }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (n === 5) {
+          return {
+            insert: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { id: 'replay-round-1', started_at: '2024-01-01T01:00:00Z' },
+              error: null,
+            }),
+          }
+        }
+        return {}
+      }
+
+      if (table === 'questions') {
+        const n = next('questions')
+        if (n === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockQuestion, error: null }),
+          }
+        }
+        const questionResult = { data: [replayQuestion], error: null }
+        const questionSelectResult = Object.assign(Promise.resolve(questionResult), {
+          eq: jest.fn().mockResolvedValue(questionResult),
+        })
+        return {
+          select: jest.fn().mockReturnValue(questionSelectResult),
+        }
+      }
+
+      if (table === 'answers') {
+        return {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ data: rawAnswers, error: null }),
+        }
+      }
+
+      if (table === 'players') {
+        const n = next('players')
+        if (n === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+          }
+        }
+        if (n === 2) {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ data: threePlayers, error: null }),
+              }),
+            }),
+          }
+        }
+        if (n === 3) {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ count: threePlayers.length, error: null }),
+              }),
+            }),
+          }
+        }
+        return {}
+      }
+
+      return {}
+    }),
+  }
+}
+
 describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
   beforeEach(() => jest.clearAllMocks())
 
@@ -279,21 +446,22 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     expect(body.winner.playerId).toBe('p1')
   })
 
-  it('sets gameOver:true and winner:null when all players are eliminated simultaneously', async () => {
-    // All 3 players tie for worst delta
-    const allTiedAnswers = [
+  it('sets gameOver:false and creates replay when all players answer wrong', async () => {
+    const allWrongAnswers = [
       { player_id: 'p1', value: 2005, players: { nickname: 'Alex' } },
       { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } },
       { player_id: 'p3', value: 2005, players: { nickname: 'Nick' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeCloseMock({ rawAnswers: allTiedAnswers, aliveCountAfterElim: 0 })
+      makeAllWrongReplayMock({ rawAnswers: allWrongAnswers })
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
-    expect(body.gameOver).toBe(true)
+    expect(body.gameOver).toBe(false)
     expect(body.winner).toBeNull()
-    expect(body.eliminated).toHaveLength(3)
+    expect(body.tiebreakNeeded).toBe(true)
+    expect(body.eliminated).toEqual([])
+    expect(body.tiebreakPlayerIds).toEqual(['p1', 'p2', 'p3'])
   })
 
   it('sets gameOver:false and winner:null when 2+ players remain', async () => {

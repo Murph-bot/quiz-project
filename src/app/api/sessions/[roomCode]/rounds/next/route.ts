@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
-
-function generateOptions(correct: number): number[] {
-  if (correct === 0) return [0, 1, 5].sort(() => Math.random() - 0.5)
-  const nearbyPct = 0.15 + Math.random() * 0.15
-  const nearbySign = Math.random() < 0.5 ? 1 : -1
-  let nearby = Math.round(correct * (1 + nearbySign * nearbyPct))
-  if (nearby === correct) nearby = correct + nearbySign * Math.max(1, Math.round(correct * 0.15))
-  if (nearby <= 0) nearby = correct + Math.max(1, Math.round(correct * 0.15))
-
-  const outlierPct = 0.5 + Math.random()
-  const outlierSign = Math.random() < 0.5 ? 1 : -1
-  let outlier = Math.round(correct * (1 + outlierSign * outlierPct))
-  if (outlier <= 0 || outlier === correct || outlier === nearby) {
-    outlier = Math.round(correct * 3)
-  }
-
-  return [correct, nearby, outlier].sort(() => Math.random() - 0.5)
-}
+import { generateOptions } from '@/lib/generateOptions'
+import { generateBracketForSession } from '@/lib/bracket'
 
 export async function POST(
   req: NextRequest,
@@ -142,6 +126,32 @@ export async function POST(
     }
   }
 
+  // If resurrection (or any prior state) leaves exactly 4 alive, enter bracket mode
+  let bracketReady = false
+  let bracket: import('@/types').BracketState | null = null
+
+  if ((session as any).phase === 'normal') {
+    const { count: aliveCount } = await supabase
+      .from('players')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session.id)
+      .eq('is_alive', true)
+
+    if ((aliveCount ?? 0) === 4) {
+      const generatedBracket = await generateBracketForSession(supabase, session.id)
+      if (generatedBracket) {
+        const { error: bracketUpdateError } = await supabase
+          .from('sessions')
+          .update({ phase: 'semifinal', bracket: generatedBracket })
+          .eq('id', session.id)
+        if (!bracketUpdateError) {
+          bracketReady = true
+          bracket = generatedBracket
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     roundId: round.id,
     roundNumber: newRoundNumber,
@@ -150,5 +160,7 @@ export async function POST(
     resurrected,
     isSuddenDeath,
     options,
+    bracketReady,
+    bracket,
   })
 }

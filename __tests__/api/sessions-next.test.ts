@@ -37,6 +37,7 @@ function makeNextMock({
   latestRoundStatus = 'closed' as 'active' | 'closed',
   noQuestions = false,
   eliminatedPlayers = [] as Array<{ id: string; nickname: string }>,
+  aliveCount = 3,
 } = {}) {
   const callMap: Record<string, number> = {}
   function next(key: string) {
@@ -47,10 +48,17 @@ function makeNextMock({
   return {
     from: jest.fn().mockImplementation((table: string) => {
       if (table === 'sessions') {
+        const n = next('sessions')
+        if (n === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
         return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ error: null }),
         }
       }
       if (table === 'questions') {
@@ -62,6 +70,9 @@ function makeNextMock({
       }
       if (table === 'players') {
         const n = next('players')
+        const newRoundNumber = latestRoundNumber + 1
+        const resurrectionRound = newRoundNumber % 5 === 0
+
         if (n === 1) {
           // host check
           return {
@@ -70,7 +81,7 @@ function makeNextMock({
             single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
           }
         }
-        if (n === 2) {
+        if (resurrectionRound && n === 2) {
           // SELECT eliminated players: .select().eq().eq()
           return {
             select: jest.fn().mockReturnValue({
@@ -80,14 +91,21 @@ function makeNextMock({
             }),
           }
         }
-        if (n === 3) {
+        if (resurrectionRound && eliminatedPlayers.length > 0 && n === 3) {
           // UPDATE resurrected player: .update().eq()
           return {
             update: jest.fn().mockReturnThis(),
             eq: jest.fn().mockResolvedValue({ error: null }),
           }
         }
-        return {}
+        // Alive count after optional resurrection
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({ count: aliveCount, error: null }),
+            }),
+          }),
+        }
       }
       if (table === 'rounds') {
         const n = next('rounds')

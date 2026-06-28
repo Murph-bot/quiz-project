@@ -24,6 +24,7 @@ function makeSupabase({
   insertError = null as null | { code: string; message: string },
   tiebreakPlayers = undefined as string[] | null | undefined,
   playerInSession = true,
+  playerIsAlive = true,
   answerCount = 1,
   aliveCount = 1,
 } = {}) {
@@ -63,7 +64,7 @@ function makeSupabase({
                 eq: jest.fn().mockReturnValue({
                   eq: jest.fn().mockReturnValue({
                     single: jest.fn().mockResolvedValue({
-                      data: playerInSession ? { id: 'p1' } : null,
+                      data: playerInSession ? { id: 'p1', is_alive: playerIsAlive } : null,
                       error: playerInSession ? null : { message: 'not found' },
                     }),
                   }),
@@ -193,6 +194,14 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     expect(res.status).toBe(403)
     const body = await res.json()
     expect(body.error).toBe('Invalid credentials')
+  })
+
+  it('returns 403 if player is eliminated', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase({ playerIsAlive: false }))
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('Eliminated players cannot answer')
   })
 
   it('returns 403 for any player when tiebreak_players is an empty array', async () => {

@@ -91,8 +91,6 @@ export function GameScreen({
 
   // Grace period state
   const [answeredPlayerIds, setAnsweredPlayerIds] = useState<Set<string>>(new Set())
-  const answeredCountRef = useRef(0)
-  useEffect(() => { answeredCountRef.current = answeredPlayerIds.size }, [answeredPlayerIds])
 
   const [graceDeadlineMs, setGraceDeadlineMs] = useState<number>(FAR_FUTURE_MS)
 
@@ -101,10 +99,6 @@ export function GameScreen({
   // roundId ref for stale closure guard in broadcast listeners
   const roundIdRef = useRef(roundId)
   useEffect(() => { roundIdRef.current = roundId }, [roundId])
-
-  // aliveCount ref for stale closure guard in grace useEffect
-  const aliveCountRef = useRef(aliveCount)
-  useEffect(() => { aliveCountRef.current = aliveCount }, [aliveCount])
 
   // Bracket state
   const [bracketData, setBracketData] = useState<BracketState | null>(null)
@@ -145,6 +139,56 @@ export function GameScreen({
   useEffect(() => { bracketDataRef.current = bracketData }, [bracketData])
   useEffect(() => { currentMatchPhaseRef.current = currentMatchPhase }, [currentMatchPhase])
 
+  function applyNextRoundResponse(data: any) {
+    if (data.bracketReady && data.bracket) {
+      setBracketData(data.bracket)
+      setCurrentMatchPhase('sf1')
+      setPhase('bracket')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'bracket:ready',
+        payload: { bracket: data.bracket },
+      })
+      return
+    }
+
+    if (data.resurrected?.playerId === playerId) {
+      isSpectatingRef.current = false
+      setIsSpectating(false)
+      setShowResurrectionSelf(true)
+      setTimeout(() => setShowResurrectionSelf(false), 4000)
+    }
+    if (data.resurrected) {
+      setAliveCount(prev => prev + 1)
+    }
+    setResurrected(data.resurrected ?? null)
+    if (data.isSuddenDeath) setIsSuddenDeath(true)
+    setRoundId(data.roundId)
+    setRoundNumber(data.roundNumber)
+    setQuestion({ ...data.question, options: data.options })
+    setStartedAt(data.startedAt)
+    setRevealData(null)
+    setEliminated([])
+    setIsGracePeriod(false)
+    setAnsweredPlayerIds(new Set())
+    setGraceDeadlineMs(FAR_FUTURE_MS)
+    const bd = bracketDataRef.current
+    const mp = currentMatchPhaseRef.current
+    setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'round:started',
+      payload: {
+        roundId: data.roundId,
+        roundNumber: data.roundNumber,
+        question: { ...data.question, options: data.options },
+        startedAt: data.startedAt,
+        resurrected: data.resurrected ?? null,
+        isSuddenDeath: data.isSuddenDeath ?? false,
+      },
+    })
+  }
+
   // Helper: am I competing in the current bracket match?
   function computeAmICompeting(bd: BracketState | null, phase: 'sf1' | 'sf2' | 'final' | null, pid: string | null): boolean {
     if (!bd || !phase || !pid) return true
@@ -180,8 +224,12 @@ export function GameScreen({
   const { secondsLeft: graceSecondsLeft } = useCountdown(isGracePeriod ? graceDeadlineMs : FAR_FUTURE_MS)
 
   const roundClosedRef = useRef(false)
+  const allAnsweredConfirmedRef = useRef(false)
   // Reset when roundId changes so a new round can be closed
-  useEffect(() => { roundClosedRef.current = false }, [roundId])
+  useEffect(() => {
+    roundClosedRef.current = false
+    allAnsweredConfirmedRef.current = false
+  }, [roundId])
 
   // Shared close-handling logic extracted to avoid duplication
   function handleCloseData(data: any) {
@@ -405,8 +453,8 @@ export function GameScreen({
       return
     }
 
-    // If everyone already answered, close immediately (no grace)
-    if (answeredCountRef.current >= aliveCountRef.current && aliveCountRef.current > 0) {
+    // If the server confirmed everyone answered, close immediately (no grace)
+    if (allAnsweredConfirmedRef.current) {
       doClose()
       return
     }
@@ -458,49 +506,6 @@ export function GameScreen({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, isGracePeriod, graceDeadlineMs, roomCode])
-
-  // Early-close watcher: if all alive players answer during grace period, close early (host only)
-  useEffect(() => {
-    if (!isHost) return
-    if (!isGracePeriod) return
-    if (roundClosedRef.current) return
-    if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
-
-    if (graceTimeoutRef.current) {
-      clearTimeout(graceTimeoutRef.current)
-      graceTimeoutRef.current = null
-    }
-    setIsGracePeriod(false)
-    setGraceDeadlineMs(FAR_FUTURE_MS)
-    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId, sessionSecret }),
-    })
-      .then(r => r.json())
-      .then(data => handleCloseData(data))
-      .catch(err => console.error('[close] network error (grace early):', err))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answeredPlayerIds, isGracePeriod, isHost, aliveCount, roomCode])
-
-  // Pre-timer early close: all players answered before the timer expires — close immediately (host only)
-  useEffect(() => {
-    if (!isHost) return
-    if (isExpired || isGracePeriod) return
-    if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
-    if (roundClosedRef.current) return
-    if (answeredPlayerIds.size < aliveCount || aliveCount === 0) return
-
-    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId, sessionSecret }),
-    })
-      .then(r => r.json())
-      .then(data => handleCloseData(data))
-      .catch(err => console.error('[close] network error:', err))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answeredPlayerIds, isExpired, isGracePeriod, phase, isHost, aliveCount, roomCode])
 
   // Auto-advance after reveal
   useEffect(() => {
@@ -556,49 +561,14 @@ export function GameScreen({
       })
         .then(r => r.json())
         .then(data => {
-          if (!data.roundId) {
+          if (!data.roundId && !data.bracketReady) {
             if (data.error === 'No questions available') {
               setQuestionsExhausted(true)
               channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
             }
             return
           }
-          // Check if this player was resurrected
-          if (data.resurrected?.playerId === playerId) {
-            isSpectatingRef.current = false
-            setIsSpectating(false)
-            setShowResurrectionSelf(true)
-            setTimeout(() => setShowResurrectionSelf(false), 4000)
-          }
-          if (data.resurrected) {
-            setAliveCount(prev => prev + 1)
-          }
-          setResurrected(data.resurrected ?? null)
-          if (data.isSuddenDeath) setIsSuddenDeath(true)
-          setRoundId(data.roundId)
-          setRoundNumber(data.roundNumber)
-          setQuestion({ ...data.question, options: data.options })
-          setStartedAt(data.startedAt)
-          setRevealData(null)
-          setEliminated([])
-          setIsGracePeriod(false)
-          setAnsweredPlayerIds(new Set())
-          setGraceDeadlineMs(FAR_FUTURE_MS)
-          const bd = bracketDataRef.current
-          const mp = currentMatchPhaseRef.current
-          setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'round:started',
-            payload: {
-              roundId: data.roundId,
-              roundNumber: data.roundNumber,
-              question: { ...data.question, options: data.options },
-              startedAt: data.startedAt,
-              resurrected: data.resurrected ?? null,
-              isSuddenDeath: data.isSuddenDeath ?? false,
-            },
-          })
+          applyNextRoundResponse(data)
         })
     }, 12000)
     return () => {
@@ -757,6 +727,7 @@ export function GameScreen({
       })
       .on('broadcast', { event: 'all:answered' }, ({ payload }) => {
         if (payload.roundId !== roundIdRef.current) return
+        allAnsweredConfirmedRef.current = true
         // Only the current host should close. Use ref (not stale closure isHost).
         if (currentHostIdRef.current !== playerId) return
         if (roundClosedRef.current) return
@@ -833,6 +804,7 @@ export function GameScreen({
 
       // Server confirmed all alive players have answered — close immediately
       if (data.allAnswered) {
+        allAnsweredConfirmedRef.current = true
         channelRef.current?.send({
           type: 'broadcast',
           event: 'all:answered',
@@ -896,27 +868,8 @@ export function GameScreen({
             })
               .then(r => r.json())
               .then(nextData => {
-                if (!nextData.roundId) return
-                setRoundId(nextData.roundId)
-                setRoundNumber(nextData.roundNumber)
-                setQuestion({ ...nextData.question, options: nextData.options })
-                setStartedAt(nextData.startedAt)
-                setRevealData(null)
-                setIsGracePeriod(false)
-                setAnsweredPlayerIds(new Set())
-                setGraceDeadlineMs(FAR_FUTURE_MS)
-                channelRef.current?.send({
-                  type: 'broadcast',
-                  event: 'round:started',
-                  payload: {
-                    roundId: nextData.roundId,
-                    roundNumber: nextData.roundNumber,
-                    question: { ...nextData.question, options: nextData.options },
-                    startedAt: nextData.startedAt,
-                    resurrected: null,
-                    isSuddenDeath: false,
-                  },
-                })
+                if (!nextData.roundId && !nextData.bracketReady) return
+                applyNextRoundResponse(nextData)
               })
           }
         }}
@@ -942,27 +895,8 @@ export function GameScreen({
             })
               .then(r => r.json())
               .then(nextData => {
-                if (!nextData.roundId) return
-                setRoundId(nextData.roundId)
-                setRoundNumber(nextData.roundNumber)
-                setQuestion({ ...nextData.question, options: nextData.options })
-                setStartedAt(nextData.startedAt)
-                setRevealData(null)
-                setIsGracePeriod(false)
-                setAnsweredPlayerIds(new Set())
-                setGraceDeadlineMs(FAR_FUTURE_MS)
-                channelRef.current?.send({
-                  type: 'broadcast',
-                  event: 'round:started',
-                  payload: {
-                    roundId: nextData.roundId,
-                    roundNumber: nextData.roundNumber,
-                    question: { ...nextData.question, options: nextData.options },
-                    startedAt: nextData.startedAt,
-                    resurrected: null,
-                    isSuddenDeath: false,
-                  },
-                })
+                if (!nextData.roundId && !nextData.bracketReady) return
+                applyNextRoundResponse(nextData)
               })
           }
         }}

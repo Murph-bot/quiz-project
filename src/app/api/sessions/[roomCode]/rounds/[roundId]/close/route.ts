@@ -2,54 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { isValidRoomCode } from '@/lib/roomCode'
 import { generateOptions } from '@/lib/generateOptions'
+import { generateBracketForSession } from '@/lib/bracket'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
-
-const MAX_ROUNDS = 50
-
-async function generateBracketForSession(
-  supabase: ReturnType<typeof createServerClient>,
-  sessionId: string
-): Promise<import('@/types').BracketState | null> {
-  const { data: alivePlayers } = await supabase
-    .from('players')
-    .select('id, nickname')
-    .eq('session_id', sessionId)
-    .eq('is_alive', true)
-
-  const aliveList = (alivePlayers ?? []) as Array<{ id: string; nickname: string }>
-  if (aliveList.length !== 4) return null
-
-  const { data: roundsWithAnswers } = await supabase
-    .from('rounds')
-    .select('question_id, answers(player_id, value), questions(answer)')
-    .eq('session_id', sessionId)
-    .eq('status', 'closed')
-    .is('tiebreak_players', null)
-
-  const totalDelta: Record<string, number> = {}
-  for (const p of aliveList) totalDelta[p.id] = 0
-
-  for (const r of (roundsWithAnswers ?? []) as any[]) {
-    const correct = r.questions?.answer ?? 0
-    const answeredIds = new Set((r.answers ?? []).map((a: any) => a.player_id as string))
-    for (const ans of r.answers ?? []) {
-      totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
-    }
-    for (const p of aliveList) {
-      if (!answeredIds.has(p.id)) {
-        totalDelta[p.id] = (totalDelta[p.id] ?? 0) + 999999
-      }
-    }
-  }
-
-  const ranked = [...aliveList].sort((a, b) => (totalDelta[a.id] ?? 0) - (totalDelta[b.id] ?? 0))
-  return {
-    sf1: { p1id: ranked[0].id, p1: ranked[0].nickname, p2id: ranked[3].id, p2: ranked[3].nickname, wins: [0, 0] },
-    sf2: { p1id: ranked[1].id, p1: ranked[1].nickname, p2id: ranked[2].id, p2: ranked[2].nickname, wins: [0, 0] },
-    currentSF: 1,
-    finalists: [],
-  }
-}
 
 type TiebreakRoundResult =
   | { ok: true; roundId: string; startedAt: string; question: { id: string; text: string; timeLimit: number; category: string }; options: number[] }
@@ -435,13 +389,10 @@ export async function POST(
   let tiebreakStartedAt: string | null = null
   let tiebreakOptions: number[] | null = null
 
-  // --- SUDDEN DEATH ALL-TIE ---
-  // If ALL remaining players tie for worst in sudden death, replay the round for everyone
+  // --- ALL-WRONG REPLAY ---
+  // If ALL remaining players would be eliminated, replay the round for everyone
   // rather than eliminating all players (which would produce no winner).
-  const isSuddenDeathRound = !isTiebreakRound && ((round as any).round_number as number) > MAX_ROUNDS
-
-  if (isSuddenDeathRound && !tiebreakNeeded && eliminated.length > 0 && eliminated.length === activeList.length) {
-    // Everyone answered wrong — create a replay round for all alive players
+  if (!isTiebreakRound && !tiebreakNeeded && eliminated.length > 0 && eliminated.length === activeList.length) {
     const allAliveIds = activeList.map(p => p.id)
     const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', allAliveIds)
 
@@ -460,23 +411,103 @@ export async function POST(
     tiebreakQuestion = tbResult.question
     tiebreakOptions = tbResult.options
   }
-  // --- END SUDDEN DEATH ALL-TIE ---
+  // --- END ALL-WRONG REPLAY ---
 
   // --- TIEBREAK ROUND RESOLUTION ---
   if (isTiebreakRound) {
     const tbPlayers = (round as any).tiebreak_players as string[]
-    const p1 = answers.find(a => a.playerId === tbPlayers[0])
-    const p2 = answers.find(a => a.playerId === tbPlayers[1])
-    const p1delta = p1?.delta ?? Number.MAX_SAFE_INTEGER
-    const p2delta = p2?.delta ?? Number.MAX_SAFE_INTEGER
+    const participantAnswers = tbPlayers.map(id => {
+      const entry = answers.find(a => a.playerId === id)
+      return {
+        playerId: id,
+        nickname: entry?.nickname ?? '',
+        delta: entry?.delta ?? Number.MAX_SAFE_INTEGER,
+        noAnswer: entry?.noAnswer ?? true,
+      }
+    })
 
-    if (p1delta === p2delta) {
-      // Still tied — create another tiebreak round
+    if (tbPlayers.length === 2) {
+      const p1 = participantAnswers[0]
+      const p2 = participantAnswers[1]
+
+      if (p1.delta === p2.delta) {
+        const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', tbPlayers)
+        if (!tbResult.ok) {
+          const msg = tbResult.error === 'no_questions'
+            ? 'No questions available for tiebreak'
+            : 'Failed to create tiebreak round'
+          return NextResponse.json({ error: msg }, { status: 500 })
+        }
+        return NextResponse.json({
+          correctAnswer,
+          answers,
+          eliminated: [],
+          winner: null,
+          gameOver: false,
+          wasAlreadyClosed: false,
+          bracketReady: false,
+          bracket: null,
+          tiebreakNeeded: true,
+          tiebreakRoundId: tbResult.roundId,
+          tiebreakQuestion: tbResult.question,
+          tiebreakPlayerIds: tbPlayers,
+          tiebreakStartedAt: tbResult.startedAt,
+          tiebreakOptions: tbResult.options,
+        })
+      }
+
+      const loserId = p1.delta > p2.delta ? tbPlayers[0] : tbPlayers[1]
+      await supabase.from('players').update({ is_alive: false }).in('id', [loserId])
+
+      const { count: aliveAfterTB } = await supabase
+        .from('players')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', session.id)
+        .eq('is_alive', true)
+
+      let bracketReadyTB = false
+      let bracketTB: import('@/types').BracketState | null = null
+
+      if ((aliveAfterTB ?? 0) === 4) {
+        bracketTB = await generateBracketForSession(supabase, session.id)
+        if (!bracketTB) {
+          return NextResponse.json({ error: 'Failed to generate bracket after tiebreak' }, { status: 500 })
+        }
+        const { error: bErr } = await supabase
+          .from('sessions')
+          .update({ phase: 'semifinal', bracket: bracketTB })
+          .eq('id', session.id)
+        if (!bErr) bracketReadyTB = true
+        else bracketTB = null
+      }
+
+      const loserEntry = answers.find(a => a.playerId === loserId)
+      return NextResponse.json({
+        correctAnswer,
+        answers,
+        eliminated: loserEntry ? [{ playerId: loserEntry.playerId, nickname: loserEntry.nickname }] : [],
+        winner: null,
+        gameOver: false,
+        wasAlreadyClosed: false,
+        bracketReady: bracketReadyTB,
+        bracket: bracketTB,
+        tiebreakNeeded: false,
+        tiebreakRoundId: null,
+        tiebreakQuestion: null,
+        tiebreakPlayerIds: null,
+        tiebreakStartedAt: null,
+      })
+    }
+
+    // N-player replay round: binary elimination among all participants
+    const wrongParticipants = participantAnswers.filter(a => a.delta > 0)
+
+    if (wrongParticipants.length === tbPlayers.length) {
       const tbResult = await createTiebreakRound(supabase, session.id, (session as any).category ?? 'all', tbPlayers)
       if (!tbResult.ok) {
         const msg = tbResult.error === 'no_questions'
-          ? 'No questions available for tiebreak'
-          : 'Failed to create tiebreak round'
+          ? 'No questions available for replay'
+          : 'Failed to create replay round'
         return NextResponse.json({ error: msg }, { status: 500 })
       }
       return NextResponse.json({
@@ -497,42 +528,73 @@ export async function POST(
       })
     }
 
-    // Resolved — eliminate the loser
-    const loserId = p1delta > p2delta ? tbPlayers[0] : tbPlayers[1]
-    await supabase.from('players').update({ is_alive: false }).in('id', [loserId])
+    const eliminatedFromReplay = wrongParticipants.map(a => ({
+      playerId: a.playerId,
+      nickname: a.nickname,
+    }))
 
-    const { count: aliveAfterTB } = await supabase
+    if (eliminatedFromReplay.length > 0) {
+      await supabase
+        .from('players')
+        .update({ is_alive: false })
+        .in('id', eliminatedFromReplay.map(e => e.playerId))
+    }
+
+    const { count: aliveAfterReplay } = await supabase
       .from('players')
       .select('id', { count: 'exact', head: true })
       .eq('session_id', session.id)
       .eq('is_alive', true)
 
-    let bracketReadyTB = false
-    let bracketTB: import('@/types').BracketState | null = null
+    let winnerAfterReplay: WinnerInfo | null = null
+    let gameOverAfterReplay = false
 
-    if ((aliveAfterTB ?? 0) === 4) {
-      bracketTB = await generateBracketForSession(supabase, session.id)
-      if (!bracketTB) {
-        return NextResponse.json({ error: 'Failed to generate bracket after tiebreak' }, { status: 500 })
+    if (aliveAfterReplay === 1) {
+      const { data: survivors } = await supabase
+        .from('players')
+        .select('id, nickname')
+        .eq('session_id', session.id)
+        .eq('is_alive', true)
+        .limit(1)
+
+      const survivor = survivors?.[0] as { id: string; nickname: string } | undefined
+      if (survivor) {
+        winnerAfterReplay = { playerId: survivor.id, nickname: survivor.nickname }
+        await supabase
+          .from('sessions')
+          .update({ status: 'finished', winner_id: survivor.id })
+          .eq('id', session.id)
       }
-      const { error: bErr } = await supabase
-        .from('sessions')
-        .update({ phase: 'semifinal', bracket: bracketTB })
-        .eq('id', session.id)
-      if (!bErr) bracketReadyTB = true
-      else bracketTB = null
+      gameOverAfterReplay = true
     }
 
-    const loserEntry = answers.find(a => a.playerId === loserId)
+    let bracketReadyReplay = false
+    let bracketReplay: import('@/types').BracketState | null = null
+
+    if ((session as any).phase === 'normal' && (aliveAfterReplay ?? 0) === 4 && !gameOverAfterReplay) {
+      bracketReplay = await generateBracketForSession(supabase, session.id)
+      if (bracketReplay) {
+        const { error: bracketUpdateError } = await supabase
+          .from('sessions')
+          .update({ phase: 'semifinal', bracket: bracketReplay })
+          .eq('id', session.id)
+        if (!bracketUpdateError) {
+          bracketReadyReplay = true
+        } else {
+          bracketReplay = null
+        }
+      }
+    }
+
     return NextResponse.json({
       correctAnswer,
       answers,
-      eliminated: loserEntry ? [{ playerId: loserEntry.playerId, nickname: loserEntry.nickname }] : [],
-      winner: null,
-      gameOver: false,
+      eliminated: eliminatedFromReplay,
+      winner: winnerAfterReplay,
+      gameOver: gameOverAfterReplay,
       wasAlreadyClosed: false,
-      bracketReady: bracketReadyTB,
-      bracket: bracketTB,
+      bracketReady: bracketReadyReplay,
+      bracket: bracketReplay,
       tiebreakNeeded: false,
       tiebreakRoundId: null,
       tiebreakQuestion: null,

@@ -49,7 +49,7 @@ export async function POST(
 
   const { data: player } = await supabase
     .from('players')
-    .select('id')
+    .select('id, is_alive')
     .eq('id', playerId)
     .eq('session_id', session.id)
     .eq('session_secret', sessionSecret)
@@ -57,6 +57,10 @@ export async function POST(
 
   if (!player) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
+  }
+
+  if (!player.is_alive) {
+    return NextResponse.json({ error: 'Eliminated players cannot answer' }, { status: 403 })
   }
 
   const tiebreakPlayers = (round as import('@/types').Round).tiebreak_players ?? null
