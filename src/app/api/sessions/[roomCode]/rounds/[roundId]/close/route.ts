@@ -98,20 +98,17 @@ export async function POST(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
 
-  // Verify sessionSecret matches the player
+  // Verify sessionSecret matches a player in this session (any alive participant may close)
   const { data: verifiedPlayer } = await supabase
     .from('players')
     .select('id')
     .eq('id', playerId)
+    .eq('session_id', session.id)
     .eq('session_secret', sessionSecret)
     .single()
 
   if (!verifiedPlayer) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
-  }
-
-  if ((session as any).host_id !== playerId) {
-    return NextResponse.json({ error: 'Only the host can close a round' }, { status: 403 })
   }
 
   const { data: round, error: roundError } = await supabase

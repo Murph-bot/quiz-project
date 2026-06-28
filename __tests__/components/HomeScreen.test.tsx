@@ -25,7 +25,7 @@ describe('HomeScreen', () => {
 
   it('renders nickname input, create button, and join fields', () => {
     render(<HomeScreen />)
-    expect(screen.getByPlaceholderText(/nickname/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/your nickname/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create game/i })).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/room code/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /join/i })).toBeInTheDocument()
@@ -34,24 +34,24 @@ describe('HomeScreen', () => {
   it('shows error if nickname is empty on create', async () => {
     render(<HomeScreen />)
     fireEvent.click(screen.getByRole('button', { name: /create game/i }))
-    expect(await screen.findByText(/nickname/i)).toBeInTheDocument()
+    expect(await screen.findByText(/please enter a nickname/i)).toBeInTheDocument()
   })
 
   it('shows error if room code is empty on join', async () => {
     render(<HomeScreen />)
-    fireEvent.change(screen.getByPlaceholderText(/nickname/i), { target: { value: 'Alice' } })
+    fireEvent.change(screen.getByLabelText(/your nickname/i), { target: { value: 'Alice' } })
     fireEvent.click(screen.getByRole('button', { name: /join/i }))
-    expect(await screen.findByText(/room code/i)).toBeInTheDocument()
+    expect(await screen.findByText(/please enter a room code/i)).toBeInTheDocument()
   })
 
   it('calls create API and redirects on success', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
-      json: async () => ({ roomCode: 'AB12', playerId: 'p-uuid' }),
+      json: async () => ({ roomCode: 'AB12', playerId: 'p-uuid', sessionSecret: 'secret' }),
     })
 
     render(<HomeScreen />)
-    fireEvent.change(screen.getByPlaceholderText(/nickname/i), { target: { value: 'Alice' } })
+    fireEvent.change(screen.getByLabelText(/your nickname/i), { target: { value: 'Alice' } })
     fireEvent.click(screen.getByRole('button', { name: /create game/i }))
 
     await waitFor(() => {
@@ -62,11 +62,11 @@ describe('HomeScreen', () => {
   it('calls join API and redirects on success', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
-      json: async () => ({ playerId: 'p-uuid' }),
+      json: async () => ({ playerId: 'p-uuid', sessionSecret: 'secret' }),
     })
 
     render(<HomeScreen />)
-    fireEvent.change(screen.getByPlaceholderText(/nickname/i), { target: { value: 'Alice' } })
+    fireEvent.change(screen.getByLabelText(/your nickname/i), { target: { value: 'Alice' } })
     fireEvent.change(screen.getByPlaceholderText(/room code/i), { target: { value: 'AB12' } })
     fireEvent.click(screen.getByRole('button', { name: /join/i }))
 

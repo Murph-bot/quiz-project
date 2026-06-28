@@ -78,28 +78,32 @@ export default function HomeScreen() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-safe pb-safe">
       <div className="w-full max-w-sm flex flex-col gap-4">
         <div className="text-center">
           <h1 className="text-4xl font-black text-white tracking-tight">⚔️ QuizKnight</h1>
           <p className="text-white/70 text-sm mt-1">Last one standing wins</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md p-5 flex flex-col gap-3">
+        <div className="bg-white rounded-2xl shadow-md px-6 py-6 flex flex-col gap-5 w-full overflow-hidden box-border">
+          <label htmlFor="nickname" className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+            Your nickname
+          </label>
           <input
+            id="nickname"
             type="text"
-            placeholder="Your nickname"
+            placeholder="Enter your name"
             maxLength={20}
             value={nickname}
             onChange={e => { setNickname(e.target.value); setError('') }}
             autoComplete="nickname"
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-bold text-base focus:outline-none focus:border-orange-400"
+            className="w-full min-h-[64px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-gray-900 placeholder-gray-400 font-black text-xl focus:outline-none focus:border-orange-400 focus:bg-white"
           />
 
           <button
             onClick={handleCreate}
             disabled={loading}
-            className="w-full bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full py-3 disabled:opacity-50 active:scale-95 transition-transform"
+            className="w-full min-h-[52px] bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-base rounded-full py-3 disabled:opacity-50 active:scale-95 transition-transform"
           >
             🎮 Create Game
           </button>
@@ -110,7 +114,7 @@ export default function HomeScreen() {
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full min-w-0">
             <input
               type="text"
               inputMode="text"
@@ -121,12 +125,12 @@ export default function HomeScreen() {
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
-              className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-base uppercase tracking-widest focus:outline-none focus:border-orange-400"
+              className="flex-1 min-w-0 min-h-[52px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-lg uppercase tracking-widest focus:outline-none focus:border-orange-400 focus:bg-white"
             />
             <button
               onClick={handleJoin}
               disabled={loading}
-              className="bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 min-w-[80px] disabled:opacity-50 active:scale-95 transition-transform"
+              className="shrink-0 bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 min-w-[72px] min-h-[52px] disabled:opacity-50 active:scale-95 transition-transform"
             >
               Join
             </button>

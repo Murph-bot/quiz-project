@@ -31,7 +31,11 @@ export async function POST(req: NextRequest) {
     if (sessionError) {
       // Unique constraint violation on room_code — retry with new code
       if (sessionError.code === '23505') continue
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+      const unreachable = /fetch failed|ENOTFOUND|ECONNREFUSED/i.test(sessionError.message ?? '')
+      return NextResponse.json(
+        { error: unreachable ? 'Game server unavailable — database not reachable' : 'Failed to create session' },
+        { status: unreachable ? 503 : 500 }
+      )
     }
 
     const { data: session, error: fetchError } = await supabase

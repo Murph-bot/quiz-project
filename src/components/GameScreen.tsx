@@ -237,7 +237,11 @@ export function GameScreen({
       console.error('[close] API error:', data.error)
       return
     }
-    if (data.wasAlreadyClosed) return
+    if (data.wasAlreadyClosed) {
+      if (roundClosedRef.current) return
+      fetchRoundReveal()
+      return
+    }
     if (roundClosedRef.current) return
     roundClosedRef.current = true
 
@@ -425,9 +429,32 @@ export function GameScreen({
     })
   }
 
-  // Timer expired → 40s grace period → close the round (host only)
+  function fetchRoundReveal() {
+    if (!playerId || !sessionSecret) return
+    const params = new URLSearchParams({ playerId, sessionSecret })
+    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}?${params}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.status !== 'closed' || roundClosedRef.current) return
+        handleCloseData({ ...data, wasAlreadyClosed: false })
+      })
+      .catch(err => console.error('[reveal] fetch error:', err))
+  }
+
+  function attemptClose() {
+    if (!playerId || !sessionSecret || roundClosedRef.current) return
+    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId, sessionSecret }),
+    })
+      .then(r => r.json())
+      .then(data => handleCloseData(data))
+      .catch(err => console.error('[close] network error:', err))
+  }
+
+  // Timer expired → 40s grace period → close the round (any connected player)
   useEffect(() => {
-    if (!isHost) return
     if (!isExpired) return
     if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
 
@@ -437,14 +464,7 @@ export function GameScreen({
     const doClose = () => {
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
-      fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId, sessionSecret }),
-      })
-        .then(r => r.json())
-        .then(data => handleCloseData(data))
-        .catch(err => console.error('[close] network error (timer):', err))
+      attemptClose()
     }
 
     // If the timer expired long before this effect ran (stale reconnect), skip grace
@@ -481,20 +501,16 @@ export function GameScreen({
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpired, phase, isHost, isGracePeriod, roomCode])
+  }, [isExpired, phase, isGracePeriod, roomCode])
 
-  // Grace recovery: if a new host takes over while grace period is already running
+  // Grace recovery: if grace period is running but the timeout was cleared (React re-render)
   useEffect(() => {
-    if (!isHost || !isGracePeriod || graceTimeoutRef.current) return
+    if (!isGracePeriod || graceTimeoutRef.current) return
     const remaining = graceDeadlineMs - Date.now()
     const closeRound = () => {
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
-      fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId, sessionSecret }),
-      }).then(r => r.json()).then(data => handleCloseData(data)).catch(err => console.error('[close] network error (recovery):', err))
+      attemptClose()
     }
     if (remaining <= 0) { closeRound(); return }
     graceTimeoutRef.current = setTimeout(() => {
@@ -505,7 +521,18 @@ export function GameScreen({
       if (graceTimeoutRef.current) { clearTimeout(graceTimeoutRef.current); graceTimeoutRef.current = null }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, isGracePeriod, graceDeadlineMs, roomCode])
+  }, [isGracePeriod, graceDeadlineMs, roomCode])
+
+  // Poll for closed round if realtime broadcast was missed
+  useEffect(() => {
+    if (!isExpired) return
+    if (phase !== 'waiting' && phase !== 'answering') return
+    if (roundClosedRef.current) return
+    fetchRoundReveal()
+    const interval = setInterval(fetchRoundReveal, 3000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, phase, roomCode, playerId, sessionSecret])
 
   // Auto-advance after reveal
   useEffect(() => {
@@ -728,8 +755,6 @@ export function GameScreen({
       .on('broadcast', { event: 'all:answered' }, ({ payload }) => {
         if (payload.roundId !== roundIdRef.current) return
         allAnsweredConfirmedRef.current = true
-        // Only the current host should close. Use ref (not stale closure isHost).
-        if (currentHostIdRef.current !== playerId) return
         if (roundClosedRef.current) return
         if (graceTimeoutRef.current) {
           clearTimeout(graceTimeoutRef.current)
@@ -737,14 +762,7 @@ export function GameScreen({
         }
         setIsGracePeriod(false)
         setGraceDeadlineMs(FAR_FUTURE_MS)
-        fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId, sessionSecret }),
-        })
-          .then(r => r.json())
-          .then(data => handleCloseData(data))
-          .catch(err => console.error('[close] network error (all:answered):', err))
+        attemptClose()
       })
       .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
         setCurrentHostId(payload.hostId)
@@ -810,23 +828,13 @@ export function GameScreen({
           event: 'all:answered',
           payload: { roundId: roundIdRef.current },
         })
-        if (isHost) {
-          // Clear any pending grace period timeout before closing
-          if (graceTimeoutRef.current) {
-            clearTimeout(graceTimeoutRef.current)
-            graceTimeoutRef.current = null
-          }
-          setIsGracePeriod(false)
-          setGraceDeadlineMs(FAR_FUTURE_MS)
-          fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerId, sessionSecret }),
-          })
-            .then(r => r.json())
-            .then(closeData => handleCloseData(closeData))
-            .catch(err => console.error('[close] network error (submit):', err))
+        if (graceTimeoutRef.current) {
+          clearTimeout(graceTimeoutRef.current)
+          graceTimeoutRef.current = null
         }
+        setIsGracePeriod(false)
+        setGraceDeadlineMs(FAR_FUTURE_MS)
+        attemptClose()
       }
     }
   }

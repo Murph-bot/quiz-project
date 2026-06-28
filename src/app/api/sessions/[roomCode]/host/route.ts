@@ -39,7 +39,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
   }
 
-  if (session.host_id !== requesterId) {
+  const isTransfer = session.host_id === requesterId && playerId !== requesterId
+  const isSelfClaim = playerId === requesterId && session.host_id !== playerId
+
+  if (!isTransfer && !isSelfClaim) {
     return NextResponse.json({ error: 'Only the current host can transfer host' }, { status: 403 })
   }
 
