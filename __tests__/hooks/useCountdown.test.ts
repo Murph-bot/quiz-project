@@ -8,6 +8,15 @@ describe('useCountdown', () => {
   beforeEach(() => jest.useFakeTimers())
   afterEach(() => jest.useRealTimers())
 
+  it('is not expired for far-future deadline sentinel', () => {
+    jest.spyOn(Date, 'now').mockReturnValue(0)
+    const { result } = renderHook(() => useCountdown(9_000_000_000_000))
+    act(() => {
+      jest.advanceTimersByTime(0)
+    })
+    expect(result.current.isExpired).toBe(false)
+  })
+
   it('returns correct secondsLeft before deadline', () => {
     jest.spyOn(Date, 'now').mockReturnValue(0)
     const { result } = renderHook(() => useCountdown(10000))

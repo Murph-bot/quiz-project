@@ -1,5 +1,17 @@
 import type { BracketState } from '@/types'
 
+export function getBracketFinalists(bracket: BracketState | null | undefined): string[] {
+  return bracket?.finalists ?? []
+}
+
+export function isBracketFinalist(
+  bracket: BracketState | null | undefined,
+  playerId: string | null | undefined,
+): boolean {
+  if (!bracket || !playerId) return false
+  return getBracketFinalists(bracket).includes(playerId)
+}
+
 export async function generateBracketForSession(
   supabase: ReturnType<typeof import('@/lib/supabase-server').createServerClient>,
   sessionId: string

@@ -25,6 +25,7 @@ import { TiebreakWaitingScreen } from './TiebreakWaitingScreen'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { getBracketFinalists, isBracketFinalist } from '@/lib/bracket'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState, GamePhase } from '@/types'
 
 interface RevealData {
@@ -84,9 +85,10 @@ export function GameScreen({
     if (initialWinner !== null) return 'winner'
     if (initialRevealData) return 'reveal'
     if (initialSessionPhase === 'semifinal' && initialBracket) return 'bracket'
-    if (initialSessionPhase === 'final' && initialBracket) return 'answering'
+    if (initialSessionPhase === 'final' && initialBracket && initialRoundId) return 'answering'
     if (initialRoundId) return 'answering'
-    return 'bracket'
+    if (initialBracket) return 'bracket'
+    return 'answering'
   }
 
   const [phase, setPhase] = useState<Phase>(getInitialPhase)
@@ -227,7 +229,7 @@ export function GameScreen({
     if (!bd || !phase || !pid) return true
     if (phase === 'sf1') return bd.sf1.p1id === pid || bd.sf1.p2id === pid
     if (phase === 'sf2') return bd.sf2.p1id === pid || bd.sf2.p2id === pid
-    return bd.finalists.includes(pid)
+    return isBracketFinalist(bd, pid)
   }
 
   // Helper: resolve a finalist's display name from the bracket match data
@@ -253,10 +255,10 @@ export function GameScreen({
           if (!currentMatchPhaseRef.current) {
             syncBracketRefs(bracket, 'final')
           }
-          if (bracket.finalists.includes(playerId)) {
+          if (isBracketFinalist(bracket, playerId)) {
             isSpectatingRef.current = false
             setIsSpectating(false)
-          } else if (!bracket.finalists.includes(playerId)) {
+          } else if (getBracketFinalists(bracket).length > 0) {
             isSpectatingRef.current = true
             setIsSpectating(true)
           }
@@ -274,9 +276,13 @@ export function GameScreen({
   }, [ready, playerId, router])
 
   // Countdown for current question — used to trigger close when expired
-  const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
+  const hasActiveRound = Boolean(roundId)
+  const deadlineMs = hasActiveRound
+    ? new Date(startedAt).getTime() + question.timeLimit * 1000
+    : FAR_FUTURE_MS
   const { isExpired } = useCountdown(
-    phase === 'answering' || phase === 'waiting' || phase === 'tiebreak-waiting'
+    hasActiveRound &&
+      (phase === 'answering' || phase === 'waiting' || phase === 'tiebreak-waiting')
       ? deadlineMs
       : FAR_FUTURE_MS
   )
@@ -313,9 +319,6 @@ export function GameScreen({
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.aliveCount === 'number') {
-          // #region agent log
-          fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:fetchAliveCount',message:'aliveCount fetched from server',data:{aliveCount:d.aliveCount,phase:d.phase},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
           setAliveCount(d.aliveCount)
         }
       })
@@ -326,13 +329,10 @@ export function GameScreen({
     pendingFinalIntroRef.current = bracket
     syncBracketRefs(bracket, 'final')
     setAliveCount(typeof aliveCount === 'number' ? aliveCount : 2)
-    if (playerId && bracket.finalists.includes(playerId)) {
+    if (isBracketFinalist(bracket, playerId)) {
       isSpectatingRef.current = false
       setIsSpectating(false)
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyFinalReadyState',message:'final ready applied',data:{aliveCount:typeof aliveCount==='number'?aliveCount:2,finalists:bracket.finalists},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
   }
 
   function applyAliveCountFromPayload(data: {
@@ -340,14 +340,8 @@ export function GameScreen({
     eliminated?: EliminatedPlayer[]
   }) {
     if (typeof data.aliveCount === 'number') {
-      // #region agent log
-      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'sync aliveCount from server',data:{aliveCount:data.aliveCount,eliminatedCount:data.eliminated?.length??0},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       setAliveCount(data.aliveCount)
     } else if (data.eliminated?.length) {
-      // #region agent log
-      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'aliveCount missing, fetching from server',data:{eliminatedCount:data.eliminated.length},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       fetchAliveCountFromServer()
     }
   }
@@ -357,9 +351,7 @@ export function GameScreen({
     bracket?: BracketState | null,
     finalReady?: boolean,
   ) {
-    const amFinalist =
-      Boolean(finalReady && bracket?.finalists?.length && playerId) &&
-      bracket!.finalists.includes(playerId!)
+    const amFinalist = Boolean(finalReady && bracket && isBracketFinalist(bracket, playerId))
 
     if (amFinalist) {
       isSpectatingRef.current = false
@@ -377,13 +369,13 @@ export function GameScreen({
     setBracketData(bracket)
     setCurrentMatchPhase('final')
     setMatchWins([0, 0])
-    if (playerId && bracket.finalists.includes(playerId)) {
+    if (isBracketFinalist(bracket, playerId)) {
       isSpectatingRef.current = false
       setIsSpectating(false)
     }
     setAliveCount(2)
-    const finalist1 = getFinalistNickname(bracket, bracket.finalists[0] ?? '')
-    const finalist2 = getFinalistNickname(bracket, bracket.finalists[1] ?? '')
+    const finalist1 = getFinalistNickname(bracket, getBracketFinalists(bracket)[0] ?? '')
+    const finalist2 = getFinalistNickname(bracket, getBracketFinalists(bracket)[1] ?? '')
     setMatchResultData({
       winnerNickname: '',
       matchLabel: 'The Final',
@@ -445,9 +437,6 @@ export function GameScreen({
       .then((r) => r.json())
       .then((sessionState) => {
         if (sessionState.phase === 'final' && sessionState.bracket) {
-          // #region agent log
-          fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:advanceAfterReveal',message:'recovered missed final transition',data:{phase:sessionState.phase},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           showFinalIntro(sessionState.bracket as BracketState)
           return
         }
@@ -690,7 +679,7 @@ export function GameScreen({
   }
 
   function fetchRoundReveal() {
-    if (!playerId || !sessionSecret) return
+    if (!playerId || !sessionSecret || !roundIdRef.current) return
     const params = new URLSearchParams({ playerId, sessionSecret })
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}?${params}`)
       .then(r => r.json())
@@ -702,7 +691,7 @@ export function GameScreen({
   }
 
   function attemptClose() {
-    if (!playerId || !sessionSecret || roundClosedRef.current) return
+    if (!playerId || !sessionSecret || roundClosedRef.current || !roundIdRef.current) return
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -715,7 +704,7 @@ export function GameScreen({
 
   // Timer expired → 40s grace period → close the round (any connected player)
   useEffect(() => {
-    if (!isExpired) return
+    if (!isExpired || !roundId) return
     if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
 
     // Skip if already in grace period (new host takeover handled by separate effect)
@@ -785,7 +774,7 @@ export function GameScreen({
 
   // Poll for closed round if realtime broadcast was missed
   useEffect(() => {
-    if (!isExpired) return
+    if (!isExpired || !roundId) return
     if (phase !== 'waiting' && phase !== 'answering') return
     if (roundClosedRef.current) return
     fetchRoundReveal()
@@ -837,9 +826,6 @@ export function GameScreen({
     attemptClose,
     onRoundClosed: (payload) => {
       if (roundClosedRef.current) {
-        // #region agent log
-        fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:onRoundClosed',message:'skipped duplicate round close',data:{},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         return
       }
       roundClosedRef.current = true
@@ -940,7 +926,7 @@ export function GameScreen({
       setBracketData(bracket)
       setCurrentMatchPhase('final')
       setMatchWins([0, 0])
-      if (playerId && bracket.finalists?.includes(playerId)) {
+      if (isBracketFinalist(bracket, playerId)) {
         isSpectatingRef.current = false
         setIsSpectating(false)
       }
@@ -1049,21 +1035,18 @@ export function GameScreen({
         bracket={bracketData}
         myPlayerId={playerId ?? ''}
         onReady={() => {
-          // All players advance their own UI phase
-          setPhase(amICompeting ? 'answering' : 'spectating')
-          // Host also triggers next round
-          if (isHost) {
-            fetch(`/api/sessions/${roomCode}/rounds/next`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId, sessionSecret }),
+          if (!isHost || !playerId) return
+          fetch(`/api/sessions/${roomCode}/rounds/next`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId, sessionSecret }),
+          })
+            .then(r => r.json())
+            .then(nextData => {
+              if (!nextData.roundId && !nextData.bracketReady) return
+              applyNextRoundResponse(nextData)
             })
-              .then(r => r.json())
-              .then(nextData => {
-                if (!nextData.roundId && !nextData.bracketReady) return
-                applyNextRoundResponse(nextData)
-              })
-          }
+            .catch((err) => console.error('[bracket] next round error:', err))
         }}
       />
     )
@@ -1077,20 +1060,19 @@ export function GameScreen({
         finalScore={matchResultData.finalScore}
         nextLabel={matchResultData.nextLabel}
         onContinue={() => {
+          if (!isHost || !playerId) return
           setMatchResultData(null)
-          setPhase(amICompeting ? 'answering' : 'spectating')
-          if (isHost) {
-            fetch(`/api/sessions/${roomCode}/rounds/next`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId, sessionSecret }),
+          fetch(`/api/sessions/${roomCode}/rounds/next`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId, sessionSecret }),
+          })
+            .then(r => r.json())
+            .then(nextData => {
+              if (!nextData.roundId && !nextData.bracketReady) return
+              applyNextRoundResponse(nextData)
             })
-              .then(r => r.json())
-              .then(nextData => {
-                if (!nextData.roundId && !nextData.bracketReady) return
-                applyNextRoundResponse(nextData)
-              })
-          }
+            .catch((err) => console.error('[match-result] next round error:', err))
         }}
       />
     )
@@ -1135,8 +1117,8 @@ export function GameScreen({
         ? 'Semi-Final 1 · Best of 3'
         : 'Semi-Final 2 · Best of 3'
       const winsToWinSpec = currentMatchPhase === 'final' ? 3 : 2
-      const p1Spec = sfSpec ? sfSpec.p1 : getFinalistNickname(bracketData, bracketData.finalists[0] ?? '')
-      const p2Spec = sfSpec ? sfSpec.p2 : getFinalistNickname(bracketData, bracketData.finalists[1] ?? '')
+      const p1Spec = sfSpec ? sfSpec.p1 : getFinalistNickname(bracketData, getBracketFinalists(bracketData)[0] ?? '')
+      const p2Spec = sfSpec ? sfSpec.p2 : getFinalistNickname(bracketData, getBracketFinalists(bracketData)[1] ?? '')
       return (
         <>
           <MatchScoreBar p1={p1Spec} p2={p2Spec} wins={matchWins} matchLabel={matchLabelSpec} winsToWin={winsToWinSpec} />
@@ -1195,8 +1177,8 @@ export function GameScreen({
           ? 'Semi-Final 1 · Best of 3'
           : 'Semi-Final 2 · Best of 3'
         const winsToWin = currentMatchPhase === 'final' ? 3 : 2
-        const p1 = sf ? sf.p1 : getFinalistNickname(bracketData, bracketData.finalists[0] ?? '')
-        const p2 = sf ? sf.p2 : getFinalistNickname(bracketData, bracketData.finalists[1] ?? '')
+        const p1 = sf ? sf.p1 : getFinalistNickname(bracketData, getBracketFinalists(bracketData)[0] ?? '')
+        const p2 = sf ? sf.p2 : getFinalistNickname(bracketData, getBracketFinalists(bracketData)[1] ?? '')
         return <MatchScoreBar p1={p1} p2={p2} wins={matchWins} matchLabel={matchLabel} winsToWin={winsToWin} />
       })()}
       <QuestionPanel
