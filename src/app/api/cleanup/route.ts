@@ -3,8 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 
 function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') ?? ''
-  // Accept CRON_SECRET (Vercel-managed, sent automatically by cron jobs)
-  // or CLEANUP_SECRET (for manual invocation)
+  // Accept CRON_SECRET (Vercel cron), CLEANUP_SECRET (Netlify scheduled functions / manual)
   const cronSecret = process.env.CRON_SECRET
   const cleanupSecret = process.env.CLEANUP_SECRET
   if (cronSecret && auth === `Bearer ${cronSecret}`) return true
@@ -37,7 +36,7 @@ async function runCleanup(): Promise<NextResponse> {
   return NextResponse.json({ deleted })
 }
 
-// GET — called by Vercel cron (sends Authorization: Bearer <CRON_SECRET>)
+// GET — called by Vercel cron or Netlify scheduled-cleanup (Bearer CRON_SECRET or CLEANUP_SECRET)
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
