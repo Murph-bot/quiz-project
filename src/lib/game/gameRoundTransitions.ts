@@ -27,6 +27,7 @@ export interface NextRoundPayload {
   isSuddenDeath?: boolean
   bracketReady?: boolean
   bracket?: BracketState
+  aliveCount?: number
 }
 
 export interface RoundTransitionSetters {
@@ -75,7 +76,10 @@ export function applyRoundStartedState(
     setters.setShowResurrectionSelf(true)
     setTimeout(() => setters.setShowResurrectionSelf(false), 4000)
   }
-  if (payload.resurrected) {
+  if (typeof payload.aliveCount === 'number') {
+    const count = payload.aliveCount
+    setters.setAliveCount(() => count)
+  } else if (payload.resurrected) {
     setters.setAliveCount((prev) => prev + 1)
   }
   setters.setResurrected(payload.resurrected ?? null)

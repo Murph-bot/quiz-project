@@ -110,13 +110,13 @@ export async function POST(
   let bracketReady = false
   let bracket: BracketState | null = null
 
-  if (session.phase === 'normal') {
-    const { count: aliveCount } = await supabase
-      .from('players')
-      .select('id', { count: 'exact', head: true })
-      .eq('session_id', session.id)
-      .eq('is_alive', true)
+  const { count: aliveCount } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', session.id)
+    .eq('is_alive', true)
 
+  if (session.phase === 'normal') {
     if ((aliveCount ?? 0) === 4) {
       const generatedBracket = await generateBracketForSession(supabase, session.id)
       if (generatedBracket) {
@@ -147,5 +147,6 @@ export async function POST(
     options,
     bracketReady,
     bracket,
+    aliveCount: aliveCount ?? 0,
   })
 }

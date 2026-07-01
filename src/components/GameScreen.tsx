@@ -216,6 +216,7 @@ export function GameScreen({
         startedAt: data.startedAt,
         resurrected: data.resurrected ?? null,
         isSuddenDeath: data.isSuddenDeath ?? false,
+        aliveCount: data.aliveCount,
       },
     })
   }
@@ -270,8 +271,14 @@ export function GameScreen({
     eliminated?: EliminatedPlayer[]
   }) {
     if (typeof data.aliveCount === 'number') {
+      // #region agent log
+      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'sync aliveCount from server',data:{aliveCount:data.aliveCount,eliminatedCount:data.eliminated?.length??0},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setAliveCount(data.aliveCount)
     } else if (data.eliminated?.length) {
+      // #region agent log
+      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'decrement aliveCount fallback',data:{eliminatedCount:data.eliminated.length},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       setAliveCount((prev) => Math.max(0, prev - data.eliminated!.length))
     }
   }
@@ -295,6 +302,116 @@ export function GameScreen({
       isSpectatingRef.current = true
       setIsSpectating(true)
     }
+  }
+
+  function showFinalIntro(bracket: BracketState) {
+    setBracketData(bracket)
+    setCurrentMatchPhase('final')
+    setMatchWins([0, 0])
+    if (playerId && bracket.finalists.includes(playerId)) {
+      isSpectatingRef.current = false
+      setIsSpectating(false)
+    }
+    setAliveCount(2)
+    const finalist1 = getFinalistNickname(bracket, bracket.finalists[0] ?? '')
+    const finalist2 = getFinalistNickname(bracket, bracket.finalists[1] ?? '')
+    setMatchResultData({
+      winnerNickname: '',
+      matchLabel: 'The Final',
+      finalScore: `${finalist1} vs ${finalist2}`,
+      nextLabel: 'First to 3 nearest answers wins!',
+    })
+    setPhase('match-result')
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'final:ready',
+      payload: {
+        bracket,
+        matchWinnerNickname: '',
+        matchLabel: 'The Final',
+        finalScore: `${finalist1} vs ${finalist2}`,
+        nextLabel: 'First to 3 nearest answers wins!',
+        nextMatchPhase: 'final',
+        aliveCount: 2,
+      },
+    })
+  }
+
+  function advanceAfterReveal() {
+    if (!isHost || !playerId) return
+    if (gameOverRef.current) {
+      setPhase('winner')
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'game:over',
+        payload: {},
+      })
+      return
+    }
+
+    const pending = pendingTiebreakRef.current
+    if (pending) {
+      applyTiebreakStartedState(pending, playerId, getRoundTransitionSetters(), FAR_FUTURE_MS)
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'tiebreak:started',
+        payload: {
+          roundId: pending.roundId,
+          question: pending.question,
+          startedAt: pending.startedAt,
+          playerIds: pending.playerIds,
+        },
+      })
+      return
+    }
+
+    const pendingFinal = pendingFinalIntroRef.current
+    if (pendingFinal) {
+      pendingFinalIntroRef.current = null
+      showFinalIntro(pendingFinal)
+      return
+    }
+
+    fetch(`/api/sessions/${roomCode}/bracket`)
+      .then((r) => r.json())
+      .then((sessionState) => {
+        if (sessionState.phase === 'final' && sessionState.bracket) {
+          // #region agent log
+          fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:advanceAfterReveal',message:'recovered missed final transition',data:{phase:sessionState.phase},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          showFinalIntro(sessionState.bracket as BracketState)
+          return
+        }
+        if (sessionState.phase === 'semifinal' && sessionState.bracket) {
+          setBracketData(sessionState.bracket as BracketState)
+          setCurrentMatchPhase('sf1')
+          setPhase('bracket')
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'bracket:ready',
+            payload: { bracket: sessionState.bracket },
+          })
+          return
+        }
+
+        fetch(`/api/sessions/${roomCode}/rounds/next`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, sessionSecret }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data.roundId && !data.bracketReady) {
+              if (data.error === 'No questions available') {
+                setQuestionsExhausted(true)
+                channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
+              }
+              return
+            }
+            applyNextRoundResponse(data)
+          })
+      })
+      .catch((err) => console.error('[advance] session phase check failed:', err))
   }
 
   // Shared close-handling logic extracted to avoid duplication
@@ -607,86 +724,7 @@ export function GameScreen({
     setAutoAdvanceIn(12)
     const tick = setInterval(() => setAutoAdvanceIn(s => Math.max(0, s - 1)), 1000)
     const advance = setTimeout(() => {
-      if (!isHost || !playerId) return
-      if (gameOverRef.current) {
-        setPhase('winner')
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'game:over',
-          payload: {},
-        })
-        return
-      }
-
-      // --- PENDING TIEBREAK: broadcast tiebreak:started instead of /rounds/next ---
-      const pending = pendingTiebreakRef.current
-      if (pending) {
-        applyTiebreakStartedState(pending, playerId, getRoundTransitionSetters(), FAR_FUTURE_MS)
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'tiebreak:started',
-          payload: {
-            roundId: pending.roundId,
-            question: pending.question,
-            startedAt: pending.startedAt,
-            playerIds: pending.playerIds,
-          },
-        })
-        return
-      }
-      // --- END PENDING TIEBREAK ---
-
-      const pendingFinal = pendingFinalIntroRef.current
-      if (pendingFinal) {
-        pendingFinalIntroRef.current = null
-        setBracketData(pendingFinal)
-        setCurrentMatchPhase('final')
-        setMatchWins([0, 0])
-        if (playerId && pendingFinal.finalists.includes(playerId)) {
-          isSpectatingRef.current = false
-          setIsSpectating(false)
-        }
-        setAliveCount(2)
-        const finalist1 = getFinalistNickname(pendingFinal, pendingFinal.finalists[0] ?? '')
-        const finalist2 = getFinalistNickname(pendingFinal, pendingFinal.finalists[1] ?? '')
-        setMatchResultData({
-          winnerNickname: '',
-          matchLabel: 'The Final',
-          finalScore: `${finalist1} vs ${finalist2}`,
-          nextLabel: 'First to 3 nearest answers wins!',
-        })
-        setPhase('match-result')
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'final:ready',
-          payload: {
-            bracket: pendingFinal,
-            matchWinnerNickname: '',
-            matchLabel: 'The Final',
-            finalScore: `${finalist1} vs ${finalist2}`,
-            nextLabel: 'First to 3 nearest answers wins!',
-            nextMatchPhase: 'final',
-          },
-        })
-        return
-      }
-
-      fetch(`/api/sessions/${roomCode}/rounds/next`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId, sessionSecret }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (!data.roundId && !data.bracketReady) {
-            if (data.error === 'No questions available') {
-              setQuestionsExhausted(true)
-              channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
-            }
-            return
-          }
-          applyNextRoundResponse(data)
-        })
+      advanceAfterReveal()
     }, 12000)
     return () => {
       clearInterval(tick)
@@ -722,6 +760,14 @@ export function GameScreen({
     setCurrentHostId,
     attemptClose,
     onRoundClosed: (payload) => {
+      if (roundClosedRef.current) {
+        // #region agent log
+        fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:onRoundClosed',message:'skipped duplicate round close',data:{},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        return
+      }
+      roundClosedRef.current = true
+
       if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
         setEliminated([])
         setRevealData({
