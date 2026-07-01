@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useCountdown } from '@/hooks/useCountdown'
+import { Banner } from '@/components/ui/Banner'
+import { Card } from '@/components/ui/Card'
 import { normalizeOptions } from '@/lib/questionOptions'
 
 interface Props {
@@ -14,7 +16,15 @@ interface Props {
   onSubmit: (value: number) => void
 }
 
-export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isGracePeriod, graceSecondsLeft, onSubmit }: Props) {
+export function QuestionPanel({
+  roundNumber,
+  question,
+  startedAt,
+  isWaiting,
+  isGracePeriod,
+  graceSecondsLeft,
+  onSubmit,
+}: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
   const options = normalizeOptions(question.options)
@@ -32,18 +42,15 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
   }
 
   return (
-    <div className={`flex flex-col min-h-dvh px-4 pt-4 pb-safe ${isUrgent ? 'urgent-bg' : ''}`}>
+    <div className={`flex flex-col min-h-dvh px-4 pt-4 pb-safe phase-enter ${isUrgent ? 'urgent-bg' : ''}`}>
       {isGracePeriod && (
-        <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-3">
-          <div className="bg-amber-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
-            <span>⏳ Grace period</span>
-            <span className="font-black tabular-nums">{graceSecondsLeft ?? 0}s</span>
-          </div>
-        </div>
+        <Banner variant="grace">
+          <span>⏳ Grace period</span>
+          <span className="font-black tabular-nums">{graceSecondsLeft ?? 0}s</span>
+        </Banner>
       )}
-      {/* Timer + question float centered in remaining space above the options */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-5 w-full max-w-sm mx-auto">
 
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 w-full max-w-sm mx-auto">
         <div className="flex justify-between items-center w-full">
           <span className="bg-white/20 text-white px-3 py-1 rounded-full text-xs font-bold">
             ROUND {roundNumber}
@@ -53,7 +60,7 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
           </span>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md p-5 text-center w-full">
+        <Card className="text-center" padding="md">
           <div
             className={`text-6xl font-black leading-none ${isUrgent ? 'text-red-600' : 'text-orange-500'}`}
             style={isUrgent ? { animation: 'timerPulse 0.6s ease infinite' } : undefined}
@@ -74,19 +81,17 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
               }
             />
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-2xl shadow-md p-5 text-center w-full">
+        <Card className="text-center" padding="md">
           <p className="text-gray-900 font-bold text-lg leading-snug">{question.text}</p>
-        </div>
-
+        </Card>
       </div>
 
-      {/* Choice buttons (or waiting state) anchored to bottom */}
       <div className="w-full max-w-sm mx-auto mt-4 flex flex-col gap-3">
         {options ? (
           <>
-            {options.map(opt => {
+            {options.map((opt) => {
               const isSelected = selectedOption === opt
               return (
                 <button
@@ -94,9 +99,10 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
                   onClick={() => handleOptionSelect(opt)}
                   disabled={disabled}
                   className={`w-full rounded-2xl py-5 text-2xl font-black transition-all active:scale-95 disabled:cursor-not-allowed
-                    ${isSelected
-                      ? 'bg-gradient-to-br from-orange-500 to-pink-500 text-white shadow-md'
-                      : 'bg-white text-gray-900 shadow-md disabled:opacity-50'
+                    ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-orange-500 to-pink-500 text-white shadow-md'
+                        : 'bg-white text-gray-900 shadow-md disabled:opacity-50'
                     }`}
                 >
                   {opt}
@@ -111,7 +117,6 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
             )}
           </>
         ) : (
-          // Fallback: plain number input for rounds without options
           <>
             <p className="text-center text-white/70 text-sm">Type your answer</p>
             {isWaiting && (

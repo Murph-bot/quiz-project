@@ -1,29 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
-import { isValidRoomCode, normalizeRoomCode } from '@/lib/roomCode'
+import {
+  getSupabase,
+  invalidRoomCode,
+  loadSession,
+  parseRoomCode,
+  sessionNotFound,
+} from '@/lib/api/sessionAuth'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
   const { roomCode: rawCode } = await params
-  const roomCode = normalizeRoomCode(rawCode)
+  const roomCode = parseRoomCode(rawCode)
 
-  if (!roomCode) {
-    return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
-  }
+  if (!roomCode) return invalidRoomCode()
 
-  const supabase = createServerClient()
+  const supabase = getSupabase()
+  const session = await loadSession(supabase, roomCode, '*')
 
-  const { data: session, error: sessionError } = await supabase
-    .from('sessions')
-    .select('*')
-    .eq('room_code', roomCode)
-    .single()
-
-  if (sessionError || !session) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-  }
+  if (!session) return sessionNotFound()
 
   const { data: players, error: playersError } = await supabase
     .from('players')

@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function HomeScreen() {
   const router = useRouter()
@@ -37,7 +39,10 @@ export default function HomeScreen() {
         body: JSON.stringify({ nickname: nickname.trim() }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Failed to create game'); return }
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to create game')
+        return
+      }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
       sessionStorage.setItem('sessionSecret', data.sessionSecret)
@@ -61,7 +66,10 @@ export default function HomeScreen() {
         body: JSON.stringify({ nickname: nickname.trim() }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Failed to join game'); return }
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to join game')
+        return
+      }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
       sessionStorage.setItem('sessionSecret', data.sessionSecret)
@@ -78,14 +86,14 @@ export default function HomeScreen() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-safe pb-safe">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-safe pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
         <div className="text-center">
           <h1 className="text-4xl font-black text-white tracking-tight">⚔️ QuizKnight</h1>
-          <p className="text-white/70 text-sm mt-1">Last one standing wins</p>
+          <p className="text-white/70 text-sm mt-1 font-medium">Last one standing wins</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md px-6 py-6 flex flex-col gap-5 w-full overflow-hidden box-border">
+        <Card padding="lg" className="flex flex-col gap-5 overflow-hidden">
           <label htmlFor="nickname" className="text-sm font-bold text-gray-500 uppercase tracking-wide">
             Your nickname
           </label>
@@ -95,18 +103,17 @@ export default function HomeScreen() {
             placeholder="Enter your name"
             maxLength={20}
             value={nickname}
-            onChange={e => { setNickname(e.target.value); setError('') }}
+            onChange={(e) => {
+              setNickname(e.target.value)
+              setError('')
+            }}
             autoComplete="nickname"
             className="w-full min-h-[64px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-gray-900 placeholder-gray-400 font-black text-xl focus:outline-none focus:border-orange-400 focus:bg-white"
           />
 
-          <button
-            onClick={handleCreate}
-            disabled={loading}
-            className="w-full min-h-[52px] bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-base rounded-full py-3 disabled:opacity-50 active:scale-95 transition-transform"
-          >
+          <Button onClick={handleCreate} disabled={loading} fullWidth>
             🎮 Create Game
-          </button>
+          </Button>
 
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px bg-gray-200" />
@@ -121,25 +128,22 @@ export default function HomeScreen() {
               placeholder="Room code"
               maxLength={4}
               value={roomCode}
-              onChange={e => { setRoomCode(e.target.value.toUpperCase()); setError('') }}
+              onChange={(e) => {
+                setRoomCode(e.target.value.toUpperCase())
+                setError('')
+              }}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
               className="flex-1 min-w-0 min-h-[52px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-lg uppercase tracking-widest focus:outline-none focus:border-orange-400 focus:bg-white"
             />
-            <button
-              onClick={handleJoin}
-              disabled={loading}
-              className="shrink-0 bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full px-5 min-w-[72px] min-h-[52px] disabled:opacity-50 active:scale-95 transition-transform"
-            >
+            <Button onClick={handleJoin} disabled={loading} variant="compact">
               Join
-            </button>
+            </Button>
           </div>
 
-          {error && (
-            <p className="text-red-500 text-xs text-center font-semibold">{error}</p>
-          )}
-        </div>
+          {error && <p className="text-red-500 text-xs text-center font-semibold">{error}</p>}
+        </Card>
       </div>
     </div>
   )

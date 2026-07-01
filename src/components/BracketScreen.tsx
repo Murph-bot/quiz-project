@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Card } from '@/components/ui/Card'
+import { SectionLabel } from '@/components/ui/SectionLabel'
 import type { BracketState } from '@/types'
 
 interface Props {
@@ -29,7 +31,8 @@ export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
 
   function MatchCard({ match, label, highlighted }: { match: typeof bracket.sf1; label: string; highlighted: boolean }) {
     return (
-      <div className={`bg-white rounded-2xl shadow-md p-4 ${highlighted ? 'ring-2 ring-orange-400' : ''}`}>
+      <div className={`${highlighted ? 'ring-2 ring-orange-400 rounded-2xl' : ''}`}>
+        <Card padding="md">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">{label}</p>
         <div className="flex items-center justify-between gap-3">
           <span className="font-black text-gray-900 text-lg">{match.p1}</span>
@@ -37,15 +40,16 @@ export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
           <span className="font-black text-gray-900 text-lg">{match.p2}</span>
         </div>
         <p className="text-xs text-gray-400 text-center mt-2">Best of 3</p>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-5">
         <div className="text-center">
-          <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">Semi-Finals</p>
+          <SectionLabel className="mb-1">Semi-Finals</SectionLabel>
           <h1 className="text-3xl font-black text-white">⚔️ The Bracket</h1>
           <p className="text-white/50 text-sm mt-1">4 players remain</p>
         </div>

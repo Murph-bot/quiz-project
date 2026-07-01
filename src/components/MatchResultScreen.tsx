@@ -1,24 +1,38 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Card } from '@/components/ui/Card'
+import { SectionLabel } from '@/components/ui/SectionLabel'
 
 interface Props {
   winnerNickname: string
-  matchLabel: string // "Semi-Final 1" | "Semi-Final 2"
-  finalScore: string // "2 – 0"
-  nextLabel: string  // "Semi-Final 2 up next" | "Final up next"
+  matchLabel: string
+  finalScore: string
+  nextLabel: string
   onContinue: () => void
 }
 
-export function MatchResultScreen({ winnerNickname, matchLabel, finalScore, nextLabel, onContinue }: Props) {
+export function MatchResultScreen({
+  winnerNickname,
+  matchLabel,
+  finalScore,
+  nextLabel,
+  onContinue,
+}: Props) {
   const [countdown, setCountdown] = useState(5)
   const onContinueRef = useRef(onContinue)
-  useEffect(() => { onContinueRef.current = onContinue }, [onContinue])
+  useEffect(() => {
+    onContinueRef.current = onContinue
+  }, [onContinue])
 
   useEffect(() => {
     const t = setInterval(() => {
-      setCountdown(s => {
-        if (s <= 1) { clearInterval(t); onContinueRef.current(); return 0 }
+      setCountdown((s) => {
+        if (s <= 1) {
+          clearInterval(t)
+          onContinueRef.current()
+          return 0
+        }
         return s - 1
       })
     }, 1000)
@@ -26,15 +40,15 @@ export function MatchResultScreen({ winnerNickname, matchLabel, finalScore, next
   }, [])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-5 text-center">
-        <p className="text-white/60 text-xs font-bold uppercase tracking-widest">{matchLabel} Result</p>
-        <div className="bg-white rounded-2xl shadow-md p-6">
+        <SectionLabel>{matchLabel} Result</SectionLabel>
+        <Card padding="lg" className="text-center">
           <div className="text-5xl mb-3">🏆</div>
           <p className="text-gray-400 text-sm mb-1">Winner</p>
           <p className="text-orange-500 font-black text-3xl">{winnerNickname}</p>
           <p className="text-gray-400 text-sm mt-3">{finalScore}</p>
-        </div>
+        </Card>
         <div className="bg-white/10 rounded-2xl p-4">
           <p className="text-white font-bold">{nextLabel}</p>
         </div>

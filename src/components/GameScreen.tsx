@@ -4,8 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCountdown } from '@/hooks/useCountdown'
+import { useGameRoomEvents } from '@/hooks/useGameRoomEvents'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
 import { withNormalizedOptions } from '@/lib/questionOptions'
+import {
+  applyRoundStartedState,
+  applyTiebreakStartedState,
+  type NextRoundPayload,
+  type PendingTiebreak,
+  type QuestionData,
+} from '@/lib/game/gameRoundTransitions'
 import { QuestionPanel } from './QuestionPanel'
 import { RevealPanel } from './RevealPanel'
 import { SpectatorScreen } from './SpectatorScreen'
@@ -14,15 +22,10 @@ import { BracketScreen } from './BracketScreen'
 import { MatchScoreBar } from './MatchScoreBar'
 import { MatchResultScreen } from './MatchResultScreen'
 import { TiebreakWaitingScreen } from './TiebreakWaitingScreen'
+import { Banner } from '@/components/ui/Banner'
+import { Card } from '@/components/ui/Card'
+import { LoadingState } from '@/components/ui/LoadingState'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState } from '@/types'
-
-interface QuestionData {
-  id: string
-  text: string
-  timeLimit: number
-  category: string
-  options?: number[]
-}
 
 interface RevealData {
   correctAnswer: number
@@ -140,7 +143,42 @@ export function GameScreen({
   useEffect(() => { bracketDataRef.current = bracketData }, [bracketData])
   useEffect(() => { currentMatchPhaseRef.current = currentMatchPhase }, [currentMatchPhase])
 
-  function applyNextRoundResponse(data: any) {
+  function getRoundTransitionSetters() {
+    return {
+      setRoundId,
+      setRoundNumber,
+      setQuestion,
+      setStartedAt,
+      setRevealData,
+      setEliminated,
+      setIsGracePeriod,
+      setAnsweredPlayerIds,
+      setGraceDeadlineMs,
+      setPhase,
+      setResurrected,
+      setIsSuddenDeath,
+      setAliveCount,
+      setIsSpectating,
+      setShowResurrectionSelf,
+      setBracketData,
+      setCurrentMatchPhase,
+      setPendingTiebreak,
+      setTiebreakDeadlineMs,
+    }
+  }
+
+  function getRoundTransitionContext() {
+    return {
+      playerId,
+      isSpectatingRef,
+      bracketDataRef,
+      currentMatchPhaseRef,
+      graceDeadlineFarFuture: FAR_FUTURE_MS,
+      computeAmICompeting,
+    }
+  }
+
+  function applyNextRoundResponse(data: NextRoundPayload) {
     if (data.bracketReady && data.bracket) {
       setBracketData(data.bracket)
       setCurrentMatchPhase('sf1')
@@ -153,29 +191,7 @@ export function GameScreen({
       return
     }
 
-    if (data.resurrected?.playerId === playerId) {
-      isSpectatingRef.current = false
-      setIsSpectating(false)
-      setShowResurrectionSelf(true)
-      setTimeout(() => setShowResurrectionSelf(false), 4000)
-    }
-    if (data.resurrected) {
-      setAliveCount(prev => prev + 1)
-    }
-    setResurrected(data.resurrected ?? null)
-    if (data.isSuddenDeath) setIsSuddenDeath(true)
-    setRoundId(data.roundId)
-    setRoundNumber(data.roundNumber)
-    setQuestion(withNormalizedOptions({ ...data.question, options: data.options }))
-    setStartedAt(data.startedAt)
-    setRevealData(null)
-    setEliminated([])
-    setIsGracePeriod(false)
-    setAnsweredPlayerIds(new Set())
-    setGraceDeadlineMs(FAR_FUTURE_MS)
-    const bd = bracketDataRef.current
-    const mp = currentMatchPhaseRef.current
-    setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
+    applyRoundStartedState(data, getRoundTransitionSetters(), getRoundTransitionContext())
     channelRef.current?.send({
       type: 'broadcast',
       event: 'round:started',
@@ -558,19 +574,7 @@ export function GameScreen({
       // --- PENDING TIEBREAK: broadcast tiebreak:started instead of /rounds/next ---
       const pending = pendingTiebreakRef.current
       if (pending) {
-        const amITiebreaker = pending.playerIds.includes(playerId ?? '')
-        setRoundId(pending.roundId)
-        setQuestion(withNormalizedOptions(pending.question))
-        setStartedAt(pending.startedAt)
-        setRevealData(null)
-        setEliminated([])
-        setIsGracePeriod(false)
-        setAnsweredPlayerIds(new Set())
-        setGraceDeadlineMs(FAR_FUTURE_MS)
-        setPendingTiebreak(null)
-        setTiebreakDeadlineMs(new Date(pending.startedAt).getTime() + pending.question.timeLimit * 1000)
-        setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
-
+        applyTiebreakStartedState(pending, playerId, getRoundTransitionSetters(), FAR_FUTURE_MS)
         channelRef.current?.send({
           type: 'broadcast',
           event: 'tiebreak:started',
@@ -620,195 +624,146 @@ export function GameScreen({
     }
   }, [phase, router])
 
-  // Supabase Realtime subscriptions
-  useEffect(() => {
-    if (!ready || !playerId) return
-    let hostWasOnline = false
-    const channel = supabase
-      .channel(`room:${roomCode}`)
-      .on('broadcast', { event: 'round:closed' }, ({ payload }) => {
-        if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
-          setEliminated([])
-          setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
-          setPhase('reveal')
-          const tbQ: QuestionData = {
-            id: payload.tiebreakQuestion.id,
-            text: payload.tiebreakQuestion.text,
-            timeLimit: payload.tiebreakQuestion.timeLimit,
-            category: payload.tiebreakQuestion.category,
-            options: payload.tiebreakQuestion.options ?? undefined,
-          }
-          const deadline = new Date(payload.tiebreakStartedAt).getTime() + payload.tiebreakQuestion.timeLimit * 1000
-          setTiebreakDeadlineMs(deadline)
-          setPendingTiebreak({
-            roundId: payload.tiebreakRoundId,
-            question: tbQ,
-            startedAt: payload.tiebreakStartedAt,
-            playerIds: payload.tiebreakPlayerIds ?? [],
-          })
-          return
-        }
-
-        setEliminated(payload.eliminated ?? [])
-        setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
-        setPhase('reveal')
-
-        if (payload.gameOver) {
-          setGameOver(true)
-          gameOverRef.current = true
-          setWinner(payload.winner ?? null)
-        }
-
-        if (payload.eliminated?.length > 0) {
-          setAliveCount(prev => Math.max(0, prev - payload.eliminated.length))
-        }
-
-        if (payload.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
-          isSpectatingRef.current = true
-          setIsSpectating(true)
-        }
-      })
-      .on('broadcast', { event: 'round:started' }, ({ payload }) => {
-        if (payload.resurrected?.playerId === playerId) {
-          isSpectatingRef.current = false
-          setIsSpectating(false)
-          setShowResurrectionSelf(true)
-          setTimeout(() => setShowResurrectionSelf(false), 4000)
-        }
-        if (payload.resurrected) {
-          setAliveCount(prev => prev + 1)
-        }
-        setResurrected(payload.resurrected ?? null)
-        if (payload.isSuddenDeath) setIsSuddenDeath(true)
-        setRoundId(payload.roundId)
-        setRoundNumber(payload.roundNumber)
-        setQuestion(withNormalizedOptions(payload.question))
-        setStartedAt(payload.startedAt)
-        setRevealData(null)
+  useGameRoomEvents({
+    roomCode,
+    playerId: playerId ?? '',
+    sessionSecret,
+    ready: ready && !!playerId,
+    initialHostId: sessionHostId,
+    channelRef,
+    roundIdRef,
+    currentHostIdRef,
+    isSpectatingRef,
+    roundClosedRef,
+    allAnsweredConfirmedRef,
+    graceTimeoutRef,
+    setCurrentHostId,
+    attemptClose,
+    onRoundClosed: (payload) => {
+      if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
         setEliminated([])
-        setIsGracePeriod(false)
-        setAnsweredPlayerIds(new Set())
-        setGraceDeadlineMs(FAR_FUTURE_MS)
-        const bd = bracketDataRef.current
-        const mp = currentMatchPhaseRef.current
-        setPhase(bd && mp ? (computeAmICompeting(bd, mp, playerId) ? 'answering' : 'spectating') : (isSpectatingRef.current ? 'spectating' : 'answering'))
-      })
-      .on('broadcast', { event: 'game:over' }, () => {
-        setPhase('winner')
-      })
-      .on('broadcast', { event: 'bracket:ready' }, ({ payload }) => {
-        setBracketData(payload.bracket)
-        setCurrentMatchPhase('sf1')
-        setPhase('bracket')
-      })
-      .on('broadcast', { event: 'match:point' }, ({ payload }) => {
-        setMatchWins(payload.wins)
-        setBracketData(payload.bracket)
-      })
-      .on('broadcast', { event: 'match:complete' }, ({ payload }) => {
-        setBracketData(payload.bracket)
-        setCurrentMatchPhase(payload.nextMatchPhase ?? 'sf2')
-        setMatchWins([0, 0])
-        setMatchResultData({
-          winnerNickname: payload.matchWinnerNickname,
-          matchLabel: payload.matchLabel,
-          finalScore: payload.finalScore,
-          nextLabel: payload.nextLabel,
+        setRevealData({
+          correctAnswer: payload.correctAnswer as number,
+          answers: payload.answers as RankedAnswer[],
         })
-        setPhase('match-result')
-      })
-      .on('broadcast', { event: 'tie:replay' }, ({ payload }) => {
-        setRevealData({ correctAnswer: payload.correctAnswer, answers: payload.answers })
         setPhase('reveal')
-      })
-      .on('broadcast', { event: 'final:ready' }, ({ payload }) => {
-        setBracketData(payload.bracket)
-        setCurrentMatchPhase('final')
-        setMatchWins([0, 0])
-        setMatchResultData({
-          winnerNickname: payload.matchWinnerNickname,
-          matchLabel: payload.matchLabel,
-          finalScore: payload.finalScore,
-          nextLabel: 'The Final is next!',
+        const tbQ: QuestionData = {
+          id: (payload.tiebreakQuestion as QuestionData).id,
+          text: (payload.tiebreakQuestion as QuestionData).text,
+          timeLimit: (payload.tiebreakQuestion as QuestionData).timeLimit,
+          category: (payload.tiebreakQuestion as QuestionData).category,
+          options: (payload.tiebreakQuestion as { options?: number[] }).options ?? undefined,
+        }
+        const deadline =
+          new Date(payload.tiebreakStartedAt as string).getTime() +
+          (payload.tiebreakQuestion as QuestionData).timeLimit * 1000
+        setTiebreakDeadlineMs(deadline)
+        setPendingTiebreak({
+          roundId: payload.tiebreakRoundId as string,
+          question: tbQ,
+          startedAt: payload.tiebreakStartedAt as string,
+          playerIds: (payload.tiebreakPlayerIds as string[]) ?? [],
         })
-        setPhase('match-result')
+        return
+      }
+
+      setEliminated((payload.eliminated as EliminatedPlayer[]) ?? [])
+      setRevealData({
+        correctAnswer: payload.correctAnswer as number,
+        answers: payload.answers as RankedAnswer[],
       })
-      .on('broadcast', { event: 'tiebreak:started' }, ({ payload }) => {
-        const amITiebreaker = (payload.playerIds ?? []).includes(playerId ?? '')
-        setRoundId(payload.roundId)
-        setQuestion(withNormalizedOptions(payload.question))
-        setStartedAt(payload.startedAt)
-        setRevealData(null)
-        setEliminated([])
-        setIsGracePeriod(false)
-        setAnsweredPlayerIds(new Set())
-        setGraceDeadlineMs(FAR_FUTURE_MS)
-        setPendingTiebreak(null)
-        setTiebreakDeadlineMs(new Date(payload.startedAt).getTime() + payload.question.timeLimit * 1000)
-        setPhase(amITiebreaker ? 'answering' : 'tiebreak-waiting')
+      setPhase('reveal')
+
+      if (payload.gameOver) {
+        setGameOver(true)
+        gameOverRef.current = true
+        setWinner((payload.winner as WinnerInfo) ?? null)
+      }
+
+      const eliminatedList = (payload.eliminated as EliminatedPlayer[]) ?? []
+      if (eliminatedList.length > 0) {
+        setAliveCount((prev) => Math.max(0, prev - eliminatedList.length))
+      }
+
+      if (eliminatedList.some((e) => e.playerId === playerId)) {
+        isSpectatingRef.current = true
+        setIsSpectating(true)
+      }
+    },
+    onRoundStarted: (payload) => {
+      applyRoundStartedState(
+        payload as NextRoundPayload,
+        getRoundTransitionSetters(),
+        getRoundTransitionContext(),
+      )
+    },
+    onGameOver: () => setPhase('winner'),
+    onBracketReady: (bracket) => {
+      setBracketData(bracket)
+      setCurrentMatchPhase('sf1')
+      setPhase('bracket')
+    },
+    onMatchPoint: (wins, bracket) => {
+      setMatchWins(wins)
+      setBracketData(bracket)
+    },
+    onMatchComplete: (payload) => {
+      setBracketData(payload.bracket as BracketState)
+      setCurrentMatchPhase((payload.nextMatchPhase as 'sf2') ?? 'sf2')
+      setMatchWins([0, 0])
+      setMatchResultData({
+        winnerNickname: payload.matchWinnerNickname as string,
+        matchLabel: payload.matchLabel as string,
+        finalScore: payload.finalScore as string,
+        nextLabel: payload.nextLabel as string,
       })
-      .on('broadcast', { event: 'round:answered' }, ({ payload }) => {
-        if (payload.roundId !== roundIdRef.current) return
-        if (payload.playerId) {
-          setAnsweredPlayerIds(prev => new Set([...prev, payload.playerId]))
-        }
+      setPhase('match-result')
+    },
+    onTieReplay: (payload) => {
+      setRevealData({
+        correctAnswer: payload.correctAnswer as number,
+        answers: payload.answers as RankedAnswer[],
       })
-      .on('broadcast', { event: 'grace:started' }, ({ payload }) => {
-        if (payload.roundId !== roundIdRef.current) return
-        setIsGracePeriod(true)
-        setGraceDeadlineMs(payload.graceDeadlineMs)
+      setPhase('reveal')
+    },
+    onFinalReady: (payload) => {
+      setBracketData(payload.bracket as BracketState)
+      setCurrentMatchPhase('final')
+      setMatchWins([0, 0])
+      setMatchResultData({
+        winnerNickname: payload.matchWinnerNickname as string,
+        matchLabel: payload.matchLabel as string,
+        finalScore: payload.finalScore as string,
+        nextLabel: 'The Final is next!',
       })
-      .on('broadcast', { event: 'all:answered' }, ({ payload }) => {
-        if (payload.roundId !== roundIdRef.current) return
-        allAnsweredConfirmedRef.current = true
-        if (roundClosedRef.current) return
-        if (graceTimeoutRef.current) {
-          clearTimeout(graceTimeoutRef.current)
-          graceTimeoutRef.current = null
-        }
-        setIsGracePeriod(false)
-        setGraceDeadlineMs(FAR_FUTURE_MS)
-        attemptClose()
-      })
-      .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
-        setCurrentHostId(payload.hostId)
-        currentHostIdRef.current = payload.hostId
-      })
-      .on('broadcast', { event: 'game:exhausted' }, () => {
-        setQuestionsExhausted(true)
-      })
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ playerId: string; isAlive?: boolean }>()
-        const entries = Object.values(state).flat()
-        if (entries.length === 0) return
-        const aliveEntries = entries.filter(p => p.isAlive !== false)
-        const candidates = aliveEntries.length > 0 ? aliveEntries : entries
-        const candidateIds = candidates.map(p => p.playerId)
-        if (candidateIds.includes(currentHostIdRef.current)) {
-          hostWasOnline = true
-        }
-        if (hostWasOnline && !candidateIds.includes(currentHostIdRef.current)) {
-          const newHostId = [...candidateIds].sort()[0]
-          setCurrentHostId(newHostId)
-          currentHostIdRef.current = newHostId
-          if (newHostId === playerId) {
-            channel.send({ type: 'broadcast', event: 'host:changed', payload: { hostId: newHostId } })
-            fetch(`/api/sessions/${roomCode}/host`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId: newHostId, requesterId: playerId, sessionSecret }),
-            })
-          }
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED' && playerId) {
-          await channel.track({ playerId, isAlive: !isSpectatingRef.current })
-        }
-      })
-    channelRef.current = channel
-    return () => { supabase.removeChannel(channel) }
-  }, [roomCode, playerId, ready])
+      setPhase('match-result')
+    },
+    onTiebreakStarted: (payload) => {
+      applyTiebreakStartedState(
+        {
+          roundId: payload.roundId as string,
+          question: payload.question as QuestionData,
+          startedAt: payload.startedAt as string,
+          playerIds: (payload.playerIds as string[]) ?? [],
+        },
+        playerId,
+        getRoundTransitionSetters(),
+        FAR_FUTURE_MS,
+      )
+    },
+    onRoundAnswered: (answeredId) => {
+      setAnsweredPlayerIds((prev) => new Set([...prev, answeredId]))
+    },
+    onGraceStarted: (deadline) => {
+      setIsGracePeriod(true)
+      setGraceDeadlineMs(deadline)
+    },
+    onAllAnswered: () => {
+      setIsGracePeriod(false)
+      setGraceDeadlineMs(FAR_FUTURE_MS)
+    },
+    onGameExhausted: () => setQuestionsExhausted(true),
+  })
 
   async function handleSubmit(value: number) {
     if (!playerId || isSpectatingRef.current) return
@@ -850,22 +805,20 @@ export function GameScreen({
   const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
 
   if (!ready) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
-        <div className="text-white font-bold text-lg">Loading game...</div>
-      </div>
-    )
+    return <LoadingState message="Loading game..." />
   }
 
   if (questionsExhausted) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
+      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center phase-enter">
         <div className="w-full max-w-sm flex flex-col items-center gap-6">
           <div className="text-6xl">📭</div>
-          <div className="bg-white rounded-2xl shadow-md px-6 py-5 w-full">
+          <Card padding="md" className="text-center">
             <div className="text-lg font-black text-gray-900">No more questions!</div>
-            <div className="text-sm text-gray-500 mt-1">The question bank has been exhausted. The game has ended.</div>
-          </div>
+            <div className="text-sm text-gray-500 mt-1">
+              The question bank has been exhausted. The game has ended.
+            </div>
+          </Card>
         </div>
       </div>
     )
@@ -932,17 +885,12 @@ export function GameScreen({
     return (
       <>
         {isGracePeriod && (
-          <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-3">
-            <div className="bg-amber-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-lg flex items-center gap-2">
-              <span>⏳ Grace period</span>
-              <span className="font-black tabular-nums">{graceSecondsLeft}s</span>
-            </div>
-          </div>
+          <Banner variant="grace">
+            <span>⏳ Grace period</span>
+            <span className="font-black tabular-nums">{graceSecondsLeft}s</span>
+          </Banner>
         )}
-        <TiebreakWaitingScreen
-          roundNumber={roundNumber}
-          deadlineMs={tiebreakDeadlineMs}
-        />
+        <TiebreakWaitingScreen roundNumber={roundNumber} deadlineMs={tiebreakDeadlineMs} />
       </>
     )
   }
@@ -1005,18 +953,14 @@ export function GameScreen({
   return (
     <>
       {isSuddenDeath && (
-        <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
-          <div className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-            ⚡ Sudden Death — last player standing wins!
-          </div>
-        </div>
+        <Banner variant="danger" className="top-4 pt-0">
+          ⚡ Sudden Death — last player standing wins!
+        </Banner>
       )}
       {resurrected && (
-        <div className="fixed top-4 left-0 right-0 flex justify-center z-50 pointer-events-none">
-          <div className="bg-green-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-            🔄 {resurrected.nickname} has been resurrected!
-          </div>
-        </div>
+        <Banner variant="success" className="top-4 pt-0">
+          🔄 {resurrected.nickname} has been resurrected!
+        </Banner>
       )}
       {showResurrectionSelf && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">

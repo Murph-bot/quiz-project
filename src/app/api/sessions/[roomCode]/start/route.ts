@@ -1,51 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
-import { normalizeRoomCode } from '@/lib/roomCode'
 import { generateOptions } from '@/lib/generateOptions'
+import {
+  badRequest,
+  getSupabase,
+  hostOnly,
+  invalidCredentials,
+  invalidRoomCode,
+  loadSession,
+  parseRoomCode,
+  sessionNotFound,
+  verifyHostPlayer,
+} from '@/lib/api/sessionAuth'
+import { pickRandomQuestion } from '@/lib/questionPicker'
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ roomCode: string }> }
+  { params }: { params: Promise<{ roomCode: string }> },
 ) {
   const { roomCode: rawCode } = await params
-  const roomCode = normalizeRoomCode(rawCode)
+  const roomCode = parseRoomCode(rawCode)
   const body = await req.json()
   const { playerId, sessionSecret } = body
 
-  if (!roomCode) {
-    return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
-  }
+  if (!roomCode) return invalidRoomCode()
   if (!playerId || !sessionSecret) {
-    return NextResponse.json({ error: 'playerId and sessionSecret required' }, { status: 400 })
+    return badRequest('playerId and sessionSecret required')
   }
 
-  const supabase = createServerClient()
+  const supabase = getSupabase()
+  const session = await loadSession(supabase, roomCode, 'id, status, category, host_id')
 
-  const { data: session, error: sessionError } = await supabase
-    .from('sessions')
-    .select('id, status, category, host_id')
-    .eq('room_code', roomCode)
-    .single()
-
-  if (sessionError || !session) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-  }
+  if (!session) return sessionNotFound()
 
   if (session.status !== 'lobby') {
     return NextResponse.json({ error: 'Game already started' }, { status: 409 })
   }
 
-  const { data: player, error: playerError } = await supabase
-    .from('players')
-    .select('is_host')
-    .eq('id', playerId)
-    .eq('session_id', session.id)
-    .eq('session_secret', sessionSecret)
-    .single()
-
-  if (playerError || !player || !player.is_host) {
-    return NextResponse.json({ error: 'Only the host can start the game' }, { status: 403 })
-  }
+  const isHost = await verifyHostPlayer(supabase, session.id, playerId, sessionSecret)
+  if (!isHost) return hostOnly('Only the host can start the game')
 
   const { count: playerCount, error: countError } = await supabase
     .from('players')
@@ -54,23 +46,13 @@ export async function POST(
     .eq('is_alive', true)
 
   if (countError || (playerCount ?? 0) < 3) {
-    return NextResponse.json({ error: 'Need at least 3 players to start' }, { status: 400 })
+    return badRequest('Need at least 3 players to start')
   }
 
-  // Pick a random question from the selected category
-  let questionQuery = supabase
-    .from('questions')
-    .select('id, text, answer, category, time_limit')
-  if (session.category !== 'all') {
-    questionQuery = questionQuery.ilike('category', session.category)
-  }
-  const { data: questions } = await questionQuery
-
-  if (!questions || questions.length === 0) {
+  const question = await pickRandomQuestion(supabase, session.category)
+  if (!question) {
     return NextResponse.json({ error: 'No questions available' }, { status: 409 })
   }
-
-  const question = questions[Math.floor(Math.random() * questions.length)]
 
   const options = generateOptions(question.answer)
 
@@ -84,14 +66,23 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
 
-  const { error: updateError } = await supabase.from('sessions').update({ status: 'active' }).eq('id', session.id)
+  const { error: updateError } = await supabase
+    .from('sessions')
+    .update({ status: 'active' })
+    .eq('id', session.id)
+
   if (updateError) {
     return NextResponse.json({ error: 'Failed to update session' }, { status: 500 })
   }
 
   return NextResponse.json({
     roundId: round.id,
-    question: { id: question.id, text: question.text, timeLimit: question.time_limit, category: question.category },
+    question: {
+      id: question.id,
+      text: question.text,
+      timeLimit: question.time_limit,
+      category: question.category,
+    },
     startedAt: round.started_at,
     options,
   })

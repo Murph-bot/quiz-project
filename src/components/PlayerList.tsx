@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/ui/SectionLabel'
 import type { PresencePlayer } from '@/types'
 
 interface Props {
@@ -8,9 +9,9 @@ interface Props {
 export default function PlayerList({ players, maxPlayers = 50 }: Props) {
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">
+      <SectionLabel className="mb-1">
         {players.length} / {maxPlayers} players
-      </p>
+      </SectionLabel>
       <div className="flex flex-col gap-2">
         {players.length === 0 && (
           <p className="text-white/50 text-sm text-center py-4">Waiting for players...</p>
@@ -26,7 +27,9 @@ export default function PlayerList({ players, maxPlayers = 50 }: Props) {
             >
               {player.nickname.charAt(0).toUpperCase()}
             </div>
-            <span className="font-bold text-sm text-gray-900 flex-1 min-w-0 truncate">{player.nickname}</span>
+            <span className="font-bold text-sm text-gray-900 flex-1 min-w-0 truncate">
+              {player.nickname}
+            </span>
             {player.isHost && (
               <span className="text-xs font-bold text-orange-500 uppercase">Host</span>
             )}

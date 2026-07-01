@@ -1,35 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
-import { normalizeRoomCode } from '@/lib/roomCode'
+import {
+  badRequest,
+  getSupabase,
+  invalidRoomCode,
+  loadSession,
+  parseRoomCode,
+  sessionNotFound,
+} from '@/lib/api/sessionAuth'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
   const { roomCode: rawCode } = await params
-  const roomCode = normalizeRoomCode(rawCode)
+  const roomCode = parseRoomCode(rawCode)
   const body = await req.json()
   const nickname = (body.nickname ?? '').trim()
 
-  if (!roomCode) {
-    return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
-  }
+  if (!roomCode) return invalidRoomCode()
 
   if (!nickname || nickname.length > 20) {
-    return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 })
+    return badRequest('Invalid nickname')
   }
 
-  const supabase = createServerClient()
+  const supabase = getSupabase()
+  const session = await loadSession(supabase, roomCode, 'id, status')
 
-  const { data: session, error: sessionError } = await supabase
-    .from('sessions')
-    .select('id, status')
-    .eq('room_code', roomCode)
-    .single()
-
-  if (sessionError || !session) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-  }
+  if (!session) return sessionNotFound()
 
   if (session.status !== 'lobby') {
     // Allow eliminated spectators to reconnect with their original playerId

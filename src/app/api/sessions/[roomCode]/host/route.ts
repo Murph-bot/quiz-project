@@ -1,32 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase-server'
-import { normalizeRoomCode } from '@/lib/roomCode'
+import {
+  badRequest,
+  getSupabase,
+  invalidCredentials,
+  invalidRoomCode,
+  loadSession,
+  parseRoomCode,
+  sessionNotFound,
+} from '@/lib/api/sessionAuth'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
   const { roomCode: rawCode } = await params
-  const roomCode = normalizeRoomCode(rawCode)
+  const roomCode = parseRoomCode(rawCode)
   const body = await req.json()
   const { playerId, requesterId, sessionSecret } = body
 
-  if (!roomCode) {
-    return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
-  }
+  if (!roomCode) return invalidRoomCode()
   if (!playerId || !requesterId || !sessionSecret) {
-    return NextResponse.json({ error: 'playerId, requesterId, and sessionSecret required' }, { status: 400 })
+    return badRequest('playerId, requesterId, and sessionSecret required')
   }
 
-  const supabase = createServerClient()
+  const supabase = getSupabase()
+  const session = await loadSession(supabase, roomCode, 'id, host_id')
 
-  const { data: session } = await supabase
-    .from('sessions')
-    .select('id, host_id')
-    .eq('room_code', roomCode)
-    .single()
-
-  if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  if (!session) return sessionNotFound()
 
   // Verify sessionSecret matches the requester
   const { data: verifiedRequester } = await supabase
@@ -36,9 +36,7 @@ export async function PATCH(
     .eq('session_secret', sessionSecret)
     .single()
 
-  if (!verifiedRequester) {
-    return NextResponse.json({ error: 'Invalid credentials' }, { status: 403 })
-  }
+  if (!verifiedRequester) return invalidCredentials()
 
   const isTransfer = session.host_id === requesterId && playerId !== requesterId
   const isSelfClaim = playerId === requesterId && session.host_id !== playerId

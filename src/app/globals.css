@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+@theme {
+  --color-qk-orange: #ff6b00;
+  --color-qk-pink: #e84393;
+  --color-qk-orange-light: #ff8c42;
+  --color-qk-amber: #ffa500;
+  --radius-qk-card: 1rem;
+  --radius-qk-pill: 9999px;
+  --shadow-qk-card: 0 4px 14px rgb(0 0 0 / 0.08);
+  --font-size-qk-display: 2.5rem;
+  --font-size-qk-title: 1.5rem;
+  --font-size-qk-body: 0.875rem;
+  --font-size-qk-label: 0.75rem;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -11,8 +25,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes timerPulse {
@@ -25,11 +44,24 @@
   50%       { transform: rotate(8deg) scale(1.15); }
 }
 
+@keyframes eliminationShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes loadingPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
   font-family: system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, #ff4500, #ff6b00, #ff8c42, #ffa500, #e84393);
+  background: linear-gradient(135deg, #ff4500, var(--color-qk-orange), var(--color-qk-orange-light), var(--color-qk-amber), var(--color-qk-pink));
   background-size: 400% 400%;
   animation: gradientShift 16s ease infinite;
   background-attachment: fixed;
@@ -39,6 +71,14 @@ body {
   background: linear-gradient(135deg, #c0160a, #e02010, #ff4500, #c0200a, #8b0000) !important;
   background-size: 400% 400% !important;
   animation: gradientShift 2s ease infinite !important;
+}
+
+.phase-enter {
+  animation: fadeSlideIn 0.35s ease-out both;
+}
+
+.elimination-shake {
+  animation: eliminationShake 0.45s ease-in-out;
 }
 
 @utility pb-safe {

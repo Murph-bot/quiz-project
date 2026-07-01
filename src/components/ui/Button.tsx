@@ -1,0 +1,41 @@
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+
+type Variant = 'primary' | 'secondary' | 'compact'
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  children: ReactNode
+  variant?: Variant
+  fullWidth?: boolean
+}
+
+const variantClass: Record<Variant, string> = {
+  primary:
+    'bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black rounded-full active:scale-95 transition-transform disabled:opacity-40',
+  secondary:
+    'bg-white text-gray-900 font-bold rounded-full border-2 border-gray-200 active:scale-95 transition-transform disabled:opacity-40',
+  compact:
+    'bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black rounded-full active:scale-95 transition-transform disabled:opacity-50 shrink-0',
+}
+
+const sizeClass: Record<Variant, string> = {
+  primary: 'text-sm py-4 px-6 min-h-[52px]',
+  secondary: 'text-sm py-3 px-6 min-h-[48px]',
+  compact: 'text-sm px-5 min-w-[72px] min-h-[52px]',
+}
+
+export function Button({
+  children,
+  variant = 'primary',
+  fullWidth = false,
+  className = '',
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      className={`${variantClass[variant]} ${sizeClass[variant]} ${fullWidth ? 'w-full' : ''} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}

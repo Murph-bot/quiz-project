@@ -3,32 +3,19 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { VALID_CATEGORIES } from '@/lib/categories'
+import { useHostFailover } from '@/hooks/useHostFailover'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
+import { useSessionStatusPoll } from '@/hooks/useSessionStatusPoll'
 import PlayerList from '@/components/PlayerList'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { SectionLabel } from '@/components/ui/SectionLabel'
 import type { Session, PresencePlayer } from '@/types'
 
-const VALID_CATEGORIES = [
-  'all',
-  'geography',
-  'nature',
-  'animals',
-  'music industry',
-  'nations',
-  'popular products',
-  'popular tools',
-  'history',
-  'music instruments',
-  'sodas',
-  'alcoholic drinks',
-  'pop culture',
-  'movies',
-  'formula 1',
-  'food & drink',
-  'technology',
-  '00s nostalgia',
-  'money',
-]
 const MIN_PLAYERS = 3
+const POLL_NAVIGATE_STATUSES = ['active', 'finished'] as const
 const RESURRECTION_OPTIONS = [
   { value: 0, label: 'Off' },
   { value: 3, label: 'Every 3rd round' },
@@ -53,6 +40,13 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
 
   const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
   const isHost = playerId !== null && currentHostId === playerId
+  const { syncHostFromBroadcast, handlePresenceSync } = useHostFailover(initialSession.host_id)
+
+  useSessionStatusPoll({
+    roomCode,
+    enabled: ready,
+    navigateOn: [...POLL_NAVIGATE_STATUSES],
+  })
 
   useEffect(() => {
     if (!ready) return
@@ -64,36 +58,26 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     const channel = supabase.channel(`room:${roomCode}`)
     channelRef.current = channel
 
-    let currentHostIdSnapshot = initialSession.host_id
-    let hostWasOnline = false
-
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<PresencePlayer>()
         const list = Object.values(state).flat()
         setPlayers(list)
 
-        // Host failover: only after the current host was online and left (not before they join).
         const onlineIds = list.map((p) => p.playerId).filter(Boolean)
-        if (onlineIds.includes(currentHostIdSnapshot)) {
-          hostWasOnline = true
-        }
-        if (hostWasOnline && onlineIds.length > 0 && !onlineIds.includes(currentHostIdSnapshot)) {
-          const newHostId = [...onlineIds].sort()[0]
-          currentHostIdSnapshot = newHostId
-          setCurrentHostId(newHostId)
-          if (newHostId === playerId) {
-            channel.send({ type: 'broadcast', event: 'host:changed', payload: { hostId: newHostId } })
-            fetch(`/api/sessions/${roomCode}/host`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ playerId: newHostId, requesterId: playerId, sessionSecret }),
-            })
-          }
-        }
+        handlePresenceSync(onlineIds, {
+          roomCode,
+          playerId,
+          sessionSecret,
+          channel,
+          onHostChanged: (hostId) => {
+            syncHostFromBroadcast(hostId)
+            setCurrentHostId(hostId)
+          },
+        })
       })
       .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
-        currentHostIdSnapshot = payload.hostId
+        syncHostFromBroadcast(payload.hostId)
         setCurrentHostId(payload.hostId)
       })
       .on('broadcast', { event: 'game:started' }, () => {
@@ -112,53 +96,32 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     return () => {
       channel.unsubscribe()
     }
-  }, [roomCode, playerId, nickname, initialSession.host_id, router, ready, sessionSecret])
-
-  // Fallback if the realtime "game:started" broadcast is missed (common on mobile Safari).
-  useEffect(() => {
-    if (!ready) return
-    let cancelled = false
-
-    async function checkStarted() {
-      try {
-        const res = await fetch(`/api/sessions/${roomCode}`)
-        const data = res.ok ? await res.json() : null
-        const status = data?.session?.status ?? null
-        if (!res.ok) return
-        if (!cancelled && (status === 'active' || status === 'finished')) {
-          router.push(`/game/${roomCode}`)
-        }
-      } catch {
-        // ignore transient network errors
-      }
-    }
-
-    checkStarted()
-    const interval = setInterval(checkStarted, 3000)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [ready, roomCode, router])
+  }, [
+    roomCode,
+    playerId,
+    nickname,
+    initialSession.host_id,
+    router,
+    ready,
+    sessionSecret,
+    handlePresenceSync,
+    syncHostFromBroadcast,
+  ])
 
   if (!ready) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
-        <div className="text-white font-bold text-lg">Loading lobby...</div>
-      </div>
-    )
+    return <LoadingState message="Loading lobby..." />
   }
 
   async function handleCategoryChange(newCategory: string) {
     const previousCategory = category
-    setCategory(newCategory) // optimistic update
+    setCategory(newCategory)
     const res = await fetch(`/api/sessions/${roomCode}/category`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: newCategory, playerId }),
     })
     if (!res.ok) {
-      setCategory(previousCategory) // roll back on failure
+      setCategory(previousCategory)
     }
   }
 
@@ -190,74 +153,74 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
       event: 'game:started',
       payload: {},
     })
-    // Host won't receive its own broadcast — navigate directly
     router.push(`/game/${roomCode}`)
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe">
+    <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-5">
         <div className="text-center">
           <h1 className="text-2xl font-black text-white">⚔️ QuizKnight</h1>
         </div>
 
-        {/* Room code — directly on gradient, no card */}
         <div className="text-center">
-          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">Room Code</p>
+          <SectionLabel className="mb-1">Room Code</SectionLabel>
           <p className="text-white text-5xl font-black tracking-[0.3em]">{roomCode}</p>
           <p className="text-white/50 text-xs mt-2">Share this code with friends</p>
         </div>
 
-        {/* Player list */}
         <PlayerList players={players} />
 
-        {/* Category selector (host only) */}
         {isHost && (
           <div className="flex flex-col gap-2">
-            <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Category</p>
-            <div className="bg-white rounded-2xl shadow-md px-4 py-1">
+            <SectionLabel>Category</SectionLabel>
+            <Card padding="sm">
               <select
                 value={category}
-                onChange={e => handleCategoryChange(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none capitalize w-full py-2"
               >
-                {VALID_CATEGORIES.map(c => (
-                  <option key={c} value={c} className="capitalize">{c}</option>
+                {VALID_CATEGORIES.map((c) => (
+                  <option key={c} value={c} className="capitalize">
+                    {c}
+                  </option>
                 ))}
               </select>
-            </div>
+            </Card>
           </div>
         )}
 
-        {/* Resurrection interval (host only) */}
         {isHost && (
           <div className="flex flex-col gap-2">
-            <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Resurrection</p>
-            <div className="bg-white rounded-2xl shadow-md px-4 py-1">
+            <SectionLabel>Resurrection</SectionLabel>
+            <Card padding="sm">
               <select
                 value={resurrectionInterval}
-                onChange={e => handleResurrectionChange(Number(e.target.value))}
+                onChange={(e) => handleResurrectionChange(Number(e.target.value))}
                 className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none w-full py-2"
               >
-                {RESURRECTION_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                {RESURRECTION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
-            </div>
+            </Card>
           </div>
         )}
 
-        {/* Start / waiting */}
         {isHost ? (
-          <button
+          <Button
             onClick={handleStart}
             disabled={players.length < MIN_PLAYERS || starting}
-            className="w-full bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black text-sm rounded-full py-4 disabled:opacity-40 active:scale-95 transition-transform"
+            fullWidth
           >
             {players.length < MIN_PLAYERS
               ? `Need ${MIN_PLAYERS - players.length} more player${MIN_PLAYERS - players.length > 1 ? 's' : ''}`
-              : starting ? 'Starting...' : '🚀 Start Game'}
-          </button>
+              : starting
+                ? 'Starting...'
+                : '🚀 Start Game'}
+          </Button>
         ) : (
           <p className="text-center text-white/60 text-sm">Waiting for host to start...</p>
         )}

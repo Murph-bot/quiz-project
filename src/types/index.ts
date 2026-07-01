@@ -8,8 +8,9 @@ export interface Session {
   category: string
   resurrection_interval: number
   created_at: string
-  phase?: GamePhase       // bracket mode phase (added in migration 004)
-  bracket?: BracketState  // bracket tournament state
+  phase?: GamePhase
+  bracket?: BracketState
+  winner_id?: string | null
 }
 
 export interface Player {
@@ -19,6 +20,7 @@ export interface Player {
   is_host: boolean
   is_alive: boolean
   joined_at: string
+  session_secret?: string
 }
 
 // Shape of each entry tracked via Supabase Presence
