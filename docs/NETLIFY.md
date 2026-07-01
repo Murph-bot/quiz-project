@@ -6,18 +6,17 @@
 
 **Vercel fallback (retained):** https://quiz-project-phi-sooty.vercel.app
 
-## One-time: enable Git auto-deploy
+## Git auto-deploy
 
-The repo is configured (`Murph-bot/quiz-project`, branch `main`) but Netlify needs GitHub App access:
+Repo: `Murph-bot/quiz-project`, branch `main`.
 
-1. Open https://app.netlify.com/projects/quizknight-433/settings/deploys
-2. Under **Continuous deployment**, click **Link repository** (or **Configure**)
-3. Choose **GitHub** → authorize Netlify → select `Murph-bot/quiz-project`
-4. Build settings (should match `netlify.toml`):
-   - Build command: `npm run build`
-   - Publish directory: `.next`
-   - Branch: `main`
-5. Save — push to `main` should trigger deploys automatically
+Build settings (in dashboard and `netlify.toml`):
+
+- Build command: `npm run build`
+- Publish directory: `.next`
+- Functions directory: `netlify/functions`
+
+Push to `main` triggers production deploys automatically.
 
 ## Environment variables
 
