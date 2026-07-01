@@ -13,6 +13,10 @@ export function resolveNormalElimination(answers: RankedAnswer[]): NormalElimina
   }
 
   const maxDelta = Math.max(...answers.map((a) => a.delta))
+  if (maxDelta === 0) {
+    return { eliminated: [], tiedForWorstIds: [] }
+  }
+
   const worst = answers.filter((a) => a.delta === maxDelta)
 
   if (worst.length === 1) {
@@ -45,6 +49,10 @@ export function resolveSubsetElimination(
   }
 
   const maxDelta = Math.max(...participantAnswers.map((a) => a.delta))
+  if (maxDelta === 0) {
+    return { eliminated: [], tiedForWorstIds: [] }
+  }
+
   const worst = participantAnswers.filter((a) => a.delta === maxDelta)
 
   if (worst.length === 1) {

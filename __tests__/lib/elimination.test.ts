@@ -36,6 +36,16 @@ describe('resolveNormalElimination', () => {
     expect(result.tiedForWorstIds).toEqual(['p2', 'p3'])
   })
 
+  it('eliminates nobody when everyone answers exactly correct', () => {
+    const result = resolveNormalElimination([
+      answer('p1', 'Alex', 0),
+      answer('p2', 'Maria', 0),
+      answer('p3', 'Nick', 0),
+    ])
+    expect(result.eliminated).toEqual([])
+    expect(result.tiedForWorstIds).toEqual([])
+  })
+
   it('eliminates the single no-answer player when they are farthest', () => {
     const result = resolveNormalElimination([
       answer('p1', 'Alex', 2),
