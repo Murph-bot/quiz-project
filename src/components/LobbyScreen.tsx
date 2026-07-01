@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { usePlayerSession } from '@/hooks/usePlayerSession'
 import PlayerList from '@/components/PlayerList'
 import type { Session, PresencePlayer } from '@/types'
 
@@ -43,19 +44,18 @@ interface Props {
 
 export default function LobbyScreen({ roomCode, initialSession }: Props) {
   const router = useRouter()
+  const { playerId, nickname, sessionSecret, ready } = usePlayerSession()
   const [players, setPlayers] = useState<PresencePlayer[]>([])
   const [category, setCategory] = useState(initialSession.category)
   const [resurrectionInterval, setResurrectionInterval] = useState(initialSession.resurrection_interval ?? 5)
   const [starting, setStarting] = useState(false)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
-  const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
-  const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
-  const sessionSecret = typeof window !== 'undefined' ? sessionStorage.getItem('sessionSecret') : null
   const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
   const isHost = playerId !== null && currentHostId === playerId
 
   useEffect(() => {
+    if (!ready) return
     if (!playerId || !nickname) {
       router.push('/')
       return
@@ -108,7 +108,15 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     return () => {
       channel.unsubscribe()
     }
-  }, [roomCode, playerId, nickname, initialSession.host_id, router])
+  }, [roomCode, playerId, nickname, initialSession.host_id, router, ready, sessionSecret])
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
+        <div className="text-white font-bold text-lg">Loading lobby...</div>
+      </div>
+    )
+  }
 
   async function handleCategoryChange(newCategory: string) {
     const previousCategory = category

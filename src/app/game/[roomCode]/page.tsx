@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase-server'
 import { GameScreen } from '@/components/GameScreen'
+import { normalizeOptions } from '@/lib/questionOptions'
 import type { WinnerInfo } from '@/types'
 
 interface Props {
@@ -94,7 +95,7 @@ export default async function GamePage({ params }: Props) {
           text: question.text,
           timeLimit: question.time_limit,
           category: question.category,
-          options: round.options ?? undefined,
+          options: normalizeOptions(round.options),
         }}
         initialStartedAt={round.started_at}
         initialRevealData={revealData}

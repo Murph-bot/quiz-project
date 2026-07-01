@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCountdown } from '@/hooks/useCountdown'
+import { usePlayerSession } from '@/hooks/usePlayerSession'
+import { withNormalizedOptions } from '@/lib/questionOptions'
 import { QuestionPanel } from './QuestionPanel'
 import { RevealPanel } from './RevealPanel'
 import { SpectatorScreen } from './SpectatorScreen'
@@ -39,7 +41,8 @@ interface Props {
   initialAliveCount: number
 }
 
-const FAR_FUTURE_MS = Date.now() + 1e9
+// Stable sentinel — must not use Date.now() (SSR/client hydration mismatch).
+const FAR_FUTURE_MS = 9_000_000_000_000
 
 type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner' | 'tiebreak-waiting'
 
@@ -55,9 +58,7 @@ export function GameScreen({
   initialAliveCount,
 }: Props) {
   const router = useRouter()
-  const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') : null
-  const nickname = typeof window !== 'undefined' ? sessionStorage.getItem('nickname') : null
-  const sessionSecret = typeof window !== 'undefined' ? sessionStorage.getItem('sessionSecret') : null
+  const { playerId, nickname, sessionSecret, ready } = usePlayerSession()
   const [currentHostId, setCurrentHostId] = useState(sessionHostId)
   const currentHostIdRef = useRef(sessionHostId)
   useEffect(() => { currentHostIdRef.current = currentHostId }, [currentHostId])
@@ -65,7 +66,7 @@ export function GameScreen({
 
   const [roundId, setRoundId] = useState(initialRoundId)
   const [roundNumber, setRoundNumber] = useState(initialRoundNumber)
-  const [question, setQuestion] = useState(initialQuestion)
+  const [question, setQuestion] = useState(() => withNormalizedOptions(initialQuestion))
   const [startedAt, setStartedAt] = useState(initialStartedAt)
 
   const getInitialPhase = (): Phase => {
@@ -165,7 +166,7 @@ export function GameScreen({
     if (data.isSuddenDeath) setIsSuddenDeath(true)
     setRoundId(data.roundId)
     setRoundNumber(data.roundNumber)
-    setQuestion({ ...data.question, options: data.options })
+    setQuestion(withNormalizedOptions({ ...data.question, options: data.options }))
     setStartedAt(data.startedAt)
     setRevealData(null)
     setEliminated([])
@@ -207,10 +208,11 @@ export function GameScreen({
     return id // fallback (should not happen)
   }
 
-  // Redirect if no identity
+  // Redirect if no identity (after sessionStorage has been read client-side).
   useEffect(() => {
+    if (!ready) return
     if (!playerId) router.push('/')
-  }, [playerId, router])
+  }, [ready, playerId, router])
 
   // Countdown for current question — used to trigger close when expired
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
@@ -556,7 +558,7 @@ export function GameScreen({
       if (pending) {
         const amITiebreaker = pending.playerIds.includes(playerId ?? '')
         setRoundId(pending.roundId)
-        setQuestion(pending.question)
+        setQuestion(withNormalizedOptions(pending.question))
         setStartedAt(pending.startedAt)
         setRevealData(null)
         setEliminated([])
@@ -618,6 +620,7 @@ export function GameScreen({
 
   // Supabase Realtime subscriptions
   useEffect(() => {
+    if (!ready || !playerId) return
     const channel = supabase
       .channel(`room:${roomCode}`)
       .on('broadcast', { event: 'round:closed' }, ({ payload }) => {
@@ -676,7 +679,7 @@ export function GameScreen({
         if (payload.isSuddenDeath) setIsSuddenDeath(true)
         setRoundId(payload.roundId)
         setRoundNumber(payload.roundNumber)
-        setQuestion(payload.question)
+        setQuestion(withNormalizedOptions(payload.question))
         setStartedAt(payload.startedAt)
         setRevealData(null)
         setEliminated([])
@@ -730,7 +733,7 @@ export function GameScreen({
       .on('broadcast', { event: 'tiebreak:started' }, ({ payload }) => {
         const amITiebreaker = (payload.playerIds ?? []).includes(playerId ?? '')
         setRoundId(payload.roundId)
-        setQuestion(payload.question)
+        setQuestion(withNormalizedOptions(payload.question))
         setStartedAt(payload.startedAt)
         setRevealData(null)
         setEliminated([])
@@ -800,7 +803,7 @@ export function GameScreen({
       })
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [roomCode, playerId])
+  }, [roomCode, playerId, ready])
 
   async function handleSubmit(value: number) {
     if (!playerId || isSpectatingRef.current) return
@@ -840,6 +843,14 @@ export function GameScreen({
   }
 
   const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
+
+  if (!ready) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">
+        <div className="text-white font-bold text-lg">Loading game...</div>
+      </div>
+    )
+  }
 
   if (questionsExhausted) {
     return (

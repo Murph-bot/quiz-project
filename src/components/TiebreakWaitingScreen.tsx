@@ -8,11 +8,10 @@ interface Props {
 }
 
 export function TiebreakWaitingScreen({ roundNumber, deadlineMs }: Props) {
-  const [secondsLeft, setSecondsLeft] = useState(() =>
-    Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
-  )
+  const [secondsLeft, setSecondsLeft] = useState(0)
 
   useEffect(() => {
+    setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
     const interval = setInterval(() => {
       setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
     }, 500)
@@ -31,7 +30,7 @@ export function TiebreakWaitingScreen({ roundNumber, deadlineMs }: Props) {
         </div>
         <div className="bg-white/10 rounded-xl px-6 py-4 w-full">
           <div className="text-white/70 text-sm mb-1">Time remaining</div>
-          <div className="text-4xl font-black text-white tabular-nums">
+          <div className="text-4xl font-black text-white tabular-nums" suppressHydrationWarning>
             {secondsLeft}s
           </div>
         </div>

@@ -11,6 +11,9 @@ describe('useCountdown', () => {
   it('returns correct secondsLeft before deadline', () => {
     jest.spyOn(Date, 'now').mockReturnValue(0)
     const { result } = renderHook(() => useCountdown(10000))
+    act(() => {
+      jest.advanceTimersByTime(0)
+    })
     expect(result.current.secondsLeft).toBe(10)
     expect(result.current.isExpired).toBe(false)
   })
@@ -18,6 +21,9 @@ describe('useCountdown', () => {
   it('returns 0 and isExpired:true when past deadline', () => {
     jest.spyOn(Date, 'now').mockReturnValue(20000)
     const { result } = renderHook(() => useCountdown(10000))
+    act(() => {
+      jest.advanceTimersByTime(0)
+    })
     expect(result.current.secondsLeft).toBe(0)
     expect(result.current.isExpired).toBe(true)
   })
@@ -26,6 +32,9 @@ describe('useCountdown', () => {
     let now = 0
     jest.spyOn(Date, 'now').mockImplementation(() => now)
     const { result } = renderHook(() => useCountdown(10000))
+    act(() => {
+      jest.advanceTimersByTime(0)
+    })
     expect(result.current.secondsLeft).toBe(10)
     act(() => {
       now = 3000

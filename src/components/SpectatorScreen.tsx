@@ -11,16 +11,21 @@ interface Props {
   graceSecondsLeft: number
 }
 
+function computeSecondsLeft(startedAt: string, timeLimit: number): number {
+  return Math.max(0, Math.ceil((new Date(startedAt).getTime() + timeLimit * 1000 - Date.now()) / 1000))
+}
+
 export function SpectatorScreen({ roundNumber, question, startedAt, aliveCount, isGracePeriod, graceSecondsLeft }: Props) {
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    if (!question || !startedAt) return 0
-    return Math.max(0, Math.ceil((new Date(startedAt).getTime() + question.timeLimit * 1000 - Date.now()) / 1000))
-  })
+  const [secondsLeft, setSecondsLeft] = useState(0)
 
   useEffect(() => {
-    if (!question || !startedAt) return
+    if (!question || !startedAt) {
+      setSecondsLeft(0)
+      return
+    }
+    setSecondsLeft(computeSecondsLeft(startedAt, question.timeLimit))
     const interval = setInterval(() => {
-      setSecondsLeft(Math.max(0, Math.ceil((new Date(startedAt).getTime() + question.timeLimit * 1000 - Date.now()) / 1000)))
+      setSecondsLeft(computeSecondsLeft(startedAt, question.timeLimit))
     }, 500)
     return () => clearInterval(interval)
   }, [question, startedAt])
@@ -49,7 +54,7 @@ export function SpectatorScreen({ roundNumber, question, startedAt, aliveCount, 
           <div className="bg-white/10 rounded-2xl px-6 py-5 w-full flex flex-col gap-3">
             <div className="text-white/60 text-xs uppercase tracking-widest">Current question</div>
             <div className="text-white font-semibold text-base leading-snug">{question.text}</div>
-            <div className="text-3xl font-black text-white tabular-nums">{secondsLeft}s</div>
+            <div className="text-3xl font-black text-white tabular-nums" suppressHydrationWarning>{secondsLeft}s</div>
           </div>
         )}
 

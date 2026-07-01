@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useCountdown } from '@/hooks/useCountdown'
+import { normalizeOptions } from '@/lib/questionOptions'
 
 interface Props {
   roundNumber: number
-  question: { id: string; text: string; timeLimit: number; category: string; options?: number[] }
+  question: { id: string; text: string; timeLimit: number; category: string; options?: unknown }
   startedAt: string
   isWaiting: boolean
   isGracePeriod: boolean
@@ -16,9 +17,10 @@ interface Props {
 export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isGracePeriod, graceSecondsLeft, onSubmit }: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const options = normalizeOptions(question.options)
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { secondsLeft } = useCountdown(deadlineMs)
-  const progress = Math.round((secondsLeft / question.timeLimit) * 100)
+  const progress = question.timeLimit > 0 ? Math.round((secondsLeft / question.timeLimit) * 100) : 0
   const disabled = isWaiting || submitted || (secondsLeft === 0 && !isGracePeriod)
   const isUrgent = secondsLeft <= 4 && secondsLeft > 0
 
@@ -55,6 +57,7 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
           <div
             className={`text-6xl font-black leading-none ${isUrgent ? 'text-red-600' : 'text-orange-500'}`}
             style={isUrgent ? { animation: 'timerPulse 0.6s ease infinite' } : undefined}
+            suppressHydrationWarning
           >
             {secondsLeft}
           </div>
@@ -81,9 +84,9 @@ export function QuestionPanel({ roundNumber, question, startedAt, isWaiting, isG
 
       {/* Choice buttons (or waiting state) anchored to bottom */}
       <div className="w-full max-w-sm mx-auto mt-4 flex flex-col gap-3">
-        {question.options ? (
+        {options ? (
           <>
-            {question.options.map(opt => {
+            {options.map(opt => {
               const isSelected = selectedOption === opt
               return (
                 <button

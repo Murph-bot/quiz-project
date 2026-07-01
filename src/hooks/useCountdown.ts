@@ -7,7 +7,8 @@ function computeSeconds(deadlineMs: number): number {
 }
 
 export function useCountdown(deadlineMs: number): { secondsLeft: number; isExpired: boolean } {
-  const [secondsLeft, setSecondsLeft] = useState(() => computeSeconds(deadlineMs))
+  // Start at 0 to avoid SSR/client hydration mismatch from Date.now().
+  const [secondsLeft, setSecondsLeft] = useState(0)
 
   useEffect(() => {
     setSecondsLeft(computeSeconds(deadlineMs))
