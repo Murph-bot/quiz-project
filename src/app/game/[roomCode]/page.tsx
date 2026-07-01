@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase-server'
 import { GameScreen } from '@/components/GameScreen'
+import { isValidRoomCode } from '@/lib/roomCode'
 import { normalizeOptions } from '@/lib/questionOptions'
 import type { WinnerInfo } from '@/types'
 
@@ -9,7 +10,13 @@ interface Props {
 }
 
 export default async function GamePage({ params }: Props) {
-  const { roomCode } = await params
+  const { roomCode: rawCode } = await params
+  const roomCode = rawCode.toUpperCase()
+
+  if (!isValidRoomCode(roomCode)) {
+    notFound()
+  }
+
   const supabase = createServerClient()
 
   const { data: session } = await supabase

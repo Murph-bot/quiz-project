@@ -110,6 +110,32 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     }
   }, [roomCode, playerId, nickname, initialSession.host_id, router, ready, sessionSecret])
 
+  // Fallback if the realtime "game:started" broadcast is missed (common on mobile Safari).
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+
+    async function checkStarted() {
+      try {
+        const res = await fetch(`/api/sessions/${roomCode}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && (data.session?.status === 'active' || data.session?.status === 'finished')) {
+          router.push(`/game/${roomCode}`)
+        }
+      } catch {
+        // ignore transient network errors
+      }
+    }
+
+    checkStarted()
+    const interval = setInterval(checkStarted, 3000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [ready, roomCode, router])
+
   if (!ready) {
     return (
       <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe text-center">

@@ -6,7 +6,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
-  const { roomCode } = await params
+  const { roomCode: rawCode } = await params
+  const roomCode = rawCode.toUpperCase()
 
   if (!isValidRoomCode(roomCode)) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })

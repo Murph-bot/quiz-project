@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase-server'
+import { isValidRoomCode } from '@/lib/roomCode'
 import LobbyScreen from '@/components/LobbyScreen'
 
 interface Props {
@@ -7,7 +8,12 @@ interface Props {
 }
 
 export default async function LobbyPage({ params }: Props) {
-  const { roomCode } = await params
+  const { roomCode: rawCode } = await params
+  const roomCode = rawCode.toUpperCase()
+
+  if (!isValidRoomCode(roomCode)) {
+    notFound()
+  }
 
   const supabase = createServerClient()
 
@@ -17,8 +23,13 @@ export default async function LobbyPage({ params }: Props) {
     .eq('room_code', roomCode)
     .single()
 
-  if (error || !session || session.status !== 'lobby') {
+  if (error || !session) {
     notFound()
+  }
+
+  // Game already started — send players to the game view (e.g. refresh or missed realtime event).
+  if (session.status === 'active' || session.status === 'finished') {
+    redirect(`/game/${roomCode}`)
   }
 
   return <LobbyScreen roomCode={roomCode} initialSession={session} />
