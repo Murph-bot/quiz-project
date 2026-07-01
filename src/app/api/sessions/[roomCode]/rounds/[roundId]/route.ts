@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { computeRevealElimination } from '@/lib/game/revealElimination'
 import { createServerClient } from '@/lib/supabase-server'
 import { normalizeRoomCode } from '@/lib/roomCode'
+import type { BracketState } from '@/types'
 
 export async function GET(
   req: NextRequest,
@@ -23,7 +25,7 @@ export async function GET(
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, status, winner_id')
+    .select('id, status, winner_id, phase, bracket')
     .eq('room_code', roomCode)
     .single()
 
@@ -73,21 +75,32 @@ export async function GET(
     .select('player_id, value, players(nickname)')
     .eq('round_id', roundId)
 
+  const { data: sessionPlayers } = await supabase
+    .from('players')
+    .select('id, nickname, is_alive')
+    .eq('session_id', session.id)
+
+  const answeredIds = new Set((rawAnswers ?? []).map((a) => a.player_id))
+  const activeList = ((sessionPlayers ?? []) as Array<{ id: string; nickname: string; is_alive: boolean }>)
+    .filter((p) => answeredIds.has(p.id) || p.is_alive)
+    .map((p) => ({ id: p.id, nickname: p.nickname }))
+
   const correctAnswer = question.answer
-  const answers = ((rawAnswers ?? []) as unknown as Array<{
-    player_id: string
-    value: number
-    players: { nickname: string } | null
-  }>)
-    .filter(a => a.players !== null)
-    .map(a => ({
-      playerId: a.player_id,
-      nickname: a.players!.nickname,
-      value: a.value,
-      delta: Math.abs(a.value - correctAnswer),
-      noAnswer: false,
-    }))
-    .sort((a, b) => a.delta - b.delta)
+  const { answers, eliminated } = computeRevealElimination(
+    (rawAnswers ?? []) as unknown as Array<{
+      player_id: string
+      value: number
+      players: { nickname: string }
+    }>,
+    correctAnswer,
+    activeList,
+  )
+
+  const { count: aliveCount } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', session.id)
+    .eq('is_alive', true)
 
   let winner = null
   if (session.status === 'finished' && session.winner_id) {
@@ -101,13 +114,22 @@ export async function GET(
     }
   }
 
+  const bracket = (session.bracket as BracketState | null) ?? null
+  const bracketReady = session.phase === 'semifinal' && bracket !== null
+  const finalReady = session.phase === 'final' && bracket !== null
+
   return NextResponse.json({
     status: 'closed',
     correctAnswer,
     answers,
-    eliminated: answers.filter(a => a.delta > 0).map(a => ({ playerId: a.playerId, nickname: a.nickname })),
+    eliminated,
+    aliveCount: aliveCount ?? 0,
     winner,
     gameOver: session.status === 'finished',
     wasAlreadyClosed: true,
+    bracketReady,
+    finalReady,
+    sfComplete: false,
+    bracket,
   })
 }

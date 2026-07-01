@@ -265,6 +265,38 @@ export function GameScreen({
     allAnsweredConfirmedRef.current = false
   }, [roundId])
 
+  function applyAliveCountFromPayload(data: {
+    aliveCount?: number
+    eliminated?: EliminatedPlayer[]
+  }) {
+    if (typeof data.aliveCount === 'number') {
+      setAliveCount(data.aliveCount)
+    } else if (data.eliminated?.length) {
+      setAliveCount((prev) => Math.max(0, prev - data.eliminated!.length))
+    }
+  }
+
+  function applyEliminationSpectatorState(
+    eliminated: EliminatedPlayer[] | undefined,
+    bracket?: BracketState | null,
+    finalReady?: boolean,
+  ) {
+    const amFinalist =
+      Boolean(finalReady && bracket?.finalists?.length && playerId) &&
+      bracket!.finalists.includes(playerId!)
+
+    if (amFinalist) {
+      isSpectatingRef.current = false
+      setIsSpectating(false)
+      return
+    }
+
+    if (eliminated?.some((e) => e.playerId === playerId)) {
+      isSpectatingRef.current = true
+      setIsSpectating(true)
+    }
+  }
+
   // Shared close-handling logic extracted to avoid duplication
   function handleCloseData(data: any) {
     if (data.error) {
@@ -445,14 +477,8 @@ export function GameScreen({
       setWinner(data.winner ?? null)
     }
 
-    if (data.eliminated?.length > 0) {
-      setAliveCount(prev => Math.max(0, prev - data.eliminated.length))
-    }
-
-    if (data.eliminated?.some((e: EliminatedPlayer) => e.playerId === playerId)) {
-      isSpectatingRef.current = true
-      setIsSpectating(true)
-    }
+    applyAliveCountFromPayload(data)
+    applyEliminationSpectatorState(data.eliminated, data.bracket, data.finalReady)
 
     channelRef.current?.send({
       type: 'broadcast',
@@ -461,6 +487,9 @@ export function GameScreen({
         correctAnswer: data.correctAnswer,
         answers: data.answers,
         eliminated: data.eliminated,
+        aliveCount: data.aliveCount,
+        finalReady: data.finalReady,
+        bracket: data.bracket,
         winner: data.winner,
         gameOver: data.gameOver,
       },
@@ -613,6 +642,11 @@ export function GameScreen({
         setBracketData(pendingFinal)
         setCurrentMatchPhase('final')
         setMatchWins([0, 0])
+        if (playerId && pendingFinal.finalists.includes(playerId)) {
+          isSpectatingRef.current = false
+          setIsSpectating(false)
+        }
+        setAliveCount(2)
         const finalist1 = getFinalistNickname(pendingFinal, pendingFinal.finalists[0] ?? '')
         const finalist2 = getFinalistNickname(pendingFinal, pendingFinal.finalists[1] ?? '')
         setMatchResultData({
@@ -722,6 +756,10 @@ export function GameScreen({
       })
       setPhase('reveal')
 
+      if (payload.finalReady && payload.bracket) {
+        pendingFinalIntroRef.current = payload.bracket as BracketState
+      }
+
       if (payload.gameOver) {
         setGameOver(true)
         gameOverRef.current = true
@@ -729,14 +767,15 @@ export function GameScreen({
       }
 
       const eliminatedList = (payload.eliminated as EliminatedPlayer[]) ?? []
-      if (eliminatedList.length > 0) {
-        setAliveCount((prev) => Math.max(0, prev - eliminatedList.length))
-      }
-
-      if (eliminatedList.some((e) => e.playerId === playerId)) {
-        isSpectatingRef.current = true
-        setIsSpectating(true)
-      }
+      applyAliveCountFromPayload({
+        aliveCount: payload.aliveCount as number | undefined,
+        eliminated: eliminatedList,
+      })
+      applyEliminationSpectatorState(
+        eliminatedList,
+        payload.bracket as BracketState | undefined,
+        payload.finalReady as boolean | undefined,
+      )
     },
     onRoundStarted: (payload) => {
       applyRoundStartedState(
@@ -775,9 +814,15 @@ export function GameScreen({
       setPhase('reveal')
     },
     onFinalReady: (payload) => {
-      setBracketData(payload.bracket as BracketState)
+      const bracket = payload.bracket as BracketState
+      setBracketData(bracket)
       setCurrentMatchPhase('final')
       setMatchWins([0, 0])
+      if (playerId && bracket.finalists?.includes(playerId)) {
+        isSpectatingRef.current = false
+        setIsSpectating(false)
+      }
+      setAliveCount(typeof payload.aliveCount === 'number' ? (payload.aliveCount as number) : 2)
       setMatchResultData({
         winnerNickname: payload.matchWinnerNickname as string,
         matchLabel: payload.matchLabel as string,

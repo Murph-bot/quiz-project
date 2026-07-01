@@ -116,6 +116,7 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
     correctAnswer,
     answers,
     eliminated,
+    aliveCount: aliveAfterTB ?? 0,
     winner: null,
     gameOver: false,
     wasAlreadyClosed: false,

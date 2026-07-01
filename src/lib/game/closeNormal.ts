@@ -75,6 +75,7 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
     correctAnswer,
     answers,
     eliminated: tiebreakNeeded ? [] : eliminated,
+    aliveCount: aliveCount ?? 0,
     winner,
     gameOver,
     wasAlreadyClosed: false,
