@@ -16,7 +16,11 @@ Build settings (in dashboard and `netlify.toml`):
 - Publish directory: `.next`
 - Functions directory: `netlify/functions`
 
-Push to `main` triggers production deploys automatically.
+Push to `main` triggers production deploys via **GitHub Actions** (`.github/workflows/netlify-deploy.yml`).
+
+> Netlify's built-in Git deploy may fail on private repos until the [Netlify GitHub App](https://github.com/apps/netlify) is granted access to `Murph-bot/quiz-project`. GitHub Actions is the reliable path until then.
+
+Required GitHub repository secrets: `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLEANUP_SECRET`
 
 ## Environment variables
 
