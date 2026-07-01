@@ -14,11 +14,22 @@ export async function GET(
   const supabase = createServerClient()
   const { data: session, error } = await supabase
     .from('sessions')
-    .select('phase, bracket')
+    .select('id, phase, bracket')
     .eq('room_code', roomCode)
     .single()
   if (error || !session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
-  return NextResponse.json({ phase: session.phase, bracket: session.bracket })
+
+  const { count: aliveCount } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', session.id)
+    .eq('is_alive', true)
+
+  return NextResponse.json({
+    phase: session.phase,
+    bracket: session.bracket,
+    aliveCount: aliveCount ?? 0,
+  })
 }

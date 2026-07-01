@@ -84,6 +84,7 @@ export function GameScreen({
     if (initialWinner !== null) return 'winner'
     if (initialRevealData) return 'reveal'
     if (initialSessionPhase === 'semifinal' && initialBracket) return 'bracket'
+    if (initialSessionPhase === 'final' && initialBracket) return 'answering'
     if (initialRoundId) return 'answering'
     return 'bracket'
   }
@@ -239,7 +240,32 @@ export function GameScreen({
     return id // fallback (should not happen)
   }
 
-  // Redirect if no identity (after sessionStorage has been read client-side).
+  useEffect(() => {
+    if (!ready || !playerId) return
+    fetch(`/api/sessions/${roomCode}/bracket`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.aliveCount === 'number') {
+          setAliveCount(d.aliveCount)
+        }
+        if (d.phase === 'final' && d.bracket) {
+          const bracket = d.bracket as BracketState
+          if (!currentMatchPhaseRef.current) {
+            syncBracketRefs(bracket, 'final')
+          }
+          if (bracket.finalists.includes(playerId)) {
+            isSpectatingRef.current = false
+            setIsSpectating(false)
+          } else if (!bracket.finalists.includes(playerId)) {
+            isSpectatingRef.current = true
+            setIsSpectating(true)
+          }
+        }
+      })
+      .catch((err) => console.error('[session] sync error:', err))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, playerId, roomCode])
+
   useEffect(() => {
     if (!ready) return
     if (!playerId) {
@@ -266,6 +292,49 @@ export function GameScreen({
     allAnsweredConfirmedRef.current = false
   }, [roundId])
 
+  function inferMatchPhaseFromBracket(b: BracketState): 'sf1' | 'sf2' | 'final' | null {
+    if (b.finalists?.length === 2 && (b.currentSF === null || b.currentSF === undefined)) {
+      return 'final'
+    }
+    if (b.currentSF === 1) return 'sf1'
+    if (b.currentSF === 2) return 'sf2'
+    return null
+  }
+
+  function syncBracketRefs(bracket: BracketState, phase: 'sf1' | 'sf2' | 'final') {
+    bracketDataRef.current = bracket
+    currentMatchPhaseRef.current = phase
+    setBracketData(bracket)
+    setCurrentMatchPhase(phase)
+  }
+
+  function fetchAliveCountFromServer() {
+    fetch(`/api/sessions/${roomCode}/bracket`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.aliveCount === 'number') {
+          // #region agent log
+          fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:fetchAliveCount',message:'aliveCount fetched from server',data:{aliveCount:d.aliveCount,phase:d.phase},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          setAliveCount(d.aliveCount)
+        }
+      })
+      .catch((err) => console.error('[aliveCount] fetch error:', err))
+  }
+
+  function applyFinalReadyState(bracket: BracketState, aliveCount?: number) {
+    pendingFinalIntroRef.current = bracket
+    syncBracketRefs(bracket, 'final')
+    setAliveCount(typeof aliveCount === 'number' ? aliveCount : 2)
+    if (playerId && bracket.finalists.includes(playerId)) {
+      isSpectatingRef.current = false
+      setIsSpectating(false)
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyFinalReadyState',message:'final ready applied',data:{aliveCount:typeof aliveCount==='number'?aliveCount:2,finalists:bracket.finalists},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+  }
+
   function applyAliveCountFromPayload(data: {
     aliveCount?: number
     eliminated?: EliminatedPlayer[]
@@ -277,9 +346,9 @@ export function GameScreen({
       setAliveCount(data.aliveCount)
     } else if (data.eliminated?.length) {
       // #region agent log
-      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'decrement aliveCount fallback',data:{eliminatedCount:data.eliminated.length},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7710/ingest/98d0de17-cb9c-4207-923a-7861365e888d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d4fcb3'},body:JSON.stringify({sessionId:'d4fcb3',location:'GameScreen:applyAliveCount',message:'aliveCount missing, fetching from server',data:{eliminatedCount:data.eliminated.length},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
       // #endregion
-      setAliveCount((prev) => Math.max(0, prev - data.eliminated!.length))
+      fetchAliveCountFromServer()
     }
   }
 
@@ -555,7 +624,14 @@ export function GameScreen({
     }
 
     // --- BRACKET MODE: match continues (no winner yet) ---
-    if (data.bracket && currentMatchPhaseRef.current) {
+    if (data.bracket && !data.finalReady && !data.bracketReady && !data.sfComplete && !data.isTie && !(data.gameOver && data.winner)) {
+      const inferred = inferMatchPhaseFromBracket(data.bracket)
+      if (inferred && !currentMatchPhaseRef.current) {
+        syncBracketRefs(data.bracket, inferred)
+      }
+    }
+
+    if (data.bracket && currentMatchPhaseRef.current && !data.finalReady && !data.bracketReady && !data.sfComplete && !data.isTie && !(data.gameOver && data.winner)) {
       const sfKey2 = data.bracket.currentSF === 1 ? 'sf1' : data.bracket.currentSF === 2 ? 'sf2' : null
       const newWins: [number, number] = sfKey2
         ? (data.bracket as any)[sfKey2].wins
@@ -585,7 +661,7 @@ export function GameScreen({
     setPhase('reveal')
 
     if (data.finalReady && data.bracket && !data.sfComplete) {
-      pendingFinalIntroRef.current = data.bracket
+      applyFinalReadyState(data.bracket, data.aliveCount)
     }
 
     if (data.gameOver) {
@@ -803,7 +879,7 @@ export function GameScreen({
       setPhase('reveal')
 
       if (payload.finalReady && payload.bracket) {
-        pendingFinalIntroRef.current = payload.bracket as BracketState
+        applyFinalReadyState(payload.bracket as BracketState, payload.aliveCount as number | undefined)
       }
 
       if (payload.gameOver) {

@@ -397,6 +397,141 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     expect(body.gameOver).toBe(false)
   })
 
+  it('enters the final when three players narrow to two survivors', async () => {
+    const proximityAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } },
+      { player_id: 'p3', value: 1991, players: { nickname: 'Nick' } },
+    ]
+    const survivors = [
+      { id: 'p1', nickname: 'Alex' },
+      { id: 'p3', nickname: 'Nick' },
+    ]
+    const callMap: Record<string, number> = {}
+    function next(key: string) {
+      callMap[key] = (callMap[key] ?? 0) + 1
+      return callMap[key]
+    }
+
+    const mock = {
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          const n = next('sessions')
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+            }
+          }
+          return {
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({ error: null }),
+            }),
+          }
+        }
+        if (table === 'rounds') {
+          const n = next('rounds')
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({
+                data: { id: 'round-1', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
+                error: null,
+              }),
+            }
+          }
+          return {
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'questions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockQuestion, error: null }),
+          }
+        }
+        if (table === 'answers') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: proximityAnswers, error: null }),
+          }
+        }
+        if (table === 'players') {
+          const n = next('players')
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+            }
+          }
+          if (n === 2) {
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({
+                    data: [
+                      { id: 'p1', nickname: 'Alex' },
+                      { id: 'p2', nickname: 'Maria' },
+                      { id: 'p3', nickname: 'Nick' },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }
+          }
+          if (n === 3) {
+            return {
+              update: jest.fn().mockReturnValue({
+                in: jest.fn().mockResolvedValue({ error: null }),
+              }),
+            }
+          }
+          if (n === 4) {
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+                }),
+              }),
+            }
+          }
+          if (n === 5) {
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ data: survivors, error: null }),
+                }),
+              }),
+            }
+          }
+          return {}
+        }
+        return {}
+      }),
+    }
+
+    ;(createServerClient as jest.Mock).mockReturnValue(mock)
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    const body = await res.json()
+    expect(body.eliminated).toHaveLength(1)
+    expect(body.finalReady).toBe(true)
+    expect(body.aliveCount).toBe(2)
+    expect(body.bracket?.finalists).toEqual(['p1', 'p3'])
+  })
+
   it('creates a tiebreak when multiple players tie for farthest', async () => {
     const tiedWorstAnswers = [
       { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
