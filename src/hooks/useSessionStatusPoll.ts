@@ -1,15 +1,17 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type SessionStatus = 'lobby' | 'active' | 'finished'
+
+const DEFAULT_GET_PATH = (code: string) => `/game/${code}`
 
 interface Options {
   roomCode: string
   enabled: boolean
   /** Navigate when session reaches one of these statuses */
-  navigateOn: SessionStatus[]
+  navigateOn: readonly SessionStatus[]
   /** Target path template — defaults to `/game/{roomCode}` */
   getPath?: (roomCode: string) => string
   intervalMs?: number
@@ -19,10 +21,14 @@ export function useSessionStatusPoll({
   roomCode,
   enabled,
   navigateOn,
-  getPath = (code) => `/game/${code}`,
+  getPath = DEFAULT_GET_PATH,
   intervalMs = 3000,
 }: Options) {
   const router = useRouter()
+  const navigateOnRef = useRef(navigateOn)
+  const getPathRef = useRef(getPath)
+  navigateOnRef.current = navigateOn
+  getPathRef.current = getPath
 
   useEffect(() => {
     if (!enabled) return
@@ -34,8 +40,8 @@ export function useSessionStatusPoll({
         if (!res.ok) return
         const data = await res.json()
         const status = data?.session?.status as SessionStatus | undefined
-        if (!cancelled && status && navigateOn.includes(status)) {
-          router.push(getPath(roomCode))
+        if (!cancelled && status && navigateOnRef.current.includes(status)) {
+          router.push(getPathRef.current(roomCode))
         }
       } catch {
         // ignore transient network errors
@@ -48,5 +54,5 @@ export function useSessionStatusPoll({
       cancelled = true
       clearInterval(interval)
     }
-  }, [enabled, roomCode, router, navigateOn, getPath, intervalMs])
+  }, [enabled, roomCode, router, intervalMs])
 }

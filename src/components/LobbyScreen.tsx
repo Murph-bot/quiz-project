@@ -15,7 +15,7 @@ import { SectionLabel } from '@/components/ui/SectionLabel'
 import type { Session, PresencePlayer } from '@/types'
 
 const MIN_PLAYERS = 3
-const POLL_NAVIGATE_STATUSES = ['active', 'finished'] as const
+const POLL_NAVIGATE_STATUSES: Array<'active' | 'finished'> = ['active', 'finished']
 const RESURRECTION_OPTIONS = [
   { value: 0, label: 'Off' },
   { value: 3, label: 'Every 3rd round' },
@@ -45,7 +45,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   useSessionStatusPoll({
     roomCode,
     enabled: ready,
-    navigateOn: [...POLL_NAVIGATE_STATUSES],
+    navigateOn: POLL_NAVIGATE_STATUSES,
   })
 
   useEffect(() => {
