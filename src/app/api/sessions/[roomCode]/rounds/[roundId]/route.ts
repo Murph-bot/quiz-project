@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { isValidRoomCode } from '@/lib/roomCode'
+import { normalizeRoomCode } from '@/lib/roomCode'
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string; roundId: string }> }
 ) {
-  const { roomCode, roundId } = await params
+  const { roomCode: rawCode, roundId } = await params
+  const roomCode = normalizeRoomCode(rawCode)
   const { searchParams } = new URL(req.url)
   const playerId = searchParams.get('playerId')
   const sessionSecret = searchParams.get('sessionSecret')
 
-  if (!isValidRoomCode(roomCode)) {
+  if (!roomCode) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
   if (!playerId || !sessionSecret) {

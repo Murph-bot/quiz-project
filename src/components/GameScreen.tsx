@@ -211,7 +211,9 @@ export function GameScreen({
   // Redirect if no identity (after sessionStorage has been read client-side).
   useEffect(() => {
     if (!ready) return
-    if (!playerId) router.push('/')
+    if (!playerId) {
+      router.push('/')
+    }
   }, [ready, playerId, router])
 
   // Countdown for current question — used to trigger close when expired
@@ -621,6 +623,7 @@ export function GameScreen({
   // Supabase Realtime subscriptions
   useEffect(() => {
     if (!ready || !playerId) return
+    let hostWasOnline = false
     const channel = supabase
       .channel(`room:${roomCode}`)
       .on('broadcast', { event: 'round:closed' }, ({ payload }) => {
@@ -778,11 +781,13 @@ export function GameScreen({
         const state = channel.presenceState<{ playerId: string; isAlive?: boolean }>()
         const entries = Object.values(state).flat()
         if (entries.length === 0) return
-        // Prefer alive players for host; fall back to anyone if no alive players online
         const aliveEntries = entries.filter(p => p.isAlive !== false)
         const candidates = aliveEntries.length > 0 ? aliveEntries : entries
         const candidateIds = candidates.map(p => p.playerId)
-        if (!candidateIds.includes(currentHostIdRef.current)) {
+        if (candidateIds.includes(currentHostIdRef.current)) {
+          hostWasOnline = true
+        }
+        if (hostWasOnline && !candidateIds.includes(currentHostIdRef.current)) {
           const newHostId = [...candidateIds].sort()[0]
           setCurrentHostId(newHostId)
           currentHostIdRef.current = newHostId

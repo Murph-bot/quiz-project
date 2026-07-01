@@ -18,11 +18,10 @@ export function usePlayerSession(): PlayerSession {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    setSession({
-      playerId: sessionStorage.getItem('playerId'),
-      nickname: sessionStorage.getItem('nickname'),
-      sessionSecret: sessionStorage.getItem('sessionSecret'),
-    })
+    const playerId = sessionStorage.getItem('playerId')
+    const nickname = sessionStorage.getItem('nickname')
+    const sessionSecret = sessionStorage.getItem('sessionSecret')
+    setSession({ playerId, nickname, sessionSecret })
     setReady(true)
   }, [])
 

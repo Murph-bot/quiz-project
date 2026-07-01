@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { isValidRoomCode } from '@/lib/roomCode'
+import { normalizeRoomCode } from '@/lib/roomCode'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
-  const { roomCode } = await params
+  const { roomCode: rawCode } = await params
+  const roomCode = normalizeRoomCode(rawCode)
   const body = await req.json()
   const { playerId, requesterId, sessionSecret } = body
 
-  if (!isValidRoomCode(roomCode)) {
+  if (!roomCode) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
   if (!playerId || !requesterId || !sessionSecret) {

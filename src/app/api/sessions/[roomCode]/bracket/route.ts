@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { isValidRoomCode } from '@/lib/roomCode'
+import { normalizeRoomCode } from '@/lib/roomCode'
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> }
 ) {
-  const { roomCode } = await params
-  if (!isValidRoomCode(roomCode)) {
+  const { roomCode: rawCode } = await params
+  const roomCode = normalizeRoomCode(rawCode)
+  if (!roomCode) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
   const supabase = createServerClient()

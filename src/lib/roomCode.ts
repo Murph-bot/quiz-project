@@ -10,3 +10,9 @@ export function generateRoomCode(): string {
 export function isValidRoomCode(code: string): boolean {
   return /^[A-Z0-9]{4}$/.test(code)
 }
+
+/** Normalize URL param to canonical uppercase room code, or null if invalid. */
+export function normalizeRoomCode(raw: string): string | null {
+  const roomCode = raw.toUpperCase()
+  return isValidRoomCode(roomCode) ? roomCode : null
+}

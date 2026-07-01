@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { isValidRoomCode } from '@/lib/roomCode'
+import { normalizeRoomCode } from '@/lib/roomCode'
 import { generateOptions } from '@/lib/generateOptions'
 import { generateBracketForSession } from '@/lib/bracket'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
@@ -73,9 +73,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string; roundId: string }> }
 ) {
-  const { roomCode, roundId } = await params
+  const { roomCode: rawCode, roundId } = await params
+  const roomCode = normalizeRoomCode(rawCode)
 
-  if (!isValidRoomCode(roomCode)) {
+  if (!roomCode) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
   }
 

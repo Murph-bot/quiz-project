@@ -65,6 +65,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     channelRef.current = channel
 
     let currentHostIdSnapshot = initialSession.host_id
+    let hostWasOnline = false
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -72,9 +73,12 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         const list = Object.values(state).flat()
         setPlayers(list)
 
-        // Host failover: elect new host if current host is no longer online
+        // Host failover: only after the current host was online and left (not before they join).
         const onlineIds = list.map((p) => p.playerId).filter(Boolean)
-        if (onlineIds.length > 0 && !onlineIds.includes(currentHostIdSnapshot)) {
+        if (onlineIds.includes(currentHostIdSnapshot)) {
+          hostWasOnline = true
+        }
+        if (hostWasOnline && onlineIds.length > 0 && !onlineIds.includes(currentHostIdSnapshot)) {
           const newHostId = [...onlineIds].sort()[0]
           currentHostIdSnapshot = newHostId
           setCurrentHostId(newHostId)
@@ -118,9 +122,10 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     async function checkStarted() {
       try {
         const res = await fetch(`/api/sessions/${roomCode}`)
+        const data = res.ok ? await res.json() : null
+        const status = data?.session?.status ?? null
         if (!res.ok) return
-        const data = await res.json()
-        if (!cancelled && (data.session?.status === 'active' || data.session?.status === 'finished')) {
+        if (!cancelled && (status === 'active' || status === 'finished')) {
           router.push(`/game/${roomCode}`)
         }
       } catch {
