@@ -46,22 +46,24 @@ export async function POST(
     .eq('session_id', session.id)
     .order('round_number', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (roundError || !latestRound) {
+  if (roundError) {
     return NextResponse.json({ error: 'No round found' }, { status: 404 })
   }
 
-  if (latestRound.status !== 'closed') {
-    return NextResponse.json({ error: 'Current round still active' }, { status: 409 })
+  let newRoundNumber = 1
+  if (latestRound) {
+    if (latestRound.status !== 'closed') {
+      return NextResponse.json({ error: 'Current round still active' }, { status: 409 })
+    }
+    newRoundNumber = latestRound.round_number + 1
   }
 
   const question = await pickUnusedQuestion(supabase, session.id, session.category)
   if (!question) {
     return NextResponse.json({ error: 'No questions available' }, { status: 409 })
   }
-
-  const newRoundNumber = latestRound.round_number + 1
   const options = generateOptions(question.answer)
 
   const { data: round, error: newRoundError } = await supabase

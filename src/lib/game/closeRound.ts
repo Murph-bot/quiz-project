@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { closeBracketRound } from '@/lib/game/closeBracket'
 import {
   buildRankedAnswers,
-  maybeCreateAllWrongReplay,
+  maybeCreateIdenticalWrongReplay,
+  maybeCreateWorstTiebreak,
   resolveTiebreakRound,
 } from '@/lib/game/closeTiebreak'
 import { finalizeNormalClose } from '@/lib/game/closeNormal'
+import { isIdenticalWrongReplay, resolveNormalElimination } from '@/lib/elimination'
 import type { createServerClient } from '@/lib/supabase-server'
 import type { Round, Session } from '@/types'
 
@@ -74,10 +76,6 @@ export async function closeRoundHandler(
     activeList,
   )
 
-  const eliminated = answers
-    .filter((a) => a.delta > 0)
-    .map((a) => ({ playerId: a.playerId, nickname: a.nickname }))
-
   const isTiebreakRound = Array.isArray(round.tiebreak_players)
 
   if (isTiebreakRound) {
@@ -91,19 +89,62 @@ export async function closeRoundHandler(
       activeList,
     })
     if (tiebreakResponse) return tiebreakResponse
+    return NextResponse.json({ error: 'Failed to resolve tiebreak round' }, { status: 500 })
   }
 
-  const replay = await maybeCreateAllWrongReplay({
-    supabase,
-    session,
-    isTiebreakRound,
-    eliminated,
-    activeList,
-    correctAnswer,
-    answers,
-  })
+  if (!isTiebreakRound && isIdenticalWrongReplay(answers, activeList.length)) {
+    const replay = await maybeCreateIdenticalWrongReplay({
+      supabase,
+      session,
+      activeList,
+      correctAnswer,
+      answers,
+    })
+    if (replay.errorResponse) return replay.errorResponse
+    if (replay.tiebreakNeeded) {
+      return finalizeNormalClose({
+        supabase,
+        session,
+        eliminated: [],
+        answers,
+        correctAnswer,
+        skippedElimination: true,
+        tiebreakNeeded: true,
+        tiebreakRoundId: replay.tiebreakRoundId,
+        tiebreakQuestion: replay.tiebreakQuestion,
+        tiebreakPlayerIds: replay.tiebreakPlayerIds,
+        tiebreakStartedAt: replay.tiebreakStartedAt,
+        tiebreakOptions: replay.tiebreakOptions,
+      })
+    }
+  }
 
-  if (replay.errorResponse) return replay.errorResponse
+  const { eliminated, tiedForWorstIds } = resolveNormalElimination(answers)
+
+  if (!isTiebreakRound && tiedForWorstIds.length > 1) {
+    const tiebreak = await maybeCreateWorstTiebreak({
+      supabase,
+      session,
+      tiedPlayerIds: tiedForWorstIds,
+      correctAnswer,
+      answers,
+    })
+    if (tiebreak.errorResponse) return tiebreak.errorResponse
+    return finalizeNormalClose({
+      supabase,
+      session,
+      eliminated: [],
+      answers,
+      correctAnswer,
+      skippedElimination: true,
+      tiebreakNeeded: true,
+      tiebreakRoundId: tiebreak.tiebreakRoundId,
+      tiebreakQuestion: tiebreak.tiebreakQuestion,
+      tiebreakPlayerIds: tiebreak.tiebreakPlayerIds,
+      tiebreakStartedAt: tiebreak.tiebreakStartedAt,
+      tiebreakOptions: tiebreak.tiebreakOptions,
+    })
+  }
 
   return finalizeNormalClose({
     supabase,
@@ -111,12 +152,12 @@ export async function closeRoundHandler(
     eliminated,
     answers,
     correctAnswer,
-    skippedElimination: replay.skippedElimination,
-    tiebreakNeeded: replay.tiebreakNeeded,
-    tiebreakRoundId: replay.tiebreakRoundId,
-    tiebreakQuestion: replay.tiebreakQuestion,
-    tiebreakPlayerIds: replay.tiebreakPlayerIds,
-    tiebreakStartedAt: replay.tiebreakStartedAt,
-    tiebreakOptions: replay.tiebreakOptions,
+    skippedElimination: false,
+    tiebreakNeeded: false,
+    tiebreakRoundId: null,
+    tiebreakQuestion: null,
+    tiebreakPlayerIds: null,
+    tiebreakStartedAt: null,
+    tiebreakOptions: null,
   })
 }

@@ -508,26 +508,25 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — tiebreak', ()
 
   // ---- BINARY SCORING TESTS (5-player rounds) ----
 
-  it('eliminates all wrong-answer players from a 5-player round', async () => {
-    // p1/p2/p3 answer correctly, p4/p5 answer wrong → p4 and p5 eliminated, 3 remain
+  it('eliminates only the farthest wrong player from a 5-player round', async () => {
+    // Eve is farthest wrong; Dave is closer wrong and survives
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
-      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
-      { player_id: 'p3', value: 1989, players: { nickname: 'Carol' } }, // correct
-      { player_id: 'p4', value: 1889, players: { nickname: 'Dave' } },  // wrong → eliminated
-      { player_id: 'p5', value: 2089, players: { nickname: 'Eve' } },   // wrong → eliminated
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } },
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },
+      { player_id: 'p3', value: 1989, players: { nickname: 'Carol' } },
+      { player_id: 'p4', value: 1990, players: { nickname: 'Dave' } },
+      { player_id: 'p5', value: 2089, players: { nickname: 'Eve' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 3 })
+      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 4 })
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.tiebreakNeeded).toBe(false)
-    expect(body.eliminated).toHaveLength(2)
-    const nicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
-    expect(nicknames).toEqual(['Dave', 'Eve'])
-    expect(body.bracketReady).toBe(false)
+    expect(body.eliminated).toHaveLength(1)
+    expect(body.eliminated[0].nickname).toBe('Eve')
+    expect(body.bracketReady).toBe(true)
   })
 
   it('bracketReady:true when exactly 4 players remain after binary elimination', async () => {
@@ -552,26 +551,24 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — tiebreak', ()
     expect(body.bracket).not.toBeNull()
   })
 
-  it('eliminates multiple wrong-answer players, bracketReady:false when 2 remain', async () => {
-    // p1/p2 answer correctly, p3/p4/p5 answer wrong → 3 eliminated, 2 remain
+  it('eliminates only the farthest wrong player when multiple are wrong', async () => {
+    // Carol is farthest wrong; Dave is closer wrong
     const answers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } }, // correct
-      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },   // correct
-      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } }, // wrong → eliminated
-      { player_id: 'p4', value: 2089, players: { nickname: 'Dave' } },  // wrong → eliminated
-      { player_id: 'p5', value: 1889, players: { nickname: 'Eve' } },   // wrong → eliminated
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } },
+      { player_id: 'p2', value: 1989, players: { nickname: 'Bob' } },
+      { player_id: 'p3', value: 1889, players: { nickname: 'Carol' } },
+      { player_id: 'p4', value: 1990, players: { nickname: 'Dave' } },
+      { player_id: 'p5', value: 1989, players: { nickname: 'Eve' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 2 })
+      makeDetectionMock({ rawAnswers: answers, aliveCountAfterElim: 4 })
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.tiebreakNeeded).toBe(false)
-    expect(body.eliminated).toHaveLength(3)
-    const nicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
-    expect(nicknames).toEqual(['Carol', 'Dave', 'Eve'])
-    expect(body.bracketReady).toBe(false)
+    expect(body.eliminated).toHaveLength(1)
+    expect(body.eliminated[0].nickname).toBe('Carol')
+    expect(body.bracketReady).toBe(true)
   })
 
   // ---- RESOLUTION TESTS ----

@@ -159,19 +159,30 @@ function makeCloseMock({
   }
 }
 
-const replayQuestion = {
-  id: 'q-replay',
-  text: 'What year was this?',
-  answer: 2000,
-  category: 'History',
-  time_limit: 10,
+function makeWorstTiebreakMock({
+  rawAnswers,
+  tiedIds,
+}: {
+  rawAnswers: Array<{ player_id: string; value: number; players: { nickname: string } }>
+  tiedIds: string[]
+}) {
+  return makeAllWrongReplayMock({ rawAnswers, tiebreakPlayerIds: tiedIds })
 }
 
 function makeAllWrongReplayMock({
   rawAnswers,
+  tiebreakPlayerIds,
 }: {
   rawAnswers: Array<{ player_id: string; value: number; players: { nickname: string } }>
+  tiebreakPlayerIds?: string[]
 }) {
+  const replayQuestion = {
+    id: 'q-replay',
+    text: 'What year was this?',
+    answer: 2000,
+    category: 'History',
+    time_limit: 10,
+  }
   const threePlayers = [
     { id: 'p1', nickname: 'Alex' },
     { id: 'p2', nickname: 'Maria' },
@@ -371,42 +382,54 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
 
   // --- Layer 4: new test cases ---
 
-  it('eliminates all wrong-answer players (binary scoring)', async () => {
-    // Only Maria answers wrong — Alex and Nick answer correctly
-    const onlyMariaWrong = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },  // delta=0 correct
-      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } }, // delta=16 wrong → eliminated
-      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },  // delta=0 correct
+  it('eliminates only the farthest wrong answer (proximity scoring)', async () => {
+    // Alex correct, Nick close wrong, Maria farthest wrong — only Maria eliminated
+    const proximityAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } },
+      { player_id: 'p3', value: 1991, players: { nickname: 'Nick' } },
     ]
-    ;(createServerClient as jest.Mock).mockReturnValue(makeCloseMock({ rawAnswers: onlyMariaWrong, aliveCountAfterElim: 2 }))
+    ;(createServerClient as jest.Mock).mockReturnValue(makeCloseMock({ rawAnswers: proximityAnswers, aliveCountAfterElim: 2 }))
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
     expect(body.eliminated).toHaveLength(1)
     expect(body.eliminated[0].nickname).toBe('Maria')
-    expect(body.eliminated[0].playerId).toBe('p2')
+    expect(body.gameOver).toBe(false)
   })
 
-  it('eliminates all players tied for highest delta', async () => {
-    const tiedAnswers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },  // delta=0
-      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } }, // delta=16
-      { player_id: 'p3', value: 1973, players: { nickname: 'Nick' } },  // delta=16
+  it('creates a tiebreak when multiple players tie for farthest', async () => {
+    const tiedWorstAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } },
+      { player_id: 'p3', value: 1973, players: { nickname: 'Nick' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeCloseMock({
-        rawAnswers: tiedAnswers,
-        aliveCountAfterElim: 1,
-        survivors: [{ id: 'p1', nickname: 'Alex' }],
-      })
+      makeWorstTiebreakMock({ rawAnswers: tiedWorstAnswers, tiedIds: ['p2', 'p3'] }),
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
-    expect(body.eliminated).toHaveLength(2)
-    const eliminatedNicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
-    expect(eliminatedNicknames).toEqual(['Maria', 'Nick'])
+    expect(body.tiebreakNeeded).toBe(true)
+    expect(body.tiebreakPlayerIds).toEqual(['p2', 'p3'])
+    expect(body.eliminated).toEqual([])
   })
 
-  it('eliminates no-answer players (treated as infinite delta)', async () => {
+  it('creates a tiebreak when two players tie for farthest among three', async () => {
+    const tiedAnswers = [
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
+      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } },
+      { player_id: 'p3', value: 1973, players: { nickname: 'Nick' } },
+    ]
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeWorstTiebreakMock({ rawAnswers: tiedAnswers, tiedIds: ['p2', 'p3'] }),
+    )
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    const body = await res.json()
+    expect(body.tiebreakNeeded).toBe(true)
+    expect(body.tiebreakPlayerIds).toEqual(['p2', 'p3'])
+    expect(body.eliminated).toEqual([])
+  })
+
+  it('eliminates no-answer players when they are farthest', async () => {
     // p3 did not answer — p1 and p2 both answer correctly, only p3 is eliminated
     const partialAnswers = [
       { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
@@ -431,7 +454,7 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     expect(nickEntry.value).toBeNull()
   })
 
-  it('sets winner when exactly 1 player remains after elimination', async () => {
+  it('does not declare a winner when one player remains in normal phase', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeCloseMock({
         aliveCountAfterElim: 1,
@@ -440,10 +463,8 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
-    expect(body.gameOver).toBe(true)
-    expect(body.winner).not.toBeNull()
-    expect(body.winner.nickname).toBe('Alex')
-    expect(body.winner.playerId).toBe('p1')
+    expect(body.gameOver).toBe(false)
+    expect(body.winner).toBeNull()
   })
 
   it('sets gameOver:false and creates replay when all players answer wrong', async () => {
@@ -474,8 +495,8 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     expect(body.winner).toBeNull()
   })
 
-  it('eliminates players normally when 4 are alive and some answer wrong', async () => {
-    // 4 players alive, 2 answer wrong → should eliminate 2, leaving 2 alive (no bracket)
+  it('eliminates only the farthest player when four are alive', async () => {
+    // 4 players alive, 3 answer — only farthest eliminated, 3 remain (no bracket yet)
     const fourPlayers = [
       { id: 'p1', nickname: 'Alex' },
       { id: 'p2', nickname: 'Maria' },
@@ -483,10 +504,10 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
       { id: 'p4', nickname: 'Lena' },
     ]
     const fourAnswers = [
-      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },  // correct
-      { player_id: 'p2', value: 2005, players: { nickname: 'Maria' } }, // wrong
-      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },  // correct
-      { player_id: 'p4', value: 2010, players: { nickname: 'Lena' } },  // wrong
+      { player_id: 'p1', value: 1989, players: { nickname: 'Alex' } },
+      { player_id: 'p2', value: 1990, players: { nickname: 'Maria' } },
+      { player_id: 'p3', value: 1989, players: { nickname: 'Nick' } },
+      { player_id: 'p4', value: 2010, players: { nickname: 'Lena' } },
     ]
     const updatePlayersMock = jest.fn().mockReturnValue({
       in: jest.fn().mockResolvedValue({ error: null }),
@@ -495,16 +516,14 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
       makeCloseMock({
         rawAnswers: fourAnswers,
         activePlayers: fourPlayers,
-        aliveCountAfterElim: 2,
+        aliveCountAfterElim: 3,
         updatePlayersMock,
       })
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
-    expect(body.eliminated).toHaveLength(2)
-    const eliminatedNicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
-    expect(eliminatedNicknames).toEqual(['Lena', 'Maria'])
-    // Elimination update was called (not skipped)
+    expect(body.eliminated).toHaveLength(1)
+    expect(body.eliminated[0].nickname).toBe('Lena')
     expect(updatePlayersMock).toHaveBeenCalled()
     expect(body.bracketReady).toBe(false)
     expect(body.gameOver).toBe(false)

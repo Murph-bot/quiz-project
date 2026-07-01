@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { generateBracketForSession } from '@/lib/bracket'
+import { tryNormalPhaseTransition } from '@/lib/game/phaseTransitions'
 import type { createServerClient } from '@/lib/supabase-server'
 import type { EliminatedPlayer, RankedAnswer, Session, WinnerInfo } from '@/types'
 
@@ -55,44 +55,21 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
   let winner: WinnerInfo | null = null
   let gameOver = false
 
-  if (aliveCount === 1) {
-    const { data: survivors } = await supabase
-      .from('players')
-      .select('id, nickname')
-      .eq('session_id', session.id)
-      .eq('is_alive', true)
-      .limit(1)
-
-    const survivor = survivors?.[0]
-    if (survivor) {
-      winner = { playerId: survivor.id, nickname: survivor.nickname }
-      await supabase
-        .from('sessions')
-        .update({ status: 'finished', winner_id: survivor.id })
-        .eq('id', session.id)
-    }
-    gameOver = true
-  } else if (aliveCount === 0) {
+  // Normal phase never ends with a lone survivor — that only happens in the bracket final.
+  if (aliveCount === 0) {
     await supabase.from('sessions').update({ status: 'finished' }).eq('id', session.id)
     gameOver = true
   }
 
-  let bracketReady = false
-  let bracket = null
-
-  if (session.phase === 'normal' && (aliveCount ?? 0) === 4 && !gameOver) {
-    const generatedBracket = await generateBracketForSession(supabase, session.id)
-    if (generatedBracket) {
-      const { error: bracketUpdateError } = await supabase
-        .from('sessions')
-        .update({ phase: 'semifinal', bracket: generatedBracket })
-        .eq('id', session.id)
-      if (!bracketUpdateError) {
-        bracketReady = true
-        bracket = generatedBracket
-      }
-    }
-  }
+  const transition =
+    !gameOver && !tiebreakNeeded
+      ? await tryNormalPhaseTransition(supabase, session, aliveCount ?? 0)
+      : {
+          bracketReady: false,
+          finalReady: false,
+          bracket: null,
+          newPhase: null,
+        }
 
   return NextResponse.json({
     correctAnswer,
@@ -101,8 +78,10 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
     winner,
     gameOver,
     wasAlreadyClosed: false,
-    bracketReady,
-    bracket,
+    bracketReady: transition.bracketReady,
+    finalReady: transition.finalReady,
+    sfComplete: false,
+    bracket: transition.bracket,
     tiebreakNeeded,
     tiebreakRoundId,
     tiebreakQuestion,

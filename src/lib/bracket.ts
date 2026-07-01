@@ -44,3 +44,30 @@ export async function generateBracketForSession(
     finalists: [],
   }
 }
+
+const EMPTY_MATCH = { p1id: '', p1: '', p2id: '', p2: '', wins: [0, 0] as [number, number] }
+
+/** Two survivors enter a best-of-3-nearest final (first to 3 round wins). */
+export async function generateFinalForSession(
+  supabase: ReturnType<typeof import('@/lib/supabase-server').createServerClient>,
+  sessionId: string,
+): Promise<BracketState | null> {
+  const { data: alivePlayers } = await supabase
+    .from('players')
+    .select('id, nickname')
+    .eq('session_id', sessionId)
+    .eq('is_alive', true)
+
+  const aliveList = (alivePlayers ?? []) as Array<{ id: string; nickname: string }>
+  if (aliveList.length !== 2) return null
+
+  const [a, b] = aliveList
+  return {
+    sf1: { p1id: a.id, p1: a.nickname, p2id: b.id, p2: b.nickname, wins: [0, 0] },
+    sf2: { ...EMPTY_MATCH },
+    currentSF: null,
+    finalists: [a.id, b.id],
+    finalWins: [0, 0],
+  }
+}
+

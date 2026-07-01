@@ -25,7 +25,7 @@ import { TiebreakWaitingScreen } from './TiebreakWaitingScreen'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
-import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState } from '@/types'
+import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState, GamePhase } from '@/types'
 
 interface RevealData {
   correctAnswer: number
@@ -35,13 +35,15 @@ interface RevealData {
 interface Props {
   roomCode: string
   sessionHostId: string
-  initialRoundId: string
+  initialRoundId: string | null
   initialRoundNumber: number
-  initialQuestion: QuestionData
-  initialStartedAt: string
+  initialQuestion: QuestionData | null
+  initialStartedAt: string | null
   initialRevealData: RevealData | null
   initialWinner: WinnerInfo | null
   initialAliveCount: number
+  initialSessionPhase?: GamePhase
+  initialBracket?: BracketState | null
 }
 
 // Stable sentinel — must not use Date.now() (SSR/client hydration mismatch).
@@ -59,6 +61,8 @@ export function GameScreen({
   initialRevealData,
   initialWinner,
   initialAliveCount,
+  initialSessionPhase = 'normal',
+  initialBracket = null,
 }: Props) {
   const router = useRouter()
   const { playerId, nickname, sessionSecret, ready } = usePlayerSession()
@@ -67,15 +71,21 @@ export function GameScreen({
   useEffect(() => { currentHostIdRef.current = currentHostId }, [currentHostId])
   const isHost = playerId !== null && playerId === currentHostId
 
-  const [roundId, setRoundId] = useState(initialRoundId)
+  const [roundId, setRoundId] = useState(initialRoundId ?? '')
   const [roundNumber, setRoundNumber] = useState(initialRoundNumber)
-  const [question, setQuestion] = useState(() => withNormalizedOptions(initialQuestion))
-  const [startedAt, setStartedAt] = useState(initialStartedAt)
+  const [question, setQuestion] = useState<QuestionData>(() =>
+    initialQuestion
+      ? (withNormalizedOptions(initialQuestion) as QuestionData)
+      : { id: 'pending', text: '', timeLimit: 30, category: '' },
+  )
+  const [startedAt, setStartedAt] = useState(initialStartedAt ?? new Date(0).toISOString())
 
   const getInitialPhase = (): Phase => {
     if (initialWinner !== null) return 'winner'
     if (initialRevealData) return 'reveal'
-    return 'answering'
+    if (initialSessionPhase === 'semifinal' && initialBracket) return 'bracket'
+    if (initialRoundId) return 'answering'
+    return 'bracket'
   }
 
   const [phase, setPhase] = useState<Phase>(getInitialPhase)
@@ -105,9 +115,11 @@ export function GameScreen({
   useEffect(() => { roundIdRef.current = roundId }, [roundId])
 
   // Bracket state
-  const [bracketData, setBracketData] = useState<BracketState | null>(null)
+  const [bracketData, setBracketData] = useState<BracketState | null>(initialBracket)
   const [matchWins, setMatchWins] = useState<[number, number]>([0, 0])
-  const [currentMatchPhase, setCurrentMatchPhase] = useState<'sf1' | 'sf2' | 'final' | null>(null)
+  const [currentMatchPhase, setCurrentMatchPhase] = useState<'sf1' | 'sf2' | 'final' | null>(
+    initialSessionPhase === 'semifinal' && initialBracket ? 'sf1' : initialSessionPhase === 'final' && initialBracket ? 'final' : null,
+  )
   const [matchResultData, setMatchResultData] = useState<{
     winnerNickname: string
     matchLabel: string
@@ -132,6 +144,8 @@ export function GameScreen({
   } | null>(null)
 
   useEffect(() => { pendingTiebreakRef.current = pendingTiebreak }, [pendingTiebreak])
+
+  const pendingFinalIntroRef = useRef<BracketState | null>(null)
 
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const isSpectatingRef = useRef(false)
@@ -354,8 +368,8 @@ export function GameScreen({
       return
     }
 
-    // --- BRACKET MODE: SF or Final match complete ---
-    if (data.sfComplete || data.finalReady) {
+    // --- BRACKET MODE: SF match complete (winner advances) ---
+    if (data.sfComplete) {
       const currentBracketSF = bracketDataRef.current?.currentSF
       const sfLabel = currentBracketSF === 1 ? 'Semi-Final 1' : 'Semi-Final 2'
       const sfKey = currentBracketSF === 1 ? 'sf1' : 'sf2'
@@ -420,6 +434,10 @@ export function GameScreen({
     setEliminated(data.eliminated ?? [])
     setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
     setPhase('reveal')
+
+    if (data.finalReady && data.bracket && !data.sfComplete) {
+      pendingFinalIntroRef.current = data.bracket
+    }
 
     if (data.gameOver) {
       setGameOver(true)
@@ -588,6 +606,36 @@ export function GameScreen({
         return
       }
       // --- END PENDING TIEBREAK ---
+
+      const pendingFinal = pendingFinalIntroRef.current
+      if (pendingFinal) {
+        pendingFinalIntroRef.current = null
+        setBracketData(pendingFinal)
+        setCurrentMatchPhase('final')
+        setMatchWins([0, 0])
+        const finalist1 = getFinalistNickname(pendingFinal, pendingFinal.finalists[0] ?? '')
+        const finalist2 = getFinalistNickname(pendingFinal, pendingFinal.finalists[1] ?? '')
+        setMatchResultData({
+          winnerNickname: '',
+          matchLabel: 'The Final',
+          finalScore: `${finalist1} vs ${finalist2}`,
+          nextLabel: 'First to 3 nearest answers wins!',
+        })
+        setPhase('match-result')
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'final:ready',
+          payload: {
+            bracket: pendingFinal,
+            matchWinnerNickname: '',
+            matchLabel: 'The Final',
+            finalScore: `${finalist1} vs ${finalist2}`,
+            nextLabel: 'First to 3 nearest answers wins!',
+            nextMatchPhase: 'final',
+          },
+        })
+        return
+      }
 
       fetch(`/api/sessions/${roomCode}/rounds/next`, {
         method: 'POST',

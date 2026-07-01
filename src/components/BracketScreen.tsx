@@ -39,7 +39,7 @@ export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
           <span className="text-orange-500 font-black text-sm">VS</span>
           <span className="font-black text-gray-900 text-lg">{match.p2}</span>
         </div>
-        <p className="text-xs text-gray-400 text-center mt-2">Best of 3</p>
+        <p className="text-xs text-gray-400 text-center mt-2">First to 2 nearest wins</p>
         </Card>
       </div>
     )
@@ -60,7 +60,7 @@ export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
         <div className="bg-white/10 rounded-2xl p-4 text-center">
           <p className="text-white/60 text-xs uppercase tracking-widest mb-1">Final</p>
           <p className="text-white font-black">Winner SF1 vs Winner SF2</p>
-          <p className="text-white/40 text-xs mt-1">Best of 5</p>
+          <p className="text-white/40 text-xs mt-1">First to 3 nearest wins</p>
         </div>
 
         <p className="text-center text-white/50 text-sm">

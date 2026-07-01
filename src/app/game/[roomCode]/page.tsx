@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { GameScreen } from '@/components/GameScreen'
 import { isValidRoomCode } from '@/lib/roomCode'
 import { normalizeOptions } from '@/lib/questionOptions'
-import type { WinnerInfo } from '@/types'
+import type { BracketState, GamePhase, WinnerInfo } from '@/types'
 
 interface Props {
   params: Promise<{ roomCode: string }>
@@ -21,12 +21,15 @@ export default async function GamePage({ params }: Props) {
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('id, status, host_id, winner_id')
+    .select('id, status, host_id, winner_id, phase, bracket')
     .eq('room_code', roomCode)
     .single()
 
   if (!session) return notFound()
   if (session.status === 'lobby') redirect(`/lobby/${roomCode}`)
+
+  const sessionPhase = (session.phase as GamePhase) ?? 'normal'
+  const sessionBracket = (session.bracket as BracketState | null) ?? null
 
   // Get current (latest) round
   const { data: round } = await supabase
@@ -35,9 +38,36 @@ export default async function GamePage({ params }: Props) {
     .eq('session_id', session.id)
     .order('round_number', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (!round) return notFound()
+  if (!round) {
+    if (sessionPhase === 'semifinal' && sessionBracket) {
+      const { count: aliveCount } = await supabase
+        .from('players')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', session.id)
+        .eq('is_alive', true)
+
+      return (
+        <div className="min-h-dvh">
+          <GameScreen
+            roomCode={roomCode}
+            sessionHostId={session.host_id}
+            initialRoundId={null}
+            initialRoundNumber={0}
+            initialQuestion={null}
+            initialStartedAt={null}
+            initialRevealData={null}
+            initialWinner={null}
+            initialAliveCount={aliveCount ?? 0}
+            initialSessionPhase={sessionPhase}
+            initialBracket={sessionBracket}
+          />
+        </div>
+      )
+    }
+    return notFound()
+  }
 
   const { data: question } = await supabase
     .from('questions')
@@ -108,6 +138,8 @@ export default async function GamePage({ params }: Props) {
         initialRevealData={revealData}
         initialWinner={initialWinner}
         initialAliveCount={aliveCount ?? 0}
+        initialSessionPhase={sessionPhase}
+        initialBracket={sessionBracket}
       />
     </div>
   )

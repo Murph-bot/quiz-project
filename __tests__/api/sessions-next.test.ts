@@ -116,7 +116,7 @@ function makeNextMock({
             eq: jest.fn().mockReturnThis(),
             order: jest.fn().mockReturnThis(),
             limit: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
+            maybeSingle: jest.fn().mockResolvedValue({
               data: { id: 'round-1', round_number: latestRoundNumber, status: latestRoundStatus },
               error: null,
             }),

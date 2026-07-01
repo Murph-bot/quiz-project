@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateBracketForSession } from '@/lib/bracket'
 import { generateOptions } from '@/lib/generateOptions'
 import {
   badRequest,
   getSupabase,
   hostOnly,
-  invalidCredentials,
   invalidRoomCode,
   loadSession,
   parseRoomCode,
@@ -49,21 +49,44 @@ export async function POST(
     return badRequest('Need at least 3 players to start')
   }
 
-  const question = await pickRandomQuestion(supabase, session.category)
-  if (!question) {
-    return NextResponse.json({ error: 'No questions available' }, { status: 409 })
-  }
+  const skipInitialRound = playerCount === 4
 
-  const options = generateOptions(question.answer)
+  let roundId: string | null = null
+  let startedAt: string | null = null
+  let questionPayload: {
+    id: string
+    text: string
+    timeLimit: number
+    category: string
+  } | null = null
+  let options: number[] | null = null
 
-  const { data: round, error: roundError } = await supabase
-    .from('rounds')
-    .insert({ session_id: session.id, question_id: question.id, round_number: 1, options })
-    .select('id, started_at')
-    .single()
+  if (!skipInitialRound) {
+    const question = await pickRandomQuestion(supabase, session.category)
+    if (!question) {
+      return NextResponse.json({ error: 'No questions available' }, { status: 409 })
+    }
 
-  if (roundError || !round) {
-    return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
+    options = generateOptions(question.answer)
+
+    const { data: round, error: roundError } = await supabase
+      .from('rounds')
+      .insert({ session_id: session.id, question_id: question.id, round_number: 1, options })
+      .select('id, started_at')
+      .single()
+
+    if (roundError || !round) {
+      return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
+    }
+
+    roundId = round.id
+    startedAt = round.started_at
+    questionPayload = {
+      id: question.id,
+      text: question.text,
+      timeLimit: question.time_limit,
+      category: question.category,
+    }
   }
 
   const { error: updateError } = await supabase
@@ -75,15 +98,29 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to update session' }, { status: 500 })
   }
 
+  let bracketReady = false
+  let bracket = null
+
+  if (skipInitialRound) {
+    const generatedBracket = await generateBracketForSession(supabase, session.id)
+    if (generatedBracket) {
+      const { error: bracketError } = await supabase
+        .from('sessions')
+        .update({ phase: 'semifinal', bracket: generatedBracket })
+        .eq('id', session.id)
+      if (!bracketError) {
+        bracketReady = true
+        bracket = generatedBracket
+      }
+    }
+  }
+
   return NextResponse.json({
-    roundId: round.id,
-    question: {
-      id: question.id,
-      text: question.text,
-      timeLimit: question.time_limit,
-      category: question.category,
-    },
-    startedAt: round.started_at,
+    roundId,
+    question: questionPayload,
+    startedAt,
     options,
+    bracketReady,
+    bracket,
   })
 }

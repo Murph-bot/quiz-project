@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { generateBracketForSession } from '@/lib/bracket'
+import { tryNormalPhaseTransition } from '@/lib/game/phaseTransitions'
 import { createTiebreakRound } from '@/lib/questionPicker'
+import { isIdenticalWrongReplay, resolveSubsetElimination } from '@/lib/elimination'
 import type { createServerClient } from '@/lib/supabase-server'
-import type { EliminatedPlayer, RankedAnswer, Round, Session, WinnerInfo } from '@/types'
+import type { EliminatedPlayer, RankedAnswer, Round, Session } from '@/types'
 
 type Supabase = ReturnType<typeof createServerClient>
 
@@ -16,8 +17,34 @@ interface CloseTiebreakParams {
   activeList: Array<{ id: string; nickname: string }>
 }
 
+function tiebreakResponse(
+  correctAnswer: number,
+  answers: RankedAnswer[],
+  tbResult: Awaited<ReturnType<typeof createTiebreakRound>> & { ok: true },
+  playerIds: string[],
+) {
+  return NextResponse.json({
+    correctAnswer,
+    answers,
+    eliminated: [],
+    winner: null,
+    gameOver: false,
+    wasAlreadyClosed: false,
+    bracketReady: false,
+    finalReady: false,
+    sfComplete: false,
+    bracket: null,
+    tiebreakNeeded: true,
+    tiebreakRoundId: tbResult.roundId,
+    tiebreakQuestion: tbResult.question,
+    tiebreakPlayerIds: playerIds,
+    tiebreakStartedAt: tbResult.startedAt,
+    tiebreakOptions: tbResult.options,
+  })
+}
+
 export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise<NextResponse | null> {
-  const { supabase, session, round, roundId, correctAnswer, answers, activeList } = params
+  const { supabase, session, round, correctAnswer, answers, activeList } = params
   const tbPlayers = round.tiebreak_players ?? []
   if (!Array.isArray(tbPlayers) || tbPlayers.length === 0) return null
 
@@ -31,83 +58,15 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
     }
   })
 
-  if (tbPlayers.length === 2) {
-    const p1 = participantAnswers[0]
-    const p2 = participantAnswers[1]
+  const participantRanked: RankedAnswer[] = participantAnswers.map((a) => ({
+    playerId: a.playerId,
+    nickname: a.nickname,
+    value: answers.find((x) => x.playerId === a.playerId)?.value ?? null,
+    delta: a.delta,
+    noAnswer: a.noAnswer,
+  }))
 
-    if (p1.delta === p2.delta) {
-      const tbResult = await createTiebreakRound(supabase, session.id, session.category, tbPlayers)
-      if (!tbResult.ok) {
-        const msg =
-          tbResult.error === 'no_questions'
-            ? 'No questions available for tiebreak'
-            : 'Failed to create tiebreak round'
-        return NextResponse.json({ error: msg }, { status: 500 })
-      }
-      return NextResponse.json({
-        correctAnswer,
-        answers,
-        eliminated: [],
-        winner: null,
-        gameOver: false,
-        wasAlreadyClosed: false,
-        bracketReady: false,
-        bracket: null,
-        tiebreakNeeded: true,
-        tiebreakRoundId: tbResult.roundId,
-        tiebreakQuestion: tbResult.question,
-        tiebreakPlayerIds: tbPlayers,
-        tiebreakStartedAt: tbResult.startedAt,
-        tiebreakOptions: tbResult.options,
-      })
-    }
-
-    const loserId = p1.delta > p2.delta ? tbPlayers[0] : tbPlayers[1]
-    await supabase.from('players').update({ is_alive: false }).in('id', [loserId])
-
-    const { count: aliveAfterTB } = await supabase
-      .from('players')
-      .select('id', { count: 'exact', head: true })
-      .eq('session_id', session.id)
-      .eq('is_alive', true)
-
-    let bracketReadyTB = false
-    let bracketTB = null
-
-    if ((aliveAfterTB ?? 0) === 4) {
-      bracketTB = await generateBracketForSession(supabase, session.id)
-      if (!bracketTB) {
-        return NextResponse.json({ error: 'Failed to generate bracket after tiebreak' }, { status: 500 })
-      }
-      const { error: bErr } = await supabase
-        .from('sessions')
-        .update({ phase: 'semifinal', bracket: bracketTB })
-        .eq('id', session.id)
-      if (!bErr) bracketReadyTB = true
-      else bracketTB = null
-    }
-
-    const loserEntry = answers.find((a) => a.playerId === loserId)
-    return NextResponse.json({
-      correctAnswer,
-      answers,
-      eliminated: loserEntry ? [{ playerId: loserEntry.playerId, nickname: loserEntry.nickname }] : [],
-      winner: null,
-      gameOver: false,
-      wasAlreadyClosed: false,
-      bracketReady: bracketReadyTB,
-      bracket: bracketTB,
-      tiebreakNeeded: false,
-      tiebreakRoundId: null,
-      tiebreakQuestion: null,
-      tiebreakPlayerIds: null,
-      tiebreakStartedAt: null,
-    })
-  }
-
-  const wrongParticipants = participantAnswers.filter((a) => a.delta > 0)
-
-  if (wrongParticipants.length === tbPlayers.length) {
+  if (isIdenticalWrongReplay(participantRanked, tbPlayers.length)) {
     const tbResult = await createTiebreakRound(supabase, session.id, session.category, tbPlayers)
     if (!tbResult.ok) {
       const msg =
@@ -116,91 +75,54 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
           : 'Failed to create replay round'
       return NextResponse.json({ error: msg }, { status: 500 })
     }
-    return NextResponse.json({
-      correctAnswer,
-      answers,
-      eliminated: [],
-      winner: null,
-      gameOver: false,
-      wasAlreadyClosed: false,
-      bracketReady: false,
-      bracket: null,
-      tiebreakNeeded: true,
-      tiebreakRoundId: tbResult.roundId,
-      tiebreakQuestion: tbResult.question,
-      tiebreakPlayerIds: tbPlayers,
-      tiebreakStartedAt: tbResult.startedAt,
-      tiebreakOptions: tbResult.options,
-    })
+    return tiebreakResponse(correctAnswer, answers, tbResult, tbPlayers)
   }
 
-  const eliminatedFromReplay: EliminatedPlayer[] = wrongParticipants.map((a) => ({
-    playerId: a.playerId,
-    nickname: a.nickname,
-  }))
+  const { eliminated, tiedForWorstIds } = resolveSubsetElimination(participantAnswers)
 
-  if (eliminatedFromReplay.length > 0) {
-    await supabase
-      .from('players')
-      .update({ is_alive: false })
-      .in(
-        'id',
-        eliminatedFromReplay.map((e) => e.playerId),
-      )
+  if (tiedForWorstIds.length > 1) {
+    const tbResult = await createTiebreakRound(supabase, session.id, session.category, tiedForWorstIds)
+    if (!tbResult.ok) {
+      const msg =
+        tbResult.error === 'no_questions'
+          ? 'No questions available for tiebreak'
+          : 'Failed to create tiebreak round'
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+    return tiebreakResponse(correctAnswer, answers, tbResult, tiedForWorstIds)
   }
 
-  const { count: aliveAfterReplay } = await supabase
+  if (eliminated.length === 0) {
+    return null
+  }
+
+  await supabase
+    .from('players')
+    .update({ is_alive: false })
+    .in(
+      'id',
+      eliminated.map((e) => e.playerId),
+    )
+
+  const { count: aliveAfterTB } = await supabase
     .from('players')
     .select('id', { count: 'exact', head: true })
     .eq('session_id', session.id)
     .eq('is_alive', true)
 
-  let winnerAfterReplay: WinnerInfo | null = null
-  let gameOverAfterReplay = false
-
-  if (aliveAfterReplay === 1) {
-    const { data: survivors } = await supabase
-      .from('players')
-      .select('id, nickname')
-      .eq('session_id', session.id)
-      .eq('is_alive', true)
-      .limit(1)
-
-    const survivor = survivors?.[0]
-    if (survivor) {
-      winnerAfterReplay = { playerId: survivor.id, nickname: survivor.nickname }
-      await supabase
-        .from('sessions')
-        .update({ status: 'finished', winner_id: survivor.id })
-        .eq('id', session.id)
-    }
-    gameOverAfterReplay = true
-  }
-
-  let bracketReadyReplay = false
-  let bracketReplay = null
-
-  if (session.phase === 'normal' && (aliveAfterReplay ?? 0) === 4 && !gameOverAfterReplay) {
-    bracketReplay = await generateBracketForSession(supabase, session.id)
-    if (bracketReplay) {
-      const { error: bracketUpdateError } = await supabase
-        .from('sessions')
-        .update({ phase: 'semifinal', bracket: bracketReplay })
-        .eq('id', session.id)
-      if (!bracketUpdateError) bracketReadyReplay = true
-      else bracketReplay = null
-    }
-  }
+  const transition = await tryNormalPhaseTransition(supabase, session, aliveAfterTB ?? 0)
 
   return NextResponse.json({
     correctAnswer,
     answers,
-    eliminated: eliminatedFromReplay,
-    winner: winnerAfterReplay,
-    gameOver: gameOverAfterReplay,
+    eliminated,
+    winner: null,
+    gameOver: false,
     wasAlreadyClosed: false,
-    bracketReady: bracketReadyReplay,
-    bracket: bracketReplay,
+    bracketReady: transition.bracketReady,
+    finalReady: transition.finalReady,
+    sfComplete: false,
+    bracket: transition.bracket,
     tiebreakNeeded: false,
     tiebreakRoundId: null,
     tiebreakQuestion: null,
@@ -209,16 +131,13 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
   })
 }
 
-export async function maybeCreateAllWrongReplay(params: {
+export async function maybeCreateIdenticalWrongReplay(params: {
   supabase: Supabase
   session: Session
-  isTiebreakRound: boolean
-  eliminated: EliminatedPlayer[]
   activeList: Array<{ id: string; nickname: string }>
   correctAnswer: number
   answers: RankedAnswer[]
 }): Promise<{
-  skippedElimination: boolean
   tiebreakNeeded: boolean
   tiebreakRoundId: string | null
   tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
@@ -227,26 +146,12 @@ export async function maybeCreateAllWrongReplay(params: {
   tiebreakOptions: number[] | null
   errorResponse?: NextResponse
 }> {
-  const { supabase, session, isTiebreakRound, eliminated, activeList, correctAnswer, answers } = params
-
-  if (isTiebreakRound || eliminated.length === 0 || eliminated.length !== activeList.length) {
-    return {
-      skippedElimination: false,
-      tiebreakNeeded: false,
-      tiebreakRoundId: null,
-      tiebreakQuestion: null,
-      tiebreakPlayerIds: null,
-      tiebreakStartedAt: null,
-      tiebreakOptions: null,
-    }
-  }
-
+  const { supabase, session, activeList } = params
   const allAliveIds = activeList.map((p) => p.id)
   const tbResult = await createTiebreakRound(supabase, session.id, session.category, allAliveIds)
 
   if (!tbResult.ok) {
     return {
-      skippedElimination: false,
       tiebreakNeeded: false,
       tiebreakRoundId: null,
       tiebreakQuestion: null,
@@ -266,11 +171,55 @@ export async function maybeCreateAllWrongReplay(params: {
   }
 
   return {
-    skippedElimination: true,
     tiebreakNeeded: true,
     tiebreakRoundId: tbResult.roundId,
     tiebreakStartedAt: tbResult.startedAt,
     tiebreakPlayerIds: allAliveIds,
+    tiebreakQuestion: tbResult.question,
+    tiebreakOptions: tbResult.options,
+  }
+}
+
+export async function maybeCreateWorstTiebreak(params: {
+  supabase: Supabase
+  session: Session
+  tiedPlayerIds: string[]
+  correctAnswer: number
+  answers: RankedAnswer[]
+}): Promise<{
+  tiebreakRoundId: string | null
+  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
+  tiebreakPlayerIds: string[] | null
+  tiebreakStartedAt: string | null
+  tiebreakOptions: number[] | null
+  errorResponse?: NextResponse
+}> {
+  const { supabase, session, tiedPlayerIds } = params
+  const tbResult = await createTiebreakRound(supabase, session.id, session.category, tiedPlayerIds)
+
+  if (!tbResult.ok) {
+    return {
+      tiebreakRoundId: null,
+      tiebreakQuestion: null,
+      tiebreakPlayerIds: null,
+      tiebreakStartedAt: null,
+      tiebreakOptions: null,
+      errorResponse: NextResponse.json(
+        {
+          error:
+            tbResult.error === 'no_questions'
+              ? 'No questions available for tiebreak'
+              : 'Failed to create tiebreak round',
+        },
+        { status: 500 },
+      ),
+    }
+  }
+
+  return {
+    tiebreakRoundId: tbResult.roundId,
+    tiebreakStartedAt: tbResult.startedAt,
+    tiebreakPlayerIds: tiedPlayerIds,
     tiebreakQuestion: tbResult.question,
     tiebreakOptions: tbResult.options,
   }

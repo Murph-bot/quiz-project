@@ -365,6 +365,21 @@ function makeSuddenDeathNormalElimMock({
             }),
           }
         }
+        if (n === 5 && aliveCountAfterElim === 2) {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({
+                  data: [
+                    { id: 'p1', nickname: 'Alice' },
+                    { id: 'p2', nickname: 'Bob' },
+                  ],
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
         return {}
       }
 
@@ -436,14 +451,57 @@ function makeNPlayerReplayResolutionMock({
             }),
           }
         }
+        if (n === 3) {
+          const roundsData = { data: [], error: null }
+          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+            eq: jest.fn().mockResolvedValue(roundsData),
+            is: jest.fn().mockResolvedValue(roundsData),
+          })
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue(chainableEq),
+            }),
+          }
+        }
+        if (n === 4) {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                order: jest.fn().mockReturnValue({
+                  limit: jest.fn().mockResolvedValue({ data: [{ round_number: 52 }], error: null }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (n === 5) {
+          return {
+            insert: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: { id: 'replay-round-2', started_at: '2024-01-01T02:00:00Z' },
+              error: null,
+            }),
+          }
+        }
         return {}
       }
 
       if (table === 'questions') {
+        const n = next('questions')
+        if (n === 1) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockQuestion, error: null }),
+          }
+        }
+        const questionResult = { data: [{ id: 'q-replay', text: 'Replay?', answer: 1989, category: 'all', time_limit: 10 }], error: null }
+        const questionSelectResult = Object.assign(Promise.resolve(questionResult), {
+          eq: jest.fn().mockResolvedValue(questionResult),
+        })
         return {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: mockQuestion, error: null }),
+          select: jest.fn().mockReturnValue(questionSelectResult),
         }
       }
 
@@ -558,9 +616,10 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — sudden death'
     expect(body.eliminated[0].playerId).toBe('p3')
     expect(body.eliminated[0].nickname).toBe('Carol')
     expect(body.gameOver).toBe(false)
+    expect(body.finalReady).toBe(true)
   })
 
-  it('eliminates all wrong players from a 3-player replay round', async () => {
+  it('creates a tiebreak when two replay participants tie for farthest', async () => {
     const replayAnswers = [
       { player_id: 'p1', value: 1989, players: { nickname: 'Alice' } },
       { player_id: 'p2', value: 1889, players: { nickname: 'Bob' } },
@@ -572,11 +631,9 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close — sudden death'
     const res = await POST(makeRequest('AB12', 'replay-round-1'), params('AB12', 'replay-round-1'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.tiebreakNeeded).toBe(false)
-    expect(body.eliminated).toHaveLength(2)
-    const nicknames = body.eliminated.map((e: { nickname: string }) => e.nickname).sort()
-    expect(nicknames).toEqual(['Bob', 'Carol'])
-    expect(body.gameOver).toBe(true)
-    expect(body.winner?.nickname).toBe('Alice')
+    expect(body.tiebreakNeeded).toBe(true)
+    expect(body.tiebreakPlayerIds).toEqual(['p2', 'p3'])
+    expect(body.eliminated).toEqual([])
+    expect(body.gameOver).toBe(false)
   })
 })
