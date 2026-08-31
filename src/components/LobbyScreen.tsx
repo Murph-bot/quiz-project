@@ -24,6 +24,9 @@ const RESURRECTION_OPTIONS = [
   { value: 10, label: 'Every 10th round' },
 ]
 
+const selectClass =
+  'bg-transparent border-none text-qk-text font-bold text-sm focus:outline-none w-full min-h-[44px] py-2'
+
 interface Props {
   roomCode: string
   initialSession: Session
@@ -160,13 +163,13 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-5">
         <div className="text-center">
-          <h1 className="text-2xl font-black text-white">⚔️ QuizKnight</h1>
+          <h1 className="text-2xl font-black text-qk-text">⚔️ QuizKnight</h1>
         </div>
 
         <div className="text-center">
           <SectionLabel className="mb-1">Room Code</SectionLabel>
-          <p className="text-white text-5xl font-black tracking-[0.3em]">{roomCode}</p>
-          <p className="text-white/50 text-xs mt-2">Share this code with friends</p>
+          <p className="text-qk-cyan text-5xl font-black tracking-[0.3em]">{roomCode}</p>
+          <p className="text-qk-muted text-xs mt-2">Share this code with friends</p>
         </div>
 
         <PlayerList players={players} />
@@ -178,10 +181,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
               <select
                 value={category}
                 onChange={(e) => handleCategoryChange(e.target.value)}
-                className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none capitalize w-full py-2"
+                aria-label="Category"
+                className={`${selectClass} capitalize`}
               >
                 {VALID_CATEGORIES.map((c) => (
-                  <option key={c} value={c} className="capitalize">
+                  <option key={c} value={c} className="capitalize bg-qk-field text-qk-text">
                     {c}
                   </option>
                 ))}
@@ -197,10 +201,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
               <select
                 value={resurrectionInterval}
                 onChange={(e) => handleResurrectionChange(Number(e.target.value))}
-                className="bg-transparent border-none text-gray-900 font-bold text-sm focus:outline-none w-full py-2"
+                aria-label="Resurrection"
+                className={selectClass}
               >
                 {RESURRECTION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
+                  <option key={o.value} value={o.value} className="bg-qk-field text-qk-text">
                     {o.label}
                   </option>
                 ))}
@@ -222,7 +227,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
                 : '🚀 Start Game'}
           </Button>
         ) : (
-          <p className="text-center text-white/60 text-sm">Waiting for host to start...</p>
+          <p className="text-center text-qk-muted text-sm">Waiting for host to start...</p>
         )}
       </div>
     </div>

@@ -10,6 +10,9 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
+  // .netlify/functions-internal has a colliding package.json that hangs haste-map
+  modulePathIgnorePatterns: ['<rootDir>/.netlify/', '<rootDir>/.next/'],
+  testPathIgnorePatterns: ['<rootDir>/.netlify/', '<rootDir>/.next/', '<rootDir>/node_modules/'],
 }
 
 export default createJestConfig(config)

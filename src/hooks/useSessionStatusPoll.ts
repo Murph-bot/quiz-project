@@ -22,7 +22,7 @@ export function useSessionStatusPoll({
   enabled,
   navigateOn,
   getPath = DEFAULT_GET_PATH,
-  intervalMs = 3000,
+  intervalMs = 8000,
 }: Options) {
   const router = useRouter()
   const navigateOnRef = useRef(navigateOn)

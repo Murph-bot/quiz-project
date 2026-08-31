@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
+const inputClass =
+  'w-full bg-qk-inset border border-qk-violet/30 rounded-2xl px-5 text-qk-text placeholder-qk-muted/70 font-black focus:outline-none focus:border-qk-cyan/70 focus:shadow-qk-neon-sm'
+
 export default function HomeScreen() {
   const router = useRouter()
   const [nickname, setNickname] = useState('')
@@ -89,12 +92,12 @@ export default function HomeScreen() {
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-safe pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
         <div className="text-center">
-          <h1 className="text-4xl font-black text-white tracking-tight">⚔️ QuizKnight</h1>
-          <p className="text-white/70 text-sm mt-1 font-medium">Last one standing wins</p>
+          <h1 className="text-4xl font-black text-qk-text tracking-tight">⚔️ QuizKnight</h1>
+          <p className="text-qk-muted text-sm mt-1 font-medium">Last one standing wins</p>
         </div>
 
         <Card padding="lg" className="flex flex-col gap-5 overflow-hidden">
-          <label htmlFor="nickname" className="text-sm font-bold text-gray-500 uppercase tracking-wide">
+          <label htmlFor="nickname" className="text-sm font-bold text-qk-label uppercase tracking-wide">
             Your nickname
           </label>
           <input
@@ -108,7 +111,7 @@ export default function HomeScreen() {
               setError('')
             }}
             autoComplete="nickname"
-            className="w-full min-h-[64px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-5 py-4 text-gray-900 placeholder-gray-400 font-black text-xl focus:outline-none focus:border-orange-400 focus:bg-white"
+            className={`${inputClass} min-h-[64px] py-4 text-xl`}
           />
 
           <Button onClick={handleCreate} disabled={loading} fullWidth>
@@ -116,13 +119,15 @@ export default function HomeScreen() {
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-gray-400 text-xs">or join</span>
-            <div className="flex-1 h-px bg-gray-200" />
+            <div className="flex-1 h-px bg-qk-violet/25" />
+            <span className="text-qk-muted text-xs">or join</span>
+            <div className="flex-1 h-px bg-qk-violet/25" />
           </div>
 
           <div className="flex gap-2 w-full min-w-0">
+            <label htmlFor="room-code" className="sr-only">Room code</label>
             <input
+              id="room-code"
               type="text"
               inputMode="text"
               placeholder="Room code"
@@ -135,14 +140,15 @@ export default function HomeScreen() {
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
-              className="flex-1 min-w-0 min-h-[52px] bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder-gray-400 font-black text-lg uppercase tracking-widest focus:outline-none focus:border-orange-400 focus:bg-white"
+              aria-label="Room code"
+              className={`${inputClass} flex-1 min-w-0 min-h-[52px] px-4 py-3 text-lg uppercase tracking-widest`}
             />
             <Button onClick={handleJoin} disabled={loading} variant="compact">
               Join
             </Button>
           </div>
 
-          {error && <p className="text-red-500 text-xs text-center font-semibold">{error}</p>}
+          {error && <p className="text-qk-danger text-xs text-center font-semibold">{error}</p>}
         </Card>
       </div>
     </div>

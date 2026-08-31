@@ -45,14 +45,14 @@ export function MatchResultScreen({
         <SectionLabel>{matchLabel} Result</SectionLabel>
         <Card padding="lg" className="text-center">
           <div className="text-5xl mb-3">🏆</div>
-          <p className="text-gray-400 text-sm mb-1">Winner</p>
-          <p className="text-orange-500 font-black text-3xl">{winnerNickname}</p>
-          <p className="text-gray-400 text-sm mt-3">{finalScore}</p>
+          <p className="text-qk-label text-sm mb-1">Winner</p>
+          <p className="text-qk-cyan font-black text-3xl">{winnerNickname}</p>
+          <p className="text-qk-muted text-sm mt-3">{finalScore}</p>
         </Card>
-        <div className="bg-white/10 rounded-2xl p-4">
-          <p className="text-white font-bold">{nextLabel}</p>
+        <div className="bg-qk-surface/70 backdrop-blur-md border border-qk-violet/25 rounded-2xl p-4">
+          <p className="text-qk-text font-bold">{nextLabel}</p>
         </div>
-        <p className="text-white/40 text-sm">Continuing in {countdown}s...</p>
+        <p className="text-qk-muted text-sm">Continuing in {countdown}s...</p>
       </div>
     </div>
   )

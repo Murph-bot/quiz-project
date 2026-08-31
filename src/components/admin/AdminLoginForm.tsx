@@ -12,12 +12,12 @@ export function AdminLoginForm({ error }: { error?: string }) {
           placeholder="Admin password"
           required
           autoComplete="current-password"
-          className="border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-400"
+          className="border border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-qk-cyan"
         />
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <button
           type="submit"
-          className="bg-orange-500 text-white font-bold rounded-xl px-4 py-3 hover:bg-orange-600 transition-colors"
+          className="bg-qk-field text-qk-text font-bold rounded-xl px-4 py-3 hover:bg-qk-void transition-colors"
         >
           Log in
         </button>

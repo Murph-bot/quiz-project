@@ -1,13 +1,27 @@
 @import "tailwindcss";
+@source not "../../.netlify";
+@source not "../../.next";
+@source not "../../.cursor";
 
 @theme {
-  --color-qk-orange: #ff6b00;
-  --color-qk-pink: #e84393;
-  --color-qk-orange-light: #ff8c42;
-  --color-qk-amber: #ffa500;
+  --color-qk-void: #0c0618;
+  --color-qk-field: #1a0d2e;
+  --color-qk-surface: #1c1030;
+  --color-qk-inset: #140a24;
+  --color-qk-cyan: #5eefff;
+  --color-qk-magenta: #ff4fd8;
+  --color-qk-violet: #c4b5fd;
+  --color-qk-text: #f4f0ff;
+  --color-qk-muted: #c4b5d4;
+  --color-qk-label: #c4b5fd;
+  --color-qk-danger: #ff6b81;
+  --color-qk-success: #34e89a;
+  --color-qk-warn: #ffd166;
   --radius-qk-card: 1rem;
   --radius-qk-pill: 9999px;
-  --shadow-qk-card: 0 4px 14px rgb(0 0 0 / 0.08);
+  --shadow-qk-card: 0 8px 28px rgb(8 4 20 / 0.5);
+  --shadow-qk-neon: 0 0 10px rgb(94 239 255 / 0.28), 0 0 18px rgb(255 79 216 / 0.12);
+  --shadow-qk-neon-sm: 0 0 8px rgb(94 239 255 / 0.22);
   --font-size-qk-display: 2.5rem;
   --font-size-qk-title: 1.5rem;
   --font-size-qk-body: 0.875rem;
@@ -16,12 +30,6 @@
 
 *, *::before, *::after {
   box-sizing: border-box;
-}
-
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 
 @keyframes fadeIn {
@@ -34,14 +42,14 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes timerPulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.1); }
+@keyframes timerRingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 107 129 / 0); }
+  50%      { box-shadow: 0 0 14px 2px rgb(255 107 129 / 0.4); }
 }
 
 @keyframes trophy {
   0%, 100% { transform: rotate(-8deg) scale(1); }
-  50%       { transform: rotate(8deg) scale(1.15); }
+  50%      { transform: rotate(8deg) scale(1.15); }
 }
 
 @keyframes eliminationShake {
@@ -57,20 +65,21 @@
   50% { opacity: 1; }
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
   font-family: system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, #ff4500, var(--color-qk-orange), var(--color-qk-orange-light), var(--color-qk-amber), var(--color-qk-pink));
-  background-size: 400% 400%;
-  animation: gradientShift 16s ease infinite;
+  color: var(--color-qk-text);
+  background: linear-gradient(180deg, var(--color-qk-void) 0%, var(--color-qk-field) 100%);
   background-attachment: fixed;
 }
 
 .urgent-bg {
-  background: linear-gradient(135deg, #c0160a, #e02010, #ff4500, #c0200a, #8b0000) !important;
-  background-size: 400% 400% !important;
-  animation: gradientShift 2s ease infinite !important;
+  background: linear-gradient(180deg, #080412 0%, #12081f 100%) !important;
 }
 
 .phase-enter {
@@ -79,6 +88,18 @@ body {
 
 .elimination-shake {
   animation: eliminationShake 0.45s ease-in-out;
+}
+
+.qk-timer-ring-urgent {
+  animation: timerRingPulse 0.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-enter,
+  .elimination-shake,
+  .qk-timer-ring-urgent {
+    animation: none !important;
+  }
 }
 
 @utility pb-safe {

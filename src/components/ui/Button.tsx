@@ -10,11 +10,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClass: Record<Variant, string> = {
   primary:
-    'bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black rounded-full active:scale-95 transition-transform disabled:opacity-40',
+    'bg-qk-void text-qk-text font-black rounded-full border border-qk-cyan/70 shadow-qk-neon active:scale-95 transition-transform disabled:opacity-40',
   secondary:
-    'bg-white text-gray-900 font-bold rounded-full border-2 border-gray-200 active:scale-95 transition-transform disabled:opacity-40',
+    'bg-qk-surface/80 text-qk-text font-bold rounded-full border border-qk-violet/35 active:scale-95 transition-transform disabled:opacity-40',
   compact:
-    'bg-gradient-to-br from-orange-500 to-pink-500 text-white font-black rounded-full active:scale-95 transition-transform disabled:opacity-50 shrink-0',
+    'bg-qk-void text-qk-text font-black rounded-full border border-qk-cyan/70 shadow-qk-neon-sm active:scale-95 transition-transform disabled:opacity-50 shrink-0',
 }
 
 const sizeClass: Record<Variant, string> = {

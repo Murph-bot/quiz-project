@@ -14,24 +14,23 @@ export default function PlayerList({ players, maxPlayers = 50 }: Props) {
       </SectionLabel>
       <div className="flex flex-col gap-2">
         {players.length === 0 && (
-          <p className="text-white/50 text-sm text-center py-4">Waiting for players...</p>
+          <p className="text-qk-muted text-sm text-center py-4">Waiting for players...</p>
         )}
         {players.map((player) => (
           <div
             key={player.playerId}
-            className="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center gap-3"
+            className="bg-qk-surface/80 backdrop-blur-md border border-qk-violet/25 rounded-xl px-4 py-3 min-h-[44px] flex items-center gap-3"
           >
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm text-white flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #ff6b00, #e84393)' }}
+              className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm text-qk-void flex-shrink-0 bg-gradient-to-br from-qk-cyan to-qk-magenta"
             >
               {player.nickname.charAt(0).toUpperCase()}
             </div>
-            <span className="font-bold text-sm text-gray-900 flex-1 min-w-0 truncate">
+            <span className="font-bold text-sm text-qk-text flex-1 min-w-0 truncate">
               {player.nickname}
             </span>
             {player.isHost && (
-              <span className="text-xs font-bold text-orange-500 uppercase">Host</span>
+              <span className="text-xs font-bold text-qk-cyan uppercase">Host</span>
             )}
           </div>
         ))}

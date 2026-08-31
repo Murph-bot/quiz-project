@@ -52,27 +52,27 @@ export function SpectatorScreen({
         <div className="text-6xl">💀</div>
 
         <Card padding="md" className="text-center">
-          <div className="text-lg font-black text-gray-900">You&apos;ve been eliminated</div>
-          <div className="text-sm text-gray-500 mt-1">
+          <div className="text-lg font-black text-qk-text">You&apos;ve been eliminated</div>
+          <div className="text-sm text-qk-muted mt-1">
             Hang tight — a resurrection could bring you back into the game!
           </div>
         </Card>
 
         {question && startedAt && (
-          <div className="bg-white/10 rounded-2xl px-6 py-5 w-full flex flex-col gap-3">
+          <div className="bg-qk-surface/70 backdrop-blur-md border border-qk-violet/25 rounded-2xl px-6 py-5 w-full flex flex-col gap-3">
             <SectionLabel>Current question</SectionLabel>
-            <div className="text-white font-semibold text-base leading-snug">{question.text}</div>
-            <div className="text-3xl font-black text-white tabular-nums" suppressHydrationWarning>
+            <div className="text-qk-text font-semibold text-base leading-snug">{question.text}</div>
+            <div className="text-3xl font-black text-qk-cyan tabular-nums" suppressHydrationWarning>
               {secondsLeft}s
             </div>
           </div>
         )}
 
         <div className="flex flex-col items-center gap-1">
-          <p className="text-white/70 text-sm">
-            Spectating Round <span className="font-bold text-white">{roundNumber}</span>
+          <p className="text-qk-muted text-sm">
+            Spectating Round <span className="font-bold text-qk-text">{roundNumber}</span>
           </p>
-          <p className="text-white/50 text-xs">
+          <p className="text-qk-muted/80 text-xs">
             {aliveCount} player{aliveCount !== 1 ? 's' : ''} still alive
           </p>
         </div>

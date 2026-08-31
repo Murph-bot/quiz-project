@@ -114,7 +114,7 @@ export function AdminShell() {
             {VALID_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <input className="border rounded px-3 py-2 text-sm w-20" placeholder="Time (s)" type="number" value={addForm.time_limit} onChange={e => setAddForm(f => ({ ...f, time_limit: e.target.value }))} required />
-          <button type="submit" className="bg-orange-500 text-white rounded px-4 py-2 text-sm font-bold hover:bg-orange-600">Add</button>
+          <button type="submit" className="bg-qk-field text-qk-text rounded px-4 py-2 text-sm font-bold hover:bg-qk-void">Add</button>
           {error && <p className="w-full text-red-500 text-sm">{error}</p>}
         </form>
       </div>

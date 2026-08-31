@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/Card'
+import { TIEBREAK_WAITING_REASSURANCE } from '@/lib/game/closeClient'
 
 interface Props {
   roundNumber: number
@@ -24,18 +25,16 @@ export function TiebreakWaitingScreen({ roundNumber, deadlineMs }: Props) {
       <div className="w-full max-w-sm flex flex-col items-center gap-6">
         <div className="text-6xl">⚔️</div>
         <Card padding="md" className="text-center">
-          <div className="text-lg font-black text-gray-900">Tiebreak in progress</div>
-          <div className="text-sm text-gray-500 mt-1">
-            Don&apos;t worry — you&apos;ve made it to the semi-finals!
-          </div>
+          <div className="text-lg font-black text-qk-text">Tiebreak in progress</div>
+          <div className="text-sm text-qk-muted mt-1">{TIEBREAK_WAITING_REASSURANCE}</div>
         </Card>
-        <div className="bg-white/10 rounded-xl px-6 py-4 w-full">
-          <div className="text-white/70 text-sm mb-1">Time remaining</div>
-          <div className="text-4xl font-black text-white tabular-nums" suppressHydrationWarning>
+        <div className="bg-qk-surface/70 backdrop-blur-md border border-qk-violet/25 rounded-xl px-6 py-4 w-full">
+          <div className="text-qk-label text-sm mb-1">Time remaining</div>
+          <div className="text-4xl font-black text-qk-cyan tabular-nums" suppressHydrationWarning>
             {secondsLeft}s
           </div>
         </div>
-        <p className="text-white/60 text-sm">Round {roundNumber} · Tiebreak</p>
+        <p className="text-qk-muted text-sm">Round {roundNumber} · Tiebreak</p>
       </div>
     </div>
   )

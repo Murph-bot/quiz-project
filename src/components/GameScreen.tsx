@@ -26,6 +26,7 @@ import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { getBracketFinalists, isBracketFinalist } from '@/lib/bracket'
+import { normalizeCloseResponse, shouldPollForMissedClose } from '@/lib/game/closeClient'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState, GamePhase } from '@/types'
 
 interface RevealData {
@@ -49,6 +50,7 @@ interface Props {
 
 // Stable sentinel — must not use Date.now() (SSR/client hydration mismatch).
 const FAR_FUTURE_MS = 9_000_000_000_000
+const POST_TIMER_GRACE_MS = 8_000
 
 type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner' | 'tiebreak-waiting'
 
@@ -460,6 +462,10 @@ export function GameScreen({
           .then((r) => r.json())
           .then((data) => {
             if (!data.roundId && !data.bracketReady) {
+              if (data.error === 'Current round still active') {
+                fetchRoundReveal()
+                return
+              }
               if (data.error === 'No questions available') {
                 setQuestionsExhausted(true)
                 channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
@@ -476,18 +482,20 @@ export function GameScreen({
   function handleCloseData(data: any) {
     if (data.error) {
       console.error('[close] API error:', data.error)
+      fetchRoundReveal()
       return
     }
-    if (data.wasAlreadyClosed) {
+    if (data.wasAlreadyClosed && !data.tiebreakNeeded) {
       if (roundClosedRef.current) return
       fetchRoundReveal()
       return
     }
-    if (roundClosedRef.current) return
-    roundClosedRef.current = true
 
-    // --- TIEBREAK NEEDED ---
+    // --- TIEBREAK NEEDED (also recover if a late closer already showed reveal) ---
     if (data.tiebreakNeeded && data.tiebreakRoundId) {
+      if (pendingTiebreakRef.current?.roundId === data.tiebreakRoundId) return
+      const alreadyRevealing = roundClosedRef.current
+      roundClosedRef.current = true
       setEliminated([])
       setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
       setPhase('reveal')
@@ -501,12 +509,14 @@ export function GameScreen({
       }
       const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
       setTiebreakDeadlineMs(deadline)
-      setPendingTiebreak({
+      const pending = {
         roundId: data.tiebreakRoundId,
         question: tbQuestion,
         startedAt: data.tiebreakStartedAt,
         playerIds: data.tiebreakPlayerIds ?? [],
-      })
+      }
+      pendingTiebreakRef.current = pending
+      setPendingTiebreak(pending)
 
       channelRef.current?.send({
         type: 'broadcast',
@@ -524,9 +534,15 @@ export function GameScreen({
           tiebreakStartedAt: data.tiebreakStartedAt,
         },
       })
+      if (alreadyRevealing) {
+        setTimeout(() => advanceAfterReveal(), 0)
+      }
       return
     }
     // --- END TIEBREAK NEEDED ---
+
+    if (roundClosedRef.current) return
+    roundClosedRef.current = true
 
     // --- BRACKET MODE: bracket just generated ---
     if (data.bracketReady && data.bracket) {
@@ -684,7 +700,7 @@ export function GameScreen({
     fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}?${params}`)
       .then(r => r.json())
       .then(data => {
-        if (data.status !== 'closed' || roundClosedRef.current) return
+        if (data.error || data.status !== 'closed') return
         handleCloseData({ ...data, wasAlreadyClosed: false })
       })
       .catch(err => console.error('[reveal] fetch error:', err))
@@ -697,12 +713,14 @@ export function GameScreen({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, sessionSecret }),
     })
-      .then(r => r.json())
-      .then(data => handleCloseData(data))
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        handleCloseData(normalizeCloseResponse(r.status, data))
+      })
       .catch(err => console.error('[close] network error:', err))
   }
 
-  // Timer expired → 40s grace period → close the round (any connected player)
+  // Timer expired → 8s grace period → close the round (any connected player)
   useEffect(() => {
     if (!isExpired || !roundId) return
     if (phase !== 'answering' && phase !== 'waiting' && phase !== 'tiebreak-waiting') return
@@ -717,7 +735,7 @@ export function GameScreen({
     }
 
     // If the timer expired long before this effect ran (stale reconnect), skip grace
-    if (Date.now() - deadlineMs > 40_000) {
+    if (Date.now() - deadlineMs > POST_TIMER_GRACE_MS) {
       doClose()
       return
     }
@@ -728,8 +746,8 @@ export function GameScreen({
       return
     }
 
-    // Start 40s grace period
-    const deadline = Date.now() + 40_000
+    // Start 8s grace period
+    const deadline = Date.now() + POST_TIMER_GRACE_MS
     setIsGracePeriod(true)
     setGraceDeadlineMs(deadline)
     channelRef.current?.send({
@@ -741,7 +759,7 @@ export function GameScreen({
     graceTimeoutRef.current = setTimeout(() => {
       graceTimeoutRef.current = null
       doClose()
-    }, 40_000)
+    }, POST_TIMER_GRACE_MS)
 
     return () => {
       if (graceTimeoutRef.current) {
@@ -772,11 +790,14 @@ export function GameScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGracePeriod, graceDeadlineMs, roomCode])
 
-  // Poll for closed round if realtime broadcast was missed
+  // Poll for closed round if realtime close broadcast was missed — not during active answering
   useEffect(() => {
-    if (!isExpired || !roundId) return
-    if (phase !== 'waiting' && phase !== 'answering') return
-    if (roundClosedRef.current) return
+    if (!roundId) return
+    if (!shouldPollForMissedClose({
+      phase,
+      isExpired,
+      roundClosed: roundClosedRef.current,
+    })) return
     fetchRoundReveal()
     const interval = setInterval(fetchRoundReveal, 3000)
     return () => clearInterval(interval)
@@ -825,37 +846,14 @@ export function GameScreen({
     setCurrentHostId,
     attemptClose,
     onRoundClosed: (payload) => {
+      if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
+        handleCloseData({ ...payload, wasAlreadyClosed: false })
+        return
+      }
       if (roundClosedRef.current) {
         return
       }
       roundClosedRef.current = true
-
-      if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
-        setEliminated([])
-        setRevealData({
-          correctAnswer: payload.correctAnswer as number,
-          answers: payload.answers as RankedAnswer[],
-        })
-        setPhase('reveal')
-        const tbQ: QuestionData = {
-          id: (payload.tiebreakQuestion as QuestionData).id,
-          text: (payload.tiebreakQuestion as QuestionData).text,
-          timeLimit: (payload.tiebreakQuestion as QuestionData).timeLimit,
-          category: (payload.tiebreakQuestion as QuestionData).category,
-          options: (payload.tiebreakQuestion as { options?: number[] }).options ?? undefined,
-        }
-        const deadline =
-          new Date(payload.tiebreakStartedAt as string).getTime() +
-          (payload.tiebreakQuestion as QuestionData).timeLimit * 1000
-        setTiebreakDeadlineMs(deadline)
-        setPendingTiebreak({
-          roundId: payload.tiebreakRoundId as string,
-          question: tbQ,
-          startedAt: payload.tiebreakStartedAt as string,
-          playerIds: (payload.tiebreakPlayerIds as string[]) ?? [],
-        })
-        return
-      }
 
       setEliminated((payload.eliminated as EliminatedPlayer[]) ?? [])
       setRevealData({

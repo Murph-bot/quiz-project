@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { pendingTiebreakFromFollowUpRound } from '@/lib/game/closeClient'
 import { computeRevealElimination } from '@/lib/game/revealElimination'
+import { normalizeOptions } from '@/lib/questionOptions'
 import { createServerClient } from '@/lib/supabase-server'
 import { normalizeRoomCode } from '@/lib/roomCode'
 import type { BracketState } from '@/types'
@@ -118,6 +120,33 @@ export async function GET(
   const bracketReady = session.phase === 'semifinal' && bracket !== null
   const finalReady = session.phase === 'final' && bracket !== null
 
+  const { data: followUp } = await supabase
+    .from('rounds')
+    .select('id, status, started_at, tiebreak_players, options, question_id')
+    .eq('session_id', session.id)
+    .eq('status', 'active')
+    .not('tiebreak_players', 'is', null)
+    .order('round_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  let pendingTiebreak = null
+  if (followUp?.question_id) {
+    const { data: tbQuestion } = await supabase
+      .from('questions')
+      .select('id, text, time_limit, category')
+      .eq('id', followUp.question_id)
+      .single()
+    pendingTiebreak = pendingTiebreakFromFollowUpRound({
+      id: followUp.id,
+      status: followUp.status,
+      started_at: followUp.started_at,
+      tiebreak_players: followUp.tiebreak_players,
+      options: normalizeOptions(followUp.options) ?? null,
+      question: tbQuestion,
+    })
+  }
+
   return NextResponse.json({
     status: 'closed',
     correctAnswer,
@@ -131,5 +160,6 @@ export async function GET(
     finalReady,
     sfComplete: false,
     bracket,
+    ...(pendingTiebreak ?? {}),
   })
 }

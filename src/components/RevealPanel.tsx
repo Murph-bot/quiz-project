@@ -32,27 +32,27 @@ export function RevealPanel({
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
         <div className="text-center">
-          <span className="bg-white/20 text-white px-3 py-1 rounded-full text-xs font-bold">
+          <span className="bg-qk-surface/80 text-qk-text border border-qk-violet/30 px-3 py-1 rounded-full text-xs font-bold">
             ROUND {roundNumber} — RESULTS
           </span>
         </div>
 
         {winner && (
-          <div className="bg-yellow-400 rounded-2xl py-3 text-center">
-            <div className="text-lg font-black text-yellow-900">🏆 {winner.nickname} wins!</div>
+          <div className="bg-qk-warn/15 border border-qk-warn/50 rounded-2xl py-3 text-center">
+            <div className="text-lg font-black text-qk-warn">🏆 {winner.nickname} wins!</div>
           </div>
         )}
 
         <Card className="text-center" padding="md">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Correct Answer</div>
-          <div className="text-5xl font-black text-orange-500">{correctAnswer}</div>
+          <div className="text-xs font-bold text-qk-label uppercase tracking-widest">Correct Answer</div>
+          <div className="text-5xl font-black text-qk-cyan">{correctAnswer}</div>
         </Card>
 
         {spectatorBanner && (
-          <div className="bg-white/20 rounded-xl px-4 py-2 text-center">
-            <span className="text-white/80 text-xs">
+          <div className="bg-qk-surface/70 border border-qk-violet/25 rounded-xl px-4 py-2 text-center">
+            <span className="text-qk-muted text-xs">
               You are spectating as{' '}
-              <span className="font-bold text-white">{spectatorBanner}</span>
+              <span className="font-bold text-qk-text">{spectatorBanner}</span>
             </span>
           </div>
         )}
@@ -63,8 +63,10 @@ export function RevealPanel({
             return (
               <div
                 key={a.playerId}
-                className={`rounded-xl px-4 py-3 flex justify-between items-center shadow-sm ${
-                  isEliminated ? 'bg-red-100 elimination-shake' : 'bg-white'
+                className={`rounded-xl px-4 py-3 min-h-[44px] flex justify-between items-center border ${
+                  isEliminated
+                    ? 'bg-qk-danger/10 border-qk-danger/40 elimination-shake'
+                    : 'bg-qk-surface/80 border-qk-violet/25'
                 }`}
                 style={{
                   opacity: 0,
@@ -74,30 +76,30 @@ export function RevealPanel({
               >
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{isEliminated ? '💀' : (MEDALS[i] ?? '▫️')}</span>
-                  <span className={`font-bold text-sm ${isEliminated ? 'text-red-800' : 'text-gray-900'}`}>
+                  <span className={`font-bold text-sm ${isEliminated ? 'text-qk-danger' : 'text-qk-text'}`}>
                     {a.nickname}
                   </span>
                 </div>
                 <div className="text-right">
                   {a.noAnswer ? (
                     <>
-                      <span className="text-gray-400 font-black text-base">—</span>
-                      <span className="text-gray-400 text-xs ml-2">no answer</span>
+                      <span className="text-qk-muted font-black text-base">—</span>
+                      <span className="text-qk-muted text-xs ml-2">no answer</span>
                     </>
                   ) : (
                     <>
                       <span
-                        className={`font-black text-base ${isEliminated ? 'text-red-600' : 'text-gray-900'}`}
+                        className={`font-black text-base ${isEliminated ? 'text-qk-danger' : 'text-qk-text'}`}
                       >
                         {a.value}
                       </span>
                       <span
                         className={`text-xs ml-2 ${
                           isEliminated
-                            ? 'text-red-400'
+                            ? 'text-qk-danger/80'
                             : a.delta === 0
-                              ? 'text-green-600 font-bold'
-                              : 'text-gray-400'
+                              ? 'text-qk-success font-bold'
+                              : 'text-qk-muted'
                         }`}
                       >
                         {a.delta === 0 ? 'exact!' : `off by ${a.delta}`}
@@ -111,13 +113,13 @@ export function RevealPanel({
         </div>
 
         {gameOver ? (
-          <p className="text-center text-white/70 text-xs">
-            Game over — results in <span className="font-bold text-white">5s</span>
+          <p className="text-center text-qk-muted text-xs">
+            Game over — results in <span className="font-bold text-qk-text">5s</span>
           </p>
         ) : (
           autoAdvanceIn > 0 && (
-            <p className="text-center text-white/70 text-xs">
-              Next question in <span className="font-bold text-white">{autoAdvanceIn}s</span>
+            <p className="text-center text-qk-muted text-xs">
+              Next question in <span className="font-bold text-qk-text">{autoAdvanceIn}s</span>
             </p>
           )
         )}

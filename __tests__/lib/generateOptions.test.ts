@@ -1,117 +1,278 @@
 import { generateOptions } from '@/lib/generateOptions'
 
+const SAMPLE_COUNT = 80
+
+const sample = (correct: number, n = SAMPLE_COUNT): number[][] =>
+  Array.from({ length: n }, () => generateOptions(correct))
+
+const distractorsOf = (options: number[], correct: number): number[] =>
+  options.filter((value) => value !== correct)
+
+const sortedOffsets = (options: number[], correct: number): number[] =>
+  distractorsOf(options, correct)
+    .map((value) => Math.abs(value - correct))
+    .sort((a, b) => a - b)
+
 describe('generateOptions', () => {
+  describe('shared invariants', () => {
+    it.each([0, 1, 7, 42, 99, 100, 500, 999, 1000, 1933, 2200, 2500, 3847, 5000])(
+      'returns 3 unique integers including the correct answer for %s',
+      (correct) => {
+        for (const result of sample(correct, 20)) {
+          expect(result).toHaveLength(3)
+          expect(new Set(result).size).toBe(3)
+          expect(result).toContain(correct)
+          for (const value of result) {
+            expect(Number.isInteger(value)).toBe(true)
+          }
+        }
+      }
+    )
+
+    it('shuffles so the correct answer is not always first', () => {
+      const orders = new Set(sample(1933, 40).map((result) => result.join(',')))
+      expect(orders.size).toBeGreaterThan(1)
+    })
+  })
+
   describe('zero input', () => {
-    it('returns [0, 1, 5] (possibly shuffled)', () => {
-      const result = generateOptions(0)
-      expect(result).toHaveLength(3)
-      expect(result).toEqual(expect.arrayContaining([0, 1, 5]))
+    it('includes 0 and two small nearby integers, not a cartoon outlier', () => {
+      for (const result of sample(0)) {
+        expect(result).toContain(0)
+        expect(result).toHaveLength(3)
+        expect(new Set(result).size).toBe(3)
+        for (const value of result) {
+          expect(Number.isInteger(value)).toBe(true)
+          expect(Math.abs(value)).toBeLessThanOrEqual(3)
+        }
+        expect(result).not.toContain(5)
+      }
+    })
+
+    it('places one trap below and one above zero', () => {
+      for (const result of sample(0)) {
+        const traps = distractorsOf(result, 0)
+        expect(traps.some((value) => value < 0)).toBe(true)
+        expect(traps.some((value) => value > 0)).toBe(true)
+      }
     })
   })
 
   describe('year input (1933)', () => {
-    it('returns exactly 3 unique values', () => {
+    it('returns exactly 3 unique values including 1933', () => {
       const result = generateOptions(1933)
       expect(result).toHaveLength(3)
       expect(new Set(result).size).toBe(3)
+      expect(result).toContain(1933)
     })
 
     it('all options are within 1000–2200', () => {
-      // Run multiple times to cover randomness
-      for (let i = 0; i < 50; i++) {
-        const result = generateOptions(1933)
-        for (const v of result) {
-          expect(v).toBeGreaterThanOrEqual(1000)
-          expect(v).toBeLessThanOrEqual(2200)
+      for (const result of sample(1933)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThanOrEqual(1000)
+          expect(value).toBeLessThanOrEqual(2200)
         }
       }
     })
 
-    it('no option is more than 100 away from correct', () => {
-      for (let i = 0; i < 50; i++) {
-        const result = generateOptions(1933)
-        for (const v of result) {
-          expect(Math.abs(v - 1933)).toBeLessThanOrEqual(100)
-        }
+    it('keeps both traps within ±2–18 (no wild year outliers)', () => {
+      for (const result of sample(1933)) {
+        const [closeOffset, farOffset] = sortedOffsets(result, 1933)
+        expect(closeOffset).toBeGreaterThanOrEqual(2)
+        expect(closeOffset).toBeLessThanOrEqual(8)
+        expect(farOffset).toBeGreaterThanOrEqual(8)
+        expect(farOffset).toBeLessThanOrEqual(18)
+      }
+    })
+
+    it('places one trap below and one above when possible', () => {
+      for (const result of sample(1933)) {
+        const traps = distractorsOf(result, 1933)
+        expect(traps.some((value) => value < 1933)).toBe(true)
+        expect(traps.some((value) => value > 1933)).toBe(true)
       }
     })
 
     it('all values are positive integers', () => {
       const result = generateOptions(1933)
-      for (const v of result) {
-        expect(Number.isInteger(v)).toBe(true)
-        expect(v).toBeGreaterThan(0)
+      for (const value of result) {
+        expect(Number.isInteger(value)).toBe(true)
+        expect(value).toBeGreaterThan(0)
+      }
+    })
+  })
+
+  describe('year clamp edges', () => {
+    it('stays inside 1000–2200 at the low bound', () => {
+      for (const result of sample(1000, 40)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThanOrEqual(1000)
+          expect(value).toBeLessThanOrEqual(2200)
+          expect(Math.abs(value - 1000)).toBeLessThanOrEqual(18)
+        }
+      }
+    })
+
+    it('stays inside 1000–2200 at the high bound', () => {
+      for (const result of sample(2200, 40)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThanOrEqual(1000)
+          expect(value).toBeLessThanOrEqual(2200)
+          expect(Math.abs(value - 2200)).toBeLessThanOrEqual(18)
+        }
       }
     })
   })
 
   describe('small input (7)', () => {
-    it('returns exactly 3 unique values', () => {
+    it('returns exactly 3 unique values including 7', () => {
       const result = generateOptions(7)
       expect(result).toHaveLength(3)
       expect(new Set(result).size).toBe(3)
+      expect(result).toContain(7)
     })
 
     it('all values are > 0', () => {
-      for (let i = 0; i < 50; i++) {
-        const result = generateOptions(7)
-        for (const v of result) {
-          expect(v).toBeGreaterThan(0)
+      for (const result of sample(7)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThan(0)
         }
+      }
+    })
+
+    it('keeps both traps within ±1–6 (no double-digit outliers)', () => {
+      for (const result of sample(7)) {
+        const [closeOffset, farOffset] = sortedOffsets(result, 7)
+        expect(closeOffset).toBeGreaterThanOrEqual(1)
+        expect(closeOffset).toBeLessThanOrEqual(3)
+        expect(farOffset).toBeGreaterThanOrEqual(3)
+        expect(farOffset).toBeLessThanOrEqual(6)
+      }
+    })
+
+    it('places one trap below and one above when possible', () => {
+      for (const result of sample(7)) {
+        const traps = distractorsOf(result, 7)
+        expect(traps.some((value) => value < 7)).toBe(true)
+        expect(traps.some((value) => value > 7)).toBe(true)
       }
     })
 
     it('all values are positive integers', () => {
       const result = generateOptions(7)
-      for (const v of result) {
-        expect(Number.isInteger(v)).toBe(true)
-        expect(v).toBeGreaterThan(0)
+      for (const value of result) {
+        expect(Number.isInteger(value)).toBe(true)
+        expect(value).toBeGreaterThan(0)
       }
     })
-  })
 
-  describe('large input (5000)', () => {
-    it('returns exactly 3 unique values', () => {
-      const result = generateOptions(5000)
-      expect(result).toHaveLength(3)
-      expect(new Set(result).size).toBe(3)
-    })
-
-    it('all values are > 0', () => {
-      for (let i = 0; i < 50; i++) {
-        const result = generateOptions(5000)
-        for (const v of result) {
-          expect(v).toBeGreaterThan(0)
+    it('keeps traps above 0 for a tiny answer like 1 (both may be above)', () => {
+      for (const result of sample(1, 40)) {
+        expect(result).toContain(1)
+        expect(new Set(result).size).toBe(3)
+        for (const value of result) {
+          expect(value).toBeGreaterThan(0)
+          expect(Math.abs(value - 1)).toBeLessThanOrEqual(6)
         }
-      }
-    })
-
-    it('outlier is noticeably different from correct', () => {
-      // Run many times — at least one outlier should be >=30% off
-      const deltas = Array.from({ length: 50 }, () => {
-        const result = generateOptions(5000)
-        // The outlier is the value farthest from 5000
-        return Math.max(...result.map(v => Math.abs(v - 5000)))
-      })
-      // Every run should produce a max delta of at least 30% (1500)
-      for (const d of deltas) {
-        expect(d).toBeGreaterThanOrEqual(1500)
       }
     })
   })
 
   describe('medium input (500)', () => {
-    it('returns exactly 3 unique values', () => {
+    it('returns exactly 3 unique values including 500', () => {
       const result = generateOptions(500)
       expect(result).toHaveLength(3)
       expect(new Set(result).size).toBe(3)
+      expect(result).toContain(500)
     })
 
     it('all values are > 0', () => {
-      for (let i = 0; i < 50; i++) {
-        const result = generateOptions(500)
-        for (const v of result) {
-          expect(v).toBeGreaterThan(0)
+      for (const result of sample(500)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it('keeps traps around 4–10% and 10–18% (no 20%+ outliers)', () => {
+      for (const result of sample(500)) {
+        const [closeOffset, farOffset] = sortedOffsets(result, 500)
+        expect(closeOffset / 500).toBeGreaterThanOrEqual(0.04)
+        expect(closeOffset / 500).toBeLessThanOrEqual(0.10)
+        expect(farOffset / 500).toBeGreaterThanOrEqual(0.10)
+        expect(farOffset / 500).toBeLessThanOrEqual(0.18)
+      }
+    })
+
+    it('places one trap below and one above when possible', () => {
+      for (const result of sample(500)) {
+        const traps = distractorsOf(result, 500)
+        expect(traps.some((value) => value < 500)).toBe(true)
+        expect(traps.some((value) => value > 500)).toBe(true)
+      }
+    })
+  })
+
+  describe('large input (5000)', () => {
+    it('returns exactly 3 unique values including 5000', () => {
+      const result = generateOptions(5000)
+      expect(result).toHaveLength(3)
+      expect(new Set(result).size).toBe(3)
+      expect(result).toContain(5000)
+    })
+
+    it('all values are > 0', () => {
+      for (const result of sample(5000)) {
+        for (const value of result) {
+          expect(value).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it('forbids wild outliers of 30% or more', () => {
+      for (const result of sample(5000)) {
+        const maxOffset = Math.max(...result.map((value) => Math.abs(value - 5000)))
+        expect(maxOffset).toBeLessThan(1500)
+        expect(maxOffset / 5000).toBeLessThanOrEqual(0.20)
+      }
+    })
+
+    it('keeps traps around 5–10% and 10–18% after human rounding', () => {
+      for (const result of sample(5000)) {
+        const [closeOffset, farOffset] = sortedOffsets(result, 5000)
+        expect(closeOffset / 5000).toBeGreaterThanOrEqual(0.04)
+        expect(closeOffset / 5000).toBeLessThanOrEqual(0.12)
+        expect(farOffset / 5000).toBeGreaterThanOrEqual(0.08)
+        expect(farOffset / 5000).toBeLessThanOrEqual(0.20)
+      }
+    })
+
+    it('rounds distractors to nearby human numbers (hundreds, not 3847-style leftovers)', () => {
+      for (const result of sample(5000)) {
+        for (const value of distractorsOf(result, 5000)) {
+          expect(value % 100).toBe(0)
+        }
+      }
+    })
+
+    it('places one trap below and one above when possible', () => {
+      for (const result of sample(5000)) {
+        const traps = distractorsOf(result, 5000)
+        expect(traps.some((value) => value < 5000)).toBe(true)
+        expect(traps.some((value) => value > 5000)).toBe(true)
+      }
+    })
+  })
+
+  describe('large unrounded correct (3847)', () => {
+    it('still emits human-looking distractors within ~18%', () => {
+      for (const result of sample(3847, 40)) {
+        expect(result).toContain(3847)
+        expect(new Set(result).size).toBe(3)
+        for (const value of distractorsOf(result, 3847)) {
+          expect(value % 100).toBe(0)
+          expect(Math.abs(value - 3847) / 3847).toBeLessThanOrEqual(0.20)
+          expect(Math.abs(value - 3847) / 3847).toBeGreaterThanOrEqual(0.04)
         }
       }
     })

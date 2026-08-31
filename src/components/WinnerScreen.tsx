@@ -21,20 +21,20 @@ export function WinnerScreen({ winnerNickname, autoRedirectIn }: Props) {
         <Card padding="md" className="text-center">
           {winnerNickname ? (
             <>
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Winner</div>
-              <div className="text-2xl font-black text-orange-500">{winnerNickname}</div>
-              <div className="text-sm text-gray-500 mt-1">Last one standing! 🎉</div>
+              <div className="text-xs font-bold text-qk-label uppercase tracking-widest mb-1">Winner</div>
+              <div className="text-2xl font-black text-qk-cyan">{winnerNickname}</div>
+              <div className="text-sm text-qk-muted mt-1">Last one standing! 🎉</div>
             </>
           ) : (
             <>
-              <div className="text-xl font-black text-gray-900">Nobody won this time.</div>
-              <div className="text-sm text-gray-500 mt-1">Better luck next game!</div>
+              <div className="text-xl font-black text-qk-text">Nobody won this time.</div>
+              <div className="text-sm text-qk-muted mt-1">Better luck next game!</div>
             </>
           )}
         </Card>
 
-        <p className="text-white/70 text-sm">
-          Returning to home in <span className="font-bold text-white">{autoRedirectIn}s</span>
+        <p className="text-qk-muted text-sm">
+          Returning to home in <span className="font-bold text-qk-text">{autoRedirectIn}s</span>
         </p>
       </div>
     </div>
