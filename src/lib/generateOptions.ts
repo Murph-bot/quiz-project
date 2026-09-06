@@ -13,16 +13,22 @@ function shuffle<T>(items: T[]): T[] {
   return next
 }
 
-function humanStep(value: number): number {
-  const abs = Math.max(1, Math.abs(value))
-  const magnitude = Math.pow(10, Math.floor(Math.log10(abs)))
-  return Math.max(1, magnitude / 10)
+/** Largest power of 10 that divides |value| — the answer's own "roundness".
+ *  17508 → 1, 86400 → 100, 6000 → 1000, 30000 → 10000. */
+function trailingPrecision(value: number): number {
+  let v = Math.abs(value)
+  let step = 1
+  while (v >= 10 && v % 10 === 0) {
+    v /= 10
+    step *= 10
+  }
+  return step
 }
 
-function humanRound(value: number): number {
-  if (value === 0) return 0
-  const step = humanStep(value)
-  return Math.round(value / step) * step
+/** Distractors round to one magnitude finer than the correct answer's own
+ *  trailing-zero precision, so they are never the "odd precise/round one". */
+function precisionStep(correct: number): number {
+  return Math.max(1, trailingPrecision(correct) / 10)
 }
 
 function clampPositive(value: number): number {
@@ -39,7 +45,8 @@ type TrapSpec = {
   farMin: number
   farMax: number
   mode: 'absolute' | 'percent'
-  human: boolean
+  /** Round distractors to multiples of this (1 = plain integer rounding). */
+  roundStep: number
   clamp: (value: number) => number
 }
 
@@ -53,7 +60,7 @@ function applyOffset(
     ? correct * (1 + (sign * offset) / 100)
     : correct + sign * offset
 
-  const round = spec.human ? humanRound : Math.round
+  const round = (v: number) => Math.round(v / spec.roundStep) * spec.roundStep
   let placed = spec.clamp(round(raw))
 
   const minAway = spec.mode === 'percent'
@@ -62,7 +69,7 @@ function applyOffset(
   const maxAway = spec.mode === 'percent'
     ? Math.floor(Math.abs(correct) * ((spec.farMax + 2) / 100))
     : spec.farMax
-  const step = spec.human ? humanStep(placed || correct) : 1
+  const step = spec.roundStep
 
   for (let i = 0; i < 20; i++) {
     if (placed !== correct && Math.abs(placed - correct) >= minAway) break
@@ -110,8 +117,8 @@ function pickTraps(correct: number, spec: TrapSpec): [number, number] {
     return [fallbackClose, fallbackFar]
   }
 
-  const step = spec.human
-    ? humanStep(correct)
+  const step = spec.roundStep > 1
+    ? spec.roundStep
     : spec.mode === 'percent'
       ? Math.max(1, Math.round(Math.abs(correct) * (spec.closeMin / 100)))
       : 1
@@ -138,7 +145,7 @@ export function generateOptions(correct: number): number[] {
         farMin: 8,
         farMax: 18,
         mode: 'absolute',
-        human: false,
+        roundStep: 1,
         clamp: clampYear,
       }
     : correct >= 1 && correct <= 99
@@ -148,7 +155,7 @@ export function generateOptions(correct: number): number[] {
           farMin: 3,
           farMax: 6,
           mode: 'absolute',
-          human: false,
+          roundStep: 1,
           clamp: clampPositive,
         }
       : correct >= 100 && correct <= 999
@@ -158,7 +165,7 @@ export function generateOptions(correct: number): number[] {
             farMin: 10,
             farMax: 18,
             mode: 'percent',
-            human: false,
+            roundStep: 1,
             clamp: clampPositive,
           }
         : {
@@ -167,7 +174,9 @@ export function generateOptions(correct: number): number[] {
             farMin: 10,
             farMax: 18,
             mode: 'percent',
-            human: true,
+            // Match the answer's own precision so distractors don't stand
+            // out as "the round ones" (e.g. 17508 vs 15000/19000).
+            roundStep: precisionStep(correct),
             clamp: clampPositive,
           }
 

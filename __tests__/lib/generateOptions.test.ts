@@ -247,7 +247,7 @@ describe('generateOptions', () => {
       }
     })
 
-    it('rounds distractors to nearby human numbers (hundreds, not 3847-style leftovers)', () => {
+    it('rounds distractors to a similar scale as the answer (round answer → round distractors)', () => {
       for (const result of sample(5000)) {
         for (const value of distractorsOf(result, 5000)) {
           expect(value % 100).toBe(0)
@@ -265,14 +265,29 @@ describe('generateOptions', () => {
   })
 
   describe('large unrounded correct (3847)', () => {
-    it('still emits human-looking distractors within ~18%', () => {
+    it('emits precise-looking distractors within ~18% — no round-number giveaway', () => {
       for (const result of sample(3847, 40)) {
         expect(result).toContain(3847)
         expect(new Set(result).size).toBe(3)
         for (const value of distractorsOf(result, 3847)) {
-          expect(value % 100).toBe(0)
           expect(Math.abs(value - 3847) / 3847).toBeLessThanOrEqual(0.20)
           expect(Math.abs(value - 3847) / 3847).toBeGreaterThanOrEqual(0.04)
+        }
+        // The correct answer is precise (3847) — distractors must not all be
+        // round hundreds, otherwise the odd one out is trivially correct.
+        const distractors = distractorsOf(result, 3847)
+        expect(distractors.some((value) => value % 100 !== 0)).toBe(true)
+      }
+    })
+
+    it('matches precision for a precise big answer (17508 — the islands case)', () => {
+      for (const result of sample(17508, 60)) {
+        const distractors = distractorsOf(result, 17508)
+        // None of the distractors should be a "3 zeros" giveaway number.
+        expect(distractors.filter((v) => v % 1000 === 0)).toHaveLength(0)
+        // And they stay in a plausible range.
+        for (const value of distractors) {
+          expect(Math.abs(value - 17508) / 17508).toBeLessThanOrEqual(0.25)
         }
       }
     })
