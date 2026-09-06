@@ -1,5 +1,4 @@
 import type { MutableRefObject } from 'react'
-import { withNormalizedOptions } from '@/lib/questionOptions'
 import type { BracketState, EliminatedPlayer, RankedAnswer } from '@/types'
 
 export interface RevealData {
@@ -12,7 +11,6 @@ export interface QuestionData {
   text: string
   timeLimit: number
   category: string
-  options?: number[]
 }
 
 export interface PendingTiebreak {
@@ -26,7 +24,6 @@ export interface NextRoundPayload {
   roundId?: string
   roundNumber?: number
   question?: QuestionData
-  options?: number[]
   startedAt?: string
   resurrected?: { playerId: string; nickname: string } | null
   isSuddenDeath?: boolean
@@ -92,9 +89,7 @@ export function applyRoundStartedState(
   if (payload.roundId) setters.setRoundId(payload.roundId)
   if (payload.roundNumber !== undefined) setters.setRoundNumber(payload.roundNumber)
   if (payload.question) {
-    setters.setQuestion(
-      withNormalizedOptions({ ...payload.question, options: payload.options }),
-    )
+    setters.setQuestion(payload.question)
   }
   if (payload.startedAt) setters.setStartedAt(payload.startedAt)
   setters.setRevealData(null)
@@ -137,7 +132,7 @@ export function applyTiebreakStartedState(
 ): void {
   const amITiebreaker = pending.playerIds.includes(playerId ?? '')
   setters.setRoundId(pending.roundId)
-  setters.setQuestion(withNormalizedOptions(pending.question))
+  setters.setQuestion(pending.question)
   setters.setStartedAt(pending.startedAt)
   setters.setRevealData(null)
   setters.setEliminated([])

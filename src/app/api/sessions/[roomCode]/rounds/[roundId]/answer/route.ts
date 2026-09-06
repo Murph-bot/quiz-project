@@ -36,7 +36,7 @@ export async function POST(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status, tiebreak_players, options')
+    .select('id, status, tiebreak_players')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()
@@ -65,15 +65,9 @@ export async function POST(
     return NextResponse.json({ error: 'Eliminated players cannot answer' }, { status: 403 })
   }
 
-  const roundRow = round as import('@/types').Round & { options?: number[] | null }
-  const tiebreakPlayers = roundRow.tiebreak_players ?? null
+  const tiebreakPlayers = round.tiebreak_players ?? null
   if (Array.isArray(tiebreakPlayers) && !tiebreakPlayers.includes(playerId)) {
     return NextResponse.json({ error: 'Not a tiebreak participant' }, { status: 403 })
-  }
-
-  const roundOptions = roundRow.options ?? null
-  if (Array.isArray(roundOptions) && !roundOptions.includes(value)) {
-    return NextResponse.json({ error: 'Answer not one of the valid options' }, { status: 400 })
   }
 
   const { error: insertError } = await supabase

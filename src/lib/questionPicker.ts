@@ -1,4 +1,3 @@
-import { generateOptions } from '@/lib/generateOptions'
 import type { createServerClient } from '@/lib/supabase-server'
 import type { Question } from '@/types'
 
@@ -54,7 +53,6 @@ export type TiebreakRoundResult =
       roundId: string
       startedAt: string
       question: { id: string; text: string; timeLimit: number; category: string }
-      options: number[]
     }
   | { ok: false; error: 'no_questions' | 'insert_failed' }
 
@@ -75,7 +73,6 @@ export async function createTiebreakRound(
     .limit(1)
 
   const latestRoundNumber = latestRoundRows?.[0]?.round_number ?? 0
-  const options = generateOptions(tbQuestion.answer)
 
   const { data: newRound, error } = await supabase
     .from('rounds')
@@ -84,7 +81,6 @@ export async function createTiebreakRound(
       question_id: tbQuestion.id,
       round_number: latestRoundNumber + 1,
       tiebreak_players: tiebreakPlayerIds,
-      options,
     })
     .select('id, started_at')
     .single()
@@ -101,6 +97,5 @@ export async function createTiebreakRound(
       timeLimit: tbQuestion.time_limit,
       category: tbQuestion.category,
     },
-    options,
   }
 }

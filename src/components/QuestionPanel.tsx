@@ -4,11 +4,10 @@ import { useState } from 'react'
 import { useCountdown } from '@/hooks/useCountdown'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
-import { normalizeOptions } from '@/lib/questionOptions'
 
 interface Props {
   roundNumber: number
-  question: { id: string; text: string; timeLimit: number; category: string; options?: unknown }
+  question: { id: string; text: string; timeLimit: number; category: string }
   startedAt: string
   isWaiting: boolean
   isGracePeriod: boolean
@@ -25,19 +24,21 @@ export function QuestionPanel({
   graceSecondsLeft,
   onSubmit,
 }: Props) {
-  const [submitted, setSubmitted] = useState(false)
-  const [selectedOption, setSelectedOption] = useState<number | null>(null)
-  const options = normalizeOptions(question.options)
+  const [submittedValue, setSubmittedValue] = useState<number | null>(null)
+  const [input, setInput] = useState('')
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { secondsLeft } = useCountdown(deadlineMs)
   const progress = question.timeLimit > 0 ? Math.round((secondsLeft / question.timeLimit) * 100) : 0
+  const submitted = submittedValue !== null
   const disabled = isWaiting || submitted || (secondsLeft === 0 && !isGracePeriod)
   const isUrgent = secondsLeft <= 4 && secondsLeft > 0
 
-  function handleOptionSelect(value: number) {
-    if (disabled) return
-    setSelectedOption(value)
-    setSubmitted(true)
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (disabled || input === '') return
+    const value = parseInt(input, 10)
+    if (!Number.isInteger(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) return
+    setSubmittedValue(value)
     onSubmit(value)
   }
 
@@ -94,44 +95,43 @@ export function QuestionPanel({
       </div>
 
       <div className="w-full max-w-sm mx-auto mt-4 flex flex-col gap-3">
-        {options ? (
-          <>
-            {options.map((opt) => {
-              const isSelected = selectedOption === opt
-              return (
-                <button
-                  key={opt}
-                  onClick={() => handleOptionSelect(opt)}
-                  disabled={disabled}
-                  aria-pressed={isSelected}
-                  className={`w-full min-h-[56px] rounded-2xl py-5 text-2xl font-black transition-all active:scale-95 disabled:cursor-not-allowed border
-                    ${
-                      isSelected
-                        ? 'bg-qk-cyan/10 text-qk-cyan border-qk-cyan/80 shadow-[inset_0_0_18px_rgb(94_239_255_/_0.18),0_0_8px_rgb(94_239_255_/_0.22)]'
-                        : 'bg-qk-surface/80 text-qk-text border-qk-violet/30 disabled:opacity-50'
-                    }`}
-                >
-                  {opt}
-                </button>
-              )
-            })}
-            {isWaiting && (
-              <p className="text-center text-qk-muted text-sm mt-1">Waiting for round to close...</p>
-            )}
-            {isGracePeriod && !isWaiting && !submitted && (
-              <p className="text-center text-qk-muted text-sm mt-1">⏳ Last chance to answer...</p>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-center text-qk-muted text-sm">Type your answer</p>
-            {isWaiting && (
-              <p className="text-center text-qk-muted text-sm">Waiting for round to close...</p>
-            )}
-            {isGracePeriod && !isWaiting && (
-              <p className="text-center text-qk-muted text-sm">⏳ Last chance to answer...</p>
-            )}
-          </>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {submitted ? (
+            <div
+              className="w-full min-h-[56px] rounded-2xl py-4 text-2xl font-black text-center bg-qk-cyan/10 text-qk-cyan border border-qk-cyan/80 shadow-[inset_0_0_18px_rgb(94_239_255_/_0.18),0_0_8px_rgb(94_239_255_/_0.22)]"
+              aria-live="polite"
+            >
+              {submittedValue}
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+                value={input}
+                onChange={(e) => setInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="Your guess"
+                disabled={disabled}
+                aria-label="Your guess"
+                className="w-full min-h-[56px] rounded-2xl px-5 text-3xl font-black text-center tabular-nums bg-qk-surface/80 text-qk-text border border-qk-violet/30 focus:outline-none focus:border-qk-cyan/80 focus:shadow-[0_0_12px_rgb(94_239_255_/_0.25)] disabled:opacity-50 placeholder:text-qk-muted/40 placeholder:text-lg placeholder:font-bold"
+              />
+              <button
+                type="submit"
+                disabled={disabled || input === ''}
+                className="w-full min-h-[56px] rounded-2xl py-4 text-xl font-black transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 border bg-qk-cyan/10 text-qk-cyan border-qk-cyan/60 hover:bg-qk-cyan/20"
+              >
+                Lock it in
+              </button>
+            </>
+          )}
+        </form>
+        {isWaiting && (
+          <p className="text-center text-qk-muted text-sm mt-1">Waiting for round to close...</p>
+        )}
+        {isGracePeriod && !isWaiting && !submitted && (
+          <p className="text-center text-qk-muted text-sm mt-1">⏳ Last chance to answer...</p>
         )}
       </div>
     </div>

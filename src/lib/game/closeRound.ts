@@ -156,7 +156,6 @@ export async function closeRoundHandler(
         tiebreakQuestion: replay.tiebreakQuestion,
         tiebreakPlayerIds: replay.tiebreakPlayerIds,
         tiebreakStartedAt: replay.tiebreakStartedAt,
-        tiebreakOptions: replay.tiebreakOptions,
       })
     }
   }
@@ -184,7 +183,6 @@ export async function closeRoundHandler(
       tiebreakQuestion: tiebreak.tiebreakQuestion,
       tiebreakPlayerIds: tiebreak.tiebreakPlayerIds,
       tiebreakStartedAt: tiebreak.tiebreakStartedAt,
-      tiebreakOptions: tiebreak.tiebreakOptions,
     })
   }
 
@@ -200,6 +198,5 @@ export async function closeRoundHandler(
     tiebreakQuestion: null,
     tiebreakPlayerIds: null,
     tiebreakStartedAt: null,
-    tiebreakOptions: null,
   })
 }

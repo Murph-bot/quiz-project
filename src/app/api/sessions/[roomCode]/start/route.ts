@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateBracketForSession } from '@/lib/bracket'
-import { generateOptions } from '@/lib/generateOptions'
 import {
   badRequest,
   getSupabase,
@@ -60,7 +59,6 @@ export async function POST(
     timeLimit: number
     category: string
   } | null = null
-  let options: number[] | null = null
 
   if (!skipInitialRound) {
     const question = await pickRandomQuestion(supabase, session.category)
@@ -68,11 +66,9 @@ export async function POST(
       return NextResponse.json({ error: 'No questions available' }, { status: 409 })
     }
 
-    options = generateOptions(question.answer)
-
     const { data: round, error: roundError } = await supabase
       .from('rounds')
-      .insert({ session_id: session.id, question_id: question.id, round_number: 1, options })
+      .insert({ session_id: session.id, question_id: question.id, round_number: 1 })
       .select('id, started_at')
       .single()
 
@@ -128,7 +124,6 @@ export async function POST(
     roundId,
     question: questionPayload,
     startedAt,
-    options,
     bracketReady,
     bracket,
   })

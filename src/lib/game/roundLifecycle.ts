@@ -57,7 +57,6 @@ export interface CloseResultPayload {
   tiebreakQuestion?: QuestionData | null
   tiebreakPlayerIds?: string[] | null
   tiebreakStartedAt?: string | null
-  tiebreakOptions?: number[] | null
   error?: string
 }
 
@@ -218,7 +217,6 @@ export function createRoundLifecycle(deps: RoundLifecycleDeps) {
         text: data.tiebreakQuestion.text,
         timeLimit: data.tiebreakQuestion.timeLimit,
         category: data.tiebreakQuestion.category,
-        options: data.tiebreakOptions ?? undefined,
       }
       const deadline =
         new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pendingTiebreakFromFollowUpRound } from '@/lib/game/closeClient'
 import { computeRevealElimination } from '@/lib/game/revealElimination'
-import { normalizeOptions } from '@/lib/questionOptions'
 import { createServerClient } from '@/lib/supabase-server'
 import { normalizeRoomCode } from '@/lib/roomCode'
 import type { BracketState } from '@/types'
@@ -127,7 +126,7 @@ export async function GET(
 
   const { data: followUp } = await supabase
     .from('rounds')
-    .select('id, status, started_at, tiebreak_players, options, question_id')
+    .select('id, status, started_at, tiebreak_players, question_id')
     .eq('session_id', session.id)
     .eq('status', 'active')
     .not('tiebreak_players', 'is', null)
@@ -147,7 +146,6 @@ export async function GET(
       status: followUp.status,
       started_at: followUp.started_at,
       tiebreak_players: followUp.tiebreak_players,
-      options: normalizeOptions(followUp.options) ?? null,
       question: tbQuestion,
     })
   }

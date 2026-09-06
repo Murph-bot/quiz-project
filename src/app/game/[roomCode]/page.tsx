@@ -2,7 +2,6 @@ import { notFound, redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase-server'
 import { GameScreen } from '@/components/GameScreen'
 import { isValidRoomCode } from '@/lib/roomCode'
-import { normalizeOptions } from '@/lib/questionOptions'
 import type { BracketState, GamePhase, WinnerInfo } from '@/types'
 
 interface Props {
@@ -34,7 +33,7 @@ export default async function GamePage({ params }: Props) {
   // Get current (latest) round
   const { data: round } = await supabase
     .from('rounds')
-    .select('id, round_number, status, started_at, question_id, options')
+    .select('id, round_number, status, started_at, question_id')
     .eq('session_id', session.id)
     .order('round_number', { ascending: false })
     .limit(1)
@@ -134,7 +133,6 @@ export default async function GamePage({ params }: Props) {
           text: question.text,
           timeLimit: question.time_limit,
           category: question.category,
-          options: normalizeOptions(round.options),
         }}
         initialStartedAt={round.started_at}
         initialRevealData={revealData}

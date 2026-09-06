@@ -29,6 +29,7 @@ export function normalizeCloseResponse(
 
   if (!alreadyClosed) return data
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { error: _error, ...rest } = data
   return { ...rest, wasAlreadyClosed: true }
 }
@@ -41,7 +42,6 @@ export interface FollowUpTiebreakRound {
   status: string
   started_at: string
   tiebreak_players?: string[] | null
-  options?: number[] | null
   question?: {
     id: string
     text: string
@@ -56,7 +56,6 @@ export function pendingTiebreakFromFollowUpRound(round: FollowUpTiebreakRound | 
   tiebreakStartedAt: string
   tiebreakPlayerIds: string[]
   tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string }
-  tiebreakOptions: number[] | null
 } | null {
   if (!round || round.status !== 'active') return null
   if (!Array.isArray(round.tiebreak_players) || round.tiebreak_players.length === 0) return null
@@ -72,7 +71,6 @@ export function pendingTiebreakFromFollowUpRound(round: FollowUpTiebreakRound | 
       timeLimit: round.question.time_limit,
       category: round.question.category,
     },
-    tiebreakOptions: round.options ?? null,
   }
 }
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateBracketForSession } from '@/lib/bracket'
-import { generateOptions } from '@/lib/generateOptions'
 import {
   badRequest,
   getSupabase,
@@ -92,15 +91,12 @@ export async function POST(
     await broadcastToRoom(roomCode, [{ event: 'game:exhausted', payload: {} }])
     return NextResponse.json({ error: 'No questions available' }, { status: 409 })
   }
-  const options = generateOptions(question.answer)
-
   const { data: round, error: newRoundError } = await supabase
     .from('rounds')
     .insert({
       session_id: session.id,
       question_id: question.id,
       round_number: newRoundNumber,
-      options,
     })
     .select('id, started_at')
     .single()
@@ -140,12 +136,10 @@ export async function POST(
       text: question.text,
       timeLimit: question.time_limit,
       category: question.category,
-      options,
     },
     startedAt: round.started_at,
     resurrected,
     isSuddenDeath,
-    options,
     bracketReady: false,
     bracket: null as BracketState | null,
     aliveCount: (aliveCount ?? 0) + (resurrected ? 1 : 0),

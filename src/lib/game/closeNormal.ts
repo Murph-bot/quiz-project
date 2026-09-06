@@ -17,7 +17,6 @@ interface CloseNormalParams {
   tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
-  tiebreakOptions: number[] | null
 }
 
 export async function finalizeNormalClose(params: CloseNormalParams): Promise<NextResponse> {
@@ -33,7 +32,6 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
     tiebreakQuestion,
     tiebreakPlayerIds,
     tiebreakStartedAt,
-    tiebreakOptions,
   } = params
 
   if (!skippedElimination && !tiebreakNeeded && eliminated.length > 0) {
@@ -52,7 +50,7 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
     .eq('session_id', session.id)
     .eq('is_alive', true)
 
-  let winner: WinnerInfo | null = null
+  const winner: WinnerInfo | null = null
   let gameOver = false
 
   // Normal phase never ends with a lone survivor — that only happens in the bracket final.
@@ -88,6 +86,5 @@ export async function finalizeNormalClose(params: CloseNormalParams): Promise<Ne
     tiebreakQuestion,
     tiebreakPlayerIds,
     tiebreakStartedAt,
-    tiebreakOptions,
   })
 }

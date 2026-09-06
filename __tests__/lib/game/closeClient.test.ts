@@ -118,7 +118,6 @@ describe('pendingTiebreakFromFollowUpRound', () => {
         status: 'active',
         started_at: '2026-01-01T00:00:10.000Z',
         tiebreak_players: ['alice', 'bob'],
-        options: [10, 12, 11],
         question,
       }),
     ).toEqual({
@@ -132,7 +131,6 @@ describe('pendingTiebreakFromFollowUpRound', () => {
         timeLimit: 30,
         category: 'history',
       },
-      tiebreakOptions: [10, 12, 11],
     })
   })
 })

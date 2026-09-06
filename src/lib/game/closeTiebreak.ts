@@ -3,7 +3,7 @@ import { tryNormalPhaseTransition } from '@/lib/game/phaseTransitions'
 import { createTiebreakRound } from '@/lib/questionPicker'
 import { isIdenticalWrongReplay, resolveSubsetElimination } from '@/lib/elimination'
 import type { createServerClient } from '@/lib/supabase-server'
-import type { EliminatedPlayer, RankedAnswer, Round, Session } from '@/types'
+import type { RankedAnswer, Round, Session } from '@/types'
 
 type Supabase = ReturnType<typeof createServerClient>
 
@@ -39,12 +39,11 @@ function tiebreakResponse(
     tiebreakQuestion: tbResult.question,
     tiebreakPlayerIds: playerIds,
     tiebreakStartedAt: tbResult.startedAt,
-    tiebreakOptions: tbResult.options,
   })
 }
 
 export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise<NextResponse | null> {
-  const { supabase, session, round, correctAnswer, answers, activeList } = params
+  const { supabase, session, round, correctAnswer, answers } = params
   const tbPlayers = round.tiebreak_players ?? []
   if (!Array.isArray(tbPlayers) || tbPlayers.length === 0) return null
 
@@ -144,7 +143,6 @@ export async function maybeCreateIdenticalWrongReplay(params: {
   tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
-  tiebreakOptions: number[] | null
   errorResponse?: NextResponse
 }> {
   const { supabase, session, activeList } = params
@@ -158,7 +156,6 @@ export async function maybeCreateIdenticalWrongReplay(params: {
       tiebreakQuestion: null,
       tiebreakPlayerIds: null,
       tiebreakStartedAt: null,
-      tiebreakOptions: null,
       errorResponse: NextResponse.json(
         {
           error:
@@ -177,7 +174,6 @@ export async function maybeCreateIdenticalWrongReplay(params: {
     tiebreakStartedAt: tbResult.startedAt,
     tiebreakPlayerIds: allAliveIds,
     tiebreakQuestion: tbResult.question,
-    tiebreakOptions: tbResult.options,
   }
 }
 
@@ -192,7 +188,6 @@ export async function maybeCreateWorstTiebreak(params: {
   tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
-  tiebreakOptions: number[] | null
   errorResponse?: NextResponse
 }> {
   const { supabase, session, tiedPlayerIds } = params
@@ -204,7 +199,6 @@ export async function maybeCreateWorstTiebreak(params: {
       tiebreakQuestion: null,
       tiebreakPlayerIds: null,
       tiebreakStartedAt: null,
-      tiebreakOptions: null,
       errorResponse: NextResponse.json(
         {
           error:
@@ -222,7 +216,6 @@ export async function maybeCreateWorstTiebreak(params: {
     tiebreakStartedAt: tbResult.startedAt,
     tiebreakPlayerIds: tiedPlayerIds,
     tiebreakQuestion: tbResult.question,
-    tiebreakOptions: tbResult.options,
   }
 }
 

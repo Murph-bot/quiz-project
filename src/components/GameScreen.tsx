@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useGameRoomEvents } from '@/hooks/useGameRoomEvents'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
-import { withNormalizedOptions } from '@/lib/questionOptions'
 import type {
   NextRoundPayload,
   PendingTiebreak,
@@ -85,9 +84,7 @@ export function GameScreen({
   const [roundId, setRoundId] = useState(initialRoundId ?? '')
   const [roundNumber, setRoundNumber] = useState(initialRoundNumber)
   const [question, setQuestion] = useState<QuestionData>(() =>
-    initialQuestion
-      ? (withNormalizedOptions(initialQuestion) as QuestionData)
-      : { id: 'pending', text: '', timeLimit: 30, category: '' },
+    initialQuestion ?? { id: 'pending', text: '', timeLimit: 30, category: '' },
   )
   const [startedAt, setStartedAt] = useState(initialStartedAt ?? new Date(0).toISOString())
 
