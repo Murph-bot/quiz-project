@@ -1,5 +1,3 @@
-import type { RealtimeChannel } from '@supabase/supabase-js'
-
 export function computeFailoverCandidate(
   currentHostId: string,
   candidateIds: string[],
@@ -16,18 +14,13 @@ export function computeFailoverCandidate(
   return { newHostId: null, hostWasOnline: wasOnline }
 }
 
+// The server broadcasts `host:changed` to the room on success.
 export async function promoteHost(params: {
   roomCode: string
   newHostId: string
   requesterId: string
   sessionSecret: string | null
-  channel: Pick<RealtimeChannel, 'send'>
 }): Promise<void> {
-  params.channel.send({
-    type: 'broadcast',
-    event: 'host:changed',
-    payload: { hostId: params.newHostId },
-  })
   await fetch(`/api/sessions/${params.roomCode}/host`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

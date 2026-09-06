@@ -12,6 +12,38 @@ export function isBracketFinalist(
   return getBracketFinalists(bracket).includes(playerId)
 }
 
+export type MatchPhase = 'sf1' | 'sf2' | 'final'
+
+export function inferMatchPhaseFromBracket(b: BracketState): MatchPhase | null {
+  if (b.finalists?.length === 2 && (b.currentSF === null || b.currentSF === undefined)) {
+    return 'final'
+  }
+  if (b.currentSF === 1) return 'sf1'
+  if (b.currentSF === 2) return 'sf2'
+  return null
+}
+
+/** Am I one of the two players competing in the current bracket match? */
+export function isCompetingInMatch(
+  bd: BracketState | null,
+  phase: MatchPhase | null,
+  pid: string | null,
+): boolean {
+  if (!bd || !phase || !pid) return true
+  if (phase === 'sf1') return bd.sf1.p1id === pid || bd.sf1.p2id === pid
+  if (phase === 'sf2') return bd.sf2.p1id === pid || bd.sf2.p2id === pid
+  return isBracketFinalist(bd, pid)
+}
+
+/** finalists[] stores player IDs — resolve display names via the sf1/sf2 records. */
+export function getFinalistNickname(bd: BracketState, id: string): string {
+  if (bd.sf1.p1id === id) return bd.sf1.p1
+  if (bd.sf1.p2id === id) return bd.sf1.p2
+  if (bd.sf2.p1id === id) return bd.sf2.p1
+  if (bd.sf2.p2id === id) return bd.sf2.p2
+  return id // fallback (should not happen)
+}
+
 export async function generateBracketForSession(
   supabase: ReturnType<typeof import('@/lib/supabase-server').createServerClient>,
   sessionId: string
@@ -35,11 +67,17 @@ export async function generateBracketForSession(
   const totalDelta: Record<string, number> = {}
   for (const p of aliveList) totalDelta[p.id] = 0
 
-  for (const r of (roundsWithAnswers ?? []) as any[]) {
-    const correct = r.questions?.answer ?? 0
-    const answeredIds = new Set((r.answers ?? []).map((a: any) => a.player_id as string))
+  interface RoundWithAnswers {
+    questions: { answer: number } | Array<{ answer: number }> | null
+    answers: Array<{ player_id: string; value: number | null }> | null
+  }
+
+  for (const r of (roundsWithAnswers ?? []) as RoundWithAnswers[]) {
+    const q = r.questions
+    const correct = (Array.isArray(q) ? q[0]?.answer : q?.answer) ?? 0
+    const answeredIds = new Set((r.answers ?? []).map((a) => a.player_id))
     for (const ans of r.answers ?? []) {
-      totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs(ans.value - correct)
+      totalDelta[ans.player_id] = (totalDelta[ans.player_id] ?? 0) + Math.abs((ans.value ?? 0) - correct)
     }
     for (const p of aliveList) {
       if (!answeredIds.has(p.id)) {

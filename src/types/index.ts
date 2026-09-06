@@ -9,7 +9,7 @@ export interface Session {
   resurrection_interval: number
   created_at: string
   phase?: GamePhase
-  bracket?: BracketState
+  bracket?: BracketState | null
   winner_id?: string | null
 }
 

@@ -2,6 +2,7 @@ import { POST } from '@/app/api/sessions/[roomCode]/rounds/next/route'
 import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/supabase-server', () => ({ createServerClient: jest.fn() }))
+jest.mock('@/lib/realtime', () => ({ broadcastToRoom: jest.fn(() => Promise.resolve()) }))
 import { createServerClient } from '@/lib/supabase-server'
 
 function makeRequest(roomCode: string, body: object) {
@@ -25,12 +26,13 @@ const mockNewRound = { id: 'round-2', started_at: '2026-03-15T10:01:00Z' }
  *   sessions  1: SELECT session
  *   players   1: SELECT host check (single)
  *   rounds    1: SELECT latest round (order/limit/single)
+ *   players   2: SELECT alive count (bracket transition check runs before insert)
  *   rounds    2: SELECT used question_ids (eq resolves array)
  *   questions 1: SELECT all questions (thenable)
  *   rounds    3: INSERT new round
  *   (if newRoundNumber % 5 === 0 && phase === 'normal' && eliminatedPlayers.length > 0):
- *     players 2: SELECT eliminated players
- *     players 3: UPDATE resurrected player
+ *     players 3: SELECT eliminated players
+ *     players 4: UPDATE resurrected player
  */
 function makeNextMock({
   latestRoundNumber = 1,
@@ -81,7 +83,17 @@ function makeNextMock({
             single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
           }
         }
-        if (resurrectionRound && n === 2) {
+        if (n === 2) {
+          // Alive count — queried before the insert for the bracket transition check
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ count: aliveCount, error: null }),
+              }),
+            }),
+          }
+        }
+        if (resurrectionRound && n === 3) {
           // SELECT eliminated players: .select().eq().eq()
           return {
             select: jest.fn().mockReturnValue({
@@ -91,21 +103,14 @@ function makeNextMock({
             }),
           }
         }
-        if (resurrectionRound && eliminatedPlayers.length > 0 && n === 3) {
+        if (resurrectionRound && eliminatedPlayers.length > 0 && n === 4) {
           // UPDATE resurrected player: .update().eq()
           return {
             update: jest.fn().mockReturnThis(),
             eq: jest.fn().mockResolvedValue({ error: null }),
           }
         }
-        // Alive count after optional resurrection
-        return {
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ count: aliveCount, error: null }),
-            }),
-          }),
-        }
+        return {}
       }
       if (table === 'rounds') {
         const n = next('rounds')

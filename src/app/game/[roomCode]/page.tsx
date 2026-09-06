@@ -69,6 +69,8 @@ export default async function GamePage({ params }: Props) {
     return notFound()
   }
 
+  if (!round.question_id) return notFound()
+
   const { data: question } = await supabase
     .from('questions')
     .select('id, text, answer, category, time_limit')

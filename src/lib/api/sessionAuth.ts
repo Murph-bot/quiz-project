@@ -82,16 +82,4 @@ export async function verifyHostPlayer(
   return !!data?.is_host
 }
 
-export async function verifyHostById(
-  supabase: Supabase,
-  sessionId: string,
-  playerId: string,
-): Promise<boolean> {
-  const { data } = await supabase
-    .from('players')
-    .select('is_host')
-    .eq('id', playerId)
-    .eq('session_id', sessionId)
-    .single()
-  return !!data?.is_host
-}
+

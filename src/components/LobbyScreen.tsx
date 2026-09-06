@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { VALID_CATEGORIES } from '@/lib/categories'
+import { canonicalCategory, VALID_CATEGORIES } from '@/lib/categories'
 import { useHostFailover } from '@/hooks/useHostFailover'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
 import { useSessionStatusPoll } from '@/hooks/useSessionStatusPoll'
@@ -36,10 +36,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   const router = useRouter()
   const { playerId, nickname, sessionSecret, ready } = usePlayerSession()
   const [players, setPlayers] = useState<PresencePlayer[]>([])
-  const [category, setCategory] = useState(initialSession.category)
+  const [category, setCategory] = useState(
+    canonicalCategory(initialSession.category) ?? 'all',
+  )
   const [resurrectionInterval, setResurrectionInterval] = useState(initialSession.resurrection_interval ?? 5)
   const [starting, setStarting] = useState(false)
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
   const isHost = playerId !== null && currentHostId === playerId
@@ -59,7 +60,6 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     }
 
     const channel = supabase.channel(`room:${roomCode}`)
-    channelRef.current = channel
 
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -72,7 +72,6 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           roomCode,
           playerId,
           sessionSecret,
-          channel,
           onHostChanged: (hostId) => {
             syncHostFromBroadcast(hostId)
             setCurrentHostId(hostId)
@@ -80,8 +79,15 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         })
       })
       .on('broadcast', { event: 'host:changed' }, ({ payload }) => {
-        syncHostFromBroadcast(payload.hostId)
-        setCurrentHostId(payload.hostId)
+        // Verify against the server — broadcasts are hints, not truth.
+        fetch(`/api/sessions/${roomCode}`)
+          .then((r) => r.json())
+          .then((d) => {
+            if (d?.session?.host_id !== payload.hostId) return
+            syncHostFromBroadcast(payload.hostId)
+            setCurrentHostId(payload.hostId)
+          })
+          .catch((err) => console.error('[host:changed] verify failed:', err))
       })
       .on('broadcast', { event: 'game:started' }, () => {
         router.push(`/game/${roomCode}`)
@@ -116,12 +122,14 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   }
 
   async function handleCategoryChange(newCategory: string) {
+    const next = canonicalCategory(newCategory)
+    if (!next) return
     const previousCategory = category
-    setCategory(newCategory)
+    setCategory(next)
     const res = await fetch(`/api/sessions/${roomCode}/category`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: newCategory, playerId }),
+      body: JSON.stringify({ category: next, playerId, sessionSecret }),
     })
     if (!res.ok) {
       setCategory(previousCategory)
@@ -134,7 +142,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     const res = await fetch(`/api/sessions/${roomCode}/resurrection`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resurrectionInterval: value, playerId }),
+      body: JSON.stringify({ resurrectionInterval: value, playerId, sessionSecret }),
     })
     if (!res.ok) setResurrectionInterval(previous)
   }
@@ -151,11 +159,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
       setStarting(false)
       return
     }
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'game:started',
-      payload: {},
-    })
+    // The server broadcasts game:started to the room on success.
     router.push(`/game/${roomCode}`)
   }
 

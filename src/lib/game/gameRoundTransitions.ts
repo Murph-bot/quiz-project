@@ -1,6 +1,11 @@
 import type { MutableRefObject } from 'react'
 import { withNormalizedOptions } from '@/lib/questionOptions'
-import type { BracketState } from '@/types'
+import type { BracketState, EliminatedPlayer, RankedAnswer } from '@/types'
+
+export interface RevealData {
+  correctAnswer: number
+  answers: RankedAnswer[]
+}
 
 export interface QuestionData {
   id: string
@@ -35,8 +40,8 @@ export interface RoundTransitionSetters {
   setRoundNumber: (n: number) => void
   setQuestion: (q: QuestionData) => void
   setStartedAt: (at: string) => void
-  setRevealData: (data: null) => void
-  setEliminated: (e: []) => void
+  setRevealData: (data: RevealData | null) => void
+  setEliminated: (e: EliminatedPlayer[]) => void
   setIsGracePeriod: (v: boolean) => void
   setAnsweredPlayerIds: (ids: Set<string>) => void
   setGraceDeadlineMs: (ms: number) => void

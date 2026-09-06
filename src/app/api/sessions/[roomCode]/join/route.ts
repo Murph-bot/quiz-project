@@ -7,6 +7,10 @@ import {
   parseRoomCode,
   sessionNotFound,
 } from '@/lib/api/sessionAuth'
+import { checkRateLimit, clientKey } from '@/lib/rateLimit'
+
+const JOIN_LIMIT = 30
+const JOIN_WINDOW_MS = 60 * 60 * 1000
 
 export async function POST(
   req: NextRequest,
@@ -14,10 +18,15 @@ export async function POST(
 ) {
   const { roomCode: rawCode } = await params
   const roomCode = parseRoomCode(rawCode)
-  const body = await req.json()
-  const nickname = (body.nickname ?? '').trim()
 
   if (!roomCode) return invalidRoomCode()
+
+  if (!checkRateLimit(clientKey(req, `join:${roomCode}`), JOIN_LIMIT, JOIN_WINDOW_MS)) {
+    return NextResponse.json({ error: 'Too many join attempts — try again later' }, { status: 429 })
+  }
+
+  const body = await req.json()
+  const nickname = (body.nickname ?? '').trim()
 
   if (!nickname || nickname.length > 20) {
     return badRequest('Invalid nickname')

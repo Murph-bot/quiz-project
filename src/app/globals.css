@@ -79,7 +79,7 @@ body {
 }
 
 .urgent-bg {
-  background: linear-gradient(180deg, #080412 0%, #12081f 100%) !important;
+  background: linear-gradient(180deg, #080412 0%, #12081f 100%);
 }
 
 .phase-enter {

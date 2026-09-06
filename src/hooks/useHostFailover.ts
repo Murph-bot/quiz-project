@@ -1,14 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef } from 'react'
-import type { RealtimeChannel } from '@supabase/supabase-js'
 import { computeFailoverCandidate, promoteHost } from '@/lib/hostFailover'
 
 interface HostFailoverOptions {
   roomCode: string
   playerId: string
   sessionSecret: string | null
-  channel: Pick<RealtimeChannel, 'send'>
   onHostChanged: (hostId: string) => void
 }
 
@@ -43,7 +41,6 @@ export function useHostFailover(initialHostId: string) {
           newHostId: result.newHostId,
           requesterId: opts.playerId,
           sessionSecret: opts.sessionSecret,
-          channel: opts.channel,
         })
       }
     },

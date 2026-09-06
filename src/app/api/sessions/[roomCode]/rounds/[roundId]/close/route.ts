@@ -10,6 +10,7 @@ import {
   verifyPlayerSecret,
 } from '@/lib/api/sessionAuth'
 import { closeRoundHandler } from '@/lib/game/closeRound'
+import { broadcastToRoom } from '@/lib/realtime'
 import type { Round, Session } from '@/types'
 
 export async function POST(
@@ -52,5 +53,16 @@ export async function POST(
     return NextResponse.json({ error: 'Round not found' }, { status: 404 })
   }
 
-  return closeRoundHandler(supabase, session as Session, round as Round, roundId)
+  const res = await closeRoundHandler(supabase, session as Session, round as Round, roundId)
+
+  // Fan out the authoritative close result to all subscribed clients.
+  // Only a real close result carries correctAnswer — skip {wasAlreadyClosed} and errors.
+  const closeBody = (await res.clone().json().catch(() => null)) as Record<string, unknown> | null
+  if (res.ok && closeBody && typeof closeBody.correctAnswer === 'number') {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { wasAlreadyClosed: _wasAlreadyClosed, error: _error, ...payload } = closeBody
+    await broadcastToRoom(roomCode, [{ event: 'round:closed', payload }])
+  }
+
+  return res
 }

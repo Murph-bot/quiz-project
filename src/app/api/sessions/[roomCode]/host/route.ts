@@ -8,6 +8,7 @@ import {
   parseRoomCode,
   sessionNotFound,
 } from '@/lib/api/sessionAuth'
+import { broadcastToRoom } from '@/lib/realtime'
 
 export async function PATCH(
   req: NextRequest,
@@ -59,6 +60,8 @@ export async function PATCH(
   await supabase.from('sessions').update({ host_id: playerId }).eq('id', session.id)
   await supabase.from('players').update({ is_host: false }).eq('session_id', session.id)
   await supabase.from('players').update({ is_host: true }).eq('id', playerId)
+
+  await broadcastToRoom(roomCode, [{ event: 'host:changed', payload: { hostId: playerId } }])
 
   return NextResponse.json({ hostId: playerId })
 }

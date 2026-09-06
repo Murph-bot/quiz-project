@@ -62,6 +62,10 @@ export async function GET(
     return NextResponse.json({ status: 'active' })
   }
 
+  if (!round.question_id) {
+    return NextResponse.json({ error: 'Round has no question' }, { status: 500 })
+  }
+
   const { data: question } = await supabase
     .from('questions')
     .select('answer')
@@ -72,28 +76,29 @@ export async function GET(
     return NextResponse.json({ error: 'Question not found' }, { status: 500 })
   }
 
-  const { data: rawAnswers } = await supabase
+  const { data: rawAnswersData } = await supabase
     .from('answers')
     .select('player_id, value, players(nickname)')
     .eq('round_id', roundId)
+  const rawAnswers = (rawAnswersData ?? []) as unknown as Array<{
+    player_id: string
+    value: number
+    players: { nickname: string } | null
+  }>
 
   const { data: sessionPlayers } = await supabase
     .from('players')
     .select('id, nickname, is_alive')
     .eq('session_id', session.id)
 
-  const answeredIds = new Set((rawAnswers ?? []).map((a) => a.player_id))
+  const answeredIds = new Set(rawAnswers.map((a) => a.player_id))
   const activeList = ((sessionPlayers ?? []) as Array<{ id: string; nickname: string; is_alive: boolean }>)
     .filter((p) => answeredIds.has(p.id) || p.is_alive)
     .map((p) => ({ id: p.id, nickname: p.nickname }))
 
   const correctAnswer = question.answer
   const { answers, eliminated } = computeRevealElimination(
-    (rawAnswers ?? []) as unknown as Array<{
-      player_id: string
-      value: number
-      players: { nickname: string }
-    }>,
+    rawAnswers.map((a) => ({ ...a, players: a.players ?? { nickname: 'Unknown' } })),
     correctAnswer,
     activeList,
   )

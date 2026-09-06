@@ -12,6 +12,7 @@ import {
   verifyHostPlayer,
 } from '@/lib/api/sessionAuth'
 import { pickRandomQuestion } from '@/lib/questionPicker'
+import { broadcastToRoom } from '@/lib/realtime'
 
 export async function POST(
   req: NextRequest,
@@ -114,6 +115,14 @@ export async function POST(
       }
     }
   }
+
+  const events: { event: string; payload: Record<string, unknown> }[] = [
+    { event: 'game:started', payload: {} },
+  ]
+  if (bracketReady && bracket) {
+    events.push({ event: 'round:started', payload: { bracketReady, bracket } })
+  }
+  await broadcastToRoom(roomCode, events)
 
   return NextResponse.json({
     roundId,

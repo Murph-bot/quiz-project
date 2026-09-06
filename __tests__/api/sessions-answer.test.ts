@@ -2,6 +2,7 @@ import { POST } from '@/app/api/sessions/[roomCode]/rounds/[roundId]/answer/rout
 import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/supabase-server', () => ({ createServerClient: jest.fn() }))
+jest.mock('@/lib/realtime', () => ({ broadcastToRoom: jest.fn(() => Promise.resolve()) }))
 import { createServerClient } from '@/lib/supabase-server'
 
 function makeRequest(roomCode: string, roundId: string, body: object) {
@@ -113,7 +114,7 @@ function makeThenableChain(result: object) {
   // All chaining methods return the same thenable object
   const proxy: Record<string, unknown> = new Proxy(chain, {
     get(target, prop) {
-      if (prop in target) return target[prop]
+      if (typeof prop === 'string' && prop in target) return target[prop]
       return () => proxy
     },
   })

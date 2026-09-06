@@ -19,7 +19,9 @@ export default async function LobbyPage({ params }: Props) {
 
   const { data: session, error } = await supabase
     .from('sessions')
-    .select('*')
+    .select(
+      'id, room_code, host_id, status, category, resurrection_interval, created_at, phase, bracket, winner_id',
+    )
     .eq('room_code', roomCode)
     .single()
 

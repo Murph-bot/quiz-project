@@ -12,6 +12,7 @@ import {
   verifyHostPlayer,
 } from '@/lib/api/sessionAuth'
 import { pickUnusedQuestion } from '@/lib/questionPicker'
+import { broadcastToRoom } from '@/lib/realtime'
 import type { BracketState } from '@/types'
 
 export async function POST(
@@ -60,8 +61,35 @@ export async function POST(
     newRoundNumber = latestRound.round_number + 1
   }
 
+  const MAX_ROUNDS = 50
+  const isSuddenDeath = newRoundNumber > MAX_ROUNDS
+
+  const { count: aliveCount } = await supabase
+    .from('players')
+    .select('id', { count: 'exact', head: true })
+    .eq('session_id', session.id)
+    .eq('is_alive', true)
+
+  // Bracket transition check runs BEFORE creating a round — otherwise the
+  // created round would sit 'active' forever and block every later /next call.
+  if (session.phase === 'normal' && (aliveCount ?? 0) === 4) {
+    const generatedBracket = await generateBracketForSession(supabase, session.id)
+    if (generatedBracket) {
+      const { error: bracketUpdateError } = await supabase
+        .from('sessions')
+        .update({ phase: 'semifinal', bracket: generatedBracket })
+        .eq('id', session.id)
+      if (!bracketUpdateError) {
+        const payload = { bracketReady: true, bracket: generatedBracket }
+        await broadcastToRoom(roomCode, [{ event: 'round:started', payload }])
+        return NextResponse.json(payload)
+      }
+    }
+  }
+
   const question = await pickUnusedQuestion(supabase, session.id, session.category)
   if (!question) {
+    await broadcastToRoom(roomCode, [{ event: 'game:exhausted', payload: {} }])
     return NextResponse.json({ error: 'No questions available' }, { status: 409 })
   }
   const options = generateOptions(question.answer)
@@ -80,9 +108,6 @@ export async function POST(
   if (newRoundError || !round) {
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
-
-  const MAX_ROUNDS = 50
-  const isSuddenDeath = newRoundNumber > MAX_ROUNDS
 
   let resurrected: { playerId: string; nickname: string } | null = null
   const resurrectionInterval = session.resurrection_interval ?? 5
@@ -107,32 +132,7 @@ export async function POST(
     }
   }
 
-  let bracketReady = false
-  let bracket: BracketState | null = null
-
-  const { count: aliveCount } = await supabase
-    .from('players')
-    .select('id', { count: 'exact', head: true })
-    .eq('session_id', session.id)
-    .eq('is_alive', true)
-
-  if (session.phase === 'normal') {
-    if ((aliveCount ?? 0) === 4) {
-      const generatedBracket = await generateBracketForSession(supabase, session.id)
-      if (generatedBracket) {
-        const { error: bracketUpdateError } = await supabase
-          .from('sessions')
-          .update({ phase: 'semifinal', bracket: generatedBracket })
-          .eq('id', session.id)
-        if (!bracketUpdateError) {
-          bracketReady = true
-          bracket = generatedBracket
-        }
-      }
-    }
-  }
-
-  return NextResponse.json({
+  const responseBody = {
     roundId: round.id,
     roundNumber: newRoundNumber,
     question: {
@@ -140,13 +140,18 @@ export async function POST(
       text: question.text,
       timeLimit: question.time_limit,
       category: question.category,
+      options,
     },
     startedAt: round.started_at,
     resurrected,
     isSuddenDeath,
     options,
-    bracketReady,
-    bracket,
-    aliveCount: aliveCount ?? 0,
-  })
+    bracketReady: false,
+    bracket: null as BracketState | null,
+    aliveCount: (aliveCount ?? 0) + (resurrected ? 1 : 0),
+  }
+
+  await broadcastToRoom(roomCode, [{ event: 'round:started', payload: responseBody }])
+
+  return NextResponse.json(responseBody)
 }

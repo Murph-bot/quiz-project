@@ -2,6 +2,7 @@ import { POST } from '@/app/api/sessions/[roomCode]/join/route'
 import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/supabase-server', () => ({ createServerClient: jest.fn() }))
+jest.mock('@/lib/rateLimit', () => ({ checkRateLimit: jest.fn(() => true), clientKey: jest.fn(() => 'test') }))
 import { createServerClient } from '@/lib/supabase-server'
 
 function makeRequest(roomCode: string, body: object) {

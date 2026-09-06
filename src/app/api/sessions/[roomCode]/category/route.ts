@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isValidCategory } from '@/lib/categories'
+import { canonicalCategory } from '@/lib/categories'
 import {
   badRequest,
   getSupabase,
@@ -8,7 +8,7 @@ import {
   loadSession,
   parseRoomCode,
   sessionNotFound,
-  verifyHostById,
+  verifyHostPlayer,
 } from '@/lib/api/sessionAuth'
 
 export async function PATCH(
@@ -18,16 +18,17 @@ export async function PATCH(
   const { roomCode: rawCode } = await params
   const roomCode = parseRoomCode(rawCode)
   const body = await req.json()
-  const { category, playerId } = body
+  const { category, playerId, sessionSecret } = body
 
   if (!roomCode) return invalidRoomCode()
 
-  if (!category || !isValidCategory(category)) {
+  const canonical = typeof category === 'string' ? canonicalCategory(category) : null
+  if (!canonical) {
     return badRequest('Invalid category')
   }
 
-  if (!playerId) {
-    return badRequest('playerId required')
+  if (!playerId || !sessionSecret) {
+    return badRequest('playerId and sessionSecret required')
   }
 
   const supabase = getSupabase()
@@ -35,17 +36,17 @@ export async function PATCH(
 
   if (!session) return sessionNotFound()
 
-  const isHost = await verifyHostById(supabase, session.id, playerId)
+  const isHost = await verifyHostPlayer(supabase, session.id, playerId, sessionSecret)
   if (!isHost) return hostOnly('Only the host can change category')
 
   const { error: updateError } = await supabase
     .from('sessions')
-    .update({ category })
+    .update({ category: canonical })
     .eq('id', session.id)
 
   if (updateError) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
   }
 
-  return NextResponse.json({ category })
+  return NextResponse.json({ category: canonical })
 }

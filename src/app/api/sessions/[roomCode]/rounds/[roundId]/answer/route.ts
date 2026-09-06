@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { broadcastToRoom } from '@/lib/realtime'
 import { normalizeRoomCode } from '@/lib/roomCode'
 
 export async function POST(
@@ -64,12 +65,13 @@ export async function POST(
     return NextResponse.json({ error: 'Eliminated players cannot answer' }, { status: 403 })
   }
 
-  const tiebreakPlayers = (round as import('@/types').Round).tiebreak_players ?? null
+  const roundRow = round as import('@/types').Round & { options?: number[] | null }
+  const tiebreakPlayers = roundRow.tiebreak_players ?? null
   if (Array.isArray(tiebreakPlayers) && !tiebreakPlayers.includes(playerId)) {
     return NextResponse.json({ error: 'Not a tiebreak participant' }, { status: 403 })
   }
 
-  const roundOptions = (round as any).options as number[] | null
+  const roundOptions = roundRow.options ?? null
   if (Array.isArray(roundOptions) && !roundOptions.includes(value)) {
     return NextResponse.json({ error: 'Answer not one of the valid options' }, { status: 400 })
   }
@@ -111,6 +113,12 @@ export async function POST(
     typeof eligibleCount === 'number' &&
     eligibleCount > 0 &&
     answerCount >= eligibleCount
+
+  const events = [
+    { event: 'round:answered', payload: { roundId, playerId } },
+    ...(allAnswered ? [{ event: 'all:answered', payload: { roundId } }] : []),
+  ]
+  await broadcastToRoom(roomCode, events)
 
   return NextResponse.json({ ok: true, allAnswered })
 }

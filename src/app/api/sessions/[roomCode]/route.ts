@@ -17,13 +17,18 @@ export async function GET(
   if (!roomCode) return invalidRoomCode()
 
   const supabase = getSupabase()
-  const session = await loadSession(supabase, roomCode, '*')
+  const session = await loadSession(
+    supabase,
+    roomCode,
+    'id, room_code, host_id, status, category, phase, bracket, winner_id, resurrection_interval, created_at',
+  )
 
   if (!session) return sessionNotFound()
 
+  // Never expose session_secret — it is each player's API credential.
   const { data: players, error: playersError } = await supabase
     .from('players')
-    .select('*')
+    .select('id, nickname, is_host, is_alive, joined_at')
     .eq('session_id', session.id)
 
   if (playersError) {

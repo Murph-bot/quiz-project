@@ -4,6 +4,10 @@ import { NextRequest } from 'next/server'
 jest.mock('@/lib/supabase-server', () => ({
   createServerClient: jest.fn(),
 }))
+jest.mock('@/lib/rateLimit', () => ({
+  checkRateLimit: jest.fn(() => true),
+  clientKey: jest.fn(() => 'test'),
+}))
 
 import { createServerClient } from '@/lib/supabase-server'
 

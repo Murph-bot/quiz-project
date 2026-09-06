@@ -2,18 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useGameRoomEvents } from '@/hooks/useGameRoomEvents'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
 import { withNormalizedOptions } from '@/lib/questionOptions'
-import {
-  applyRoundStartedState,
-  applyTiebreakStartedState,
-  type NextRoundPayload,
-  type PendingTiebreak,
-  type QuestionData,
+import type {
+  NextRoundPayload,
+  PendingTiebreak,
+  QuestionData,
 } from '@/lib/game/gameRoundTransitions'
+import {
+  createRoundLifecycle,
+  FAR_FUTURE_MS,
+  POST_TIMER_GRACE_MS,
+} from '@/lib/game/roundLifecycle'
 import { QuestionPanel } from './QuestionPanel'
 import { RevealPanel } from './RevealPanel'
 import { SpectatorScreen } from './SpectatorScreen'
@@ -25,9 +27,19 @@ import { TiebreakWaitingScreen } from './TiebreakWaitingScreen'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
 import { LoadingState } from '@/components/ui/LoadingState'
-import { getBracketFinalists, isBracketFinalist } from '@/lib/bracket'
-import { normalizeCloseResponse, shouldPollForMissedClose } from '@/lib/game/closeClient'
-import type { RankedAnswer, EliminatedPlayer, WinnerInfo, BracketState, GamePhase } from '@/types'
+import {
+  getBracketFinalists,
+  getFinalistNickname,
+  isBracketFinalist,
+} from '@/lib/bracket'
+import { shouldPollForMissedClose } from '@/lib/game/closeClient'
+import type {
+  RankedAnswer,
+  EliminatedPlayer,
+  WinnerInfo,
+  BracketState,
+  GamePhase,
+} from '@/types'
 
 interface RevealData {
   correctAnswer: number
@@ -47,10 +59,6 @@ interface Props {
   initialSessionPhase?: GamePhase
   initialBracket?: BracketState | null
 }
-
-// Stable sentinel — must not use Date.now() (SSR/client hydration mismatch).
-const FAR_FUTURE_MS = 9_000_000_000_000
-const POST_TIMER_GRACE_MS = 8_000
 
 type Phase = 'answering' | 'waiting' | 'reveal' | 'spectating' | 'bracket' | 'match-result' | 'winner' | 'tiebreak-waiting'
 
@@ -109,10 +117,8 @@ export function GameScreen({
   const [questionsExhausted, setQuestionsExhausted] = useState(false)
 
   // Grace period state
-  const [answeredPlayerIds, setAnsweredPlayerIds] = useState<Set<string>>(new Set())
-
+  const [, setAnsweredPlayerIds] = useState<Set<string>>(new Set())
   const [graceDeadlineMs, setGraceDeadlineMs] = useState<number>(FAR_FUTURE_MS)
-
   const graceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // roundId ref for stale closure guard in broadcast listeners
@@ -134,25 +140,13 @@ export function GameScreen({
 
   // Tiebreak state
   const [tiebreakDeadlineMs, setTiebreakDeadlineMs] = useState<number>(FAR_FUTURE_MS)
-  const [pendingTiebreak, setPendingTiebreak] = useState<{
-    roundId: string
-    question: QuestionData
-    startedAt: string
-    playerIds: string[]
-  } | null>(null)
+  const [pendingTiebreak, setPendingTiebreak] = useState<PendingTiebreak | null>(null)
 
-  const pendingTiebreakRef = useRef<{
-    roundId: string
-    question: QuestionData
-    startedAt: string
-    playerIds: string[]
-  } | null>(null)
-
+  const pendingTiebreakRef = useRef<PendingTiebreak | null>(null)
   useEffect(() => { pendingTiebreakRef.current = pendingTiebreak }, [pendingTiebreak])
 
   const pendingFinalIntroRef = useRef<BracketState | null>(null)
 
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const isSpectatingRef = useRef(false)
   const gameOverRef = useRef(initialWinner !== null)
   const bracketDataRef = useRef<BracketState | null>(null)
@@ -162,8 +156,20 @@ export function GameScreen({
   useEffect(() => { bracketDataRef.current = bracketData }, [bracketData])
   useEffect(() => { currentMatchPhaseRef.current = currentMatchPhase }, [currentMatchPhase])
 
-  function getRoundTransitionSetters() {
-    return {
+  const roundClosedRef = useRef(false)
+  const allAnsweredConfirmedRef = useRef(false)
+  // Reset when roundId changes so a new round can be closed
+  useEffect(() => {
+    roundClosedRef.current = false
+    allAnsweredConfirmedRef.current = false
+  }, [roundId])
+
+  const lifecycle = createRoundLifecycle({
+    roomCode,
+    getPlayerId: () => playerId,
+    getSessionSecret: () => sessionSecret,
+    getIsHost: () => playerId !== null && playerId === currentHostIdRef.current,
+    setters: {
       setRoundId,
       setRoundNumber,
       setQuestion,
@@ -183,66 +189,31 @@ export function GameScreen({
       setCurrentMatchPhase,
       setPendingTiebreak,
       setTiebreakDeadlineMs,
-    }
-  }
-
-  function getRoundTransitionContext() {
-    return {
-      playerId,
-      isSpectatingRef,
+      setWinner,
+      setGameOver,
+      setMatchWins,
+      setMatchResultData,
+      setQuestionsExhausted,
+    },
+    refs: {
+      roundIdRef,
+      roundClosedRef,
+      pendingTiebreakRef,
+      pendingFinalIntroRef,
       bracketDataRef,
       currentMatchPhaseRef,
-      graceDeadlineFarFuture: FAR_FUTURE_MS,
-      computeAmICompeting,
-    }
-  }
-
-  function applyNextRoundResponse(data: NextRoundPayload) {
-    if (data.bracketReady && data.bracket) {
-      setBracketData(data.bracket)
-      setCurrentMatchPhase('sf1')
-      setPhase('bracket')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'bracket:ready',
-        payload: { bracket: data.bracket },
-      })
-      return
-    }
-
-    applyRoundStartedState(data, getRoundTransitionSetters(), getRoundTransitionContext())
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'round:started',
-      payload: {
-        roundId: data.roundId,
-        roundNumber: data.roundNumber,
-        question: { ...data.question, options: data.options },
-        startedAt: data.startedAt,
-        resurrected: data.resurrected ?? null,
-        isSuddenDeath: data.isSuddenDeath ?? false,
-        aliveCount: data.aliveCount,
-      },
-    })
-  }
-
-  // Helper: am I competing in the current bracket match?
-  function computeAmICompeting(bd: BracketState | null, phase: 'sf1' | 'sf2' | 'final' | null, pid: string | null): boolean {
-    if (!bd || !phase || !pid) return true
-    if (phase === 'sf1') return bd.sf1.p1id === pid || bd.sf1.p2id === pid
-    if (phase === 'sf2') return bd.sf2.p1id === pid || bd.sf2.p2id === pid
-    return isBracketFinalist(bd, pid)
-  }
-
-  // Helper: resolve a finalist's display name from the bracket match data
-  // finalists[] stores player IDs — look up the nickname via sf1/sf2 records
-  function getFinalistNickname(bd: BracketState, id: string): string {
-    if (bd.sf1.p1id === id) return bd.sf1.p1
-    if (bd.sf1.p2id === id) return bd.sf1.p2
-    if (bd.sf2.p1id === id) return bd.sf2.p1
-    if (bd.sf2.p2id === id) return bd.sf2.p2
-    return id // fallback (should not happen)
-  }
+      isSpectatingRef,
+      gameOverRef,
+    },
+  })
+  const {
+    fetchRoundReveal,
+    attemptClose,
+    verifyRoundStarted,
+    requestNextRound,
+    advanceAfterReveal,
+    syncBracketRefs,
+  } = lifecycle
 
   useEffect(() => {
     if (!ready || !playerId) return
@@ -292,434 +263,6 @@ export function GameScreen({
   // Grace period countdown for banner
   const { secondsLeft: graceSecondsLeft } = useCountdown(isGracePeriod ? graceDeadlineMs : FAR_FUTURE_MS)
 
-  const roundClosedRef = useRef(false)
-  const allAnsweredConfirmedRef = useRef(false)
-  // Reset when roundId changes so a new round can be closed
-  useEffect(() => {
-    roundClosedRef.current = false
-    allAnsweredConfirmedRef.current = false
-  }, [roundId])
-
-  function inferMatchPhaseFromBracket(b: BracketState): 'sf1' | 'sf2' | 'final' | null {
-    if (b.finalists?.length === 2 && (b.currentSF === null || b.currentSF === undefined)) {
-      return 'final'
-    }
-    if (b.currentSF === 1) return 'sf1'
-    if (b.currentSF === 2) return 'sf2'
-    return null
-  }
-
-  function syncBracketRefs(bracket: BracketState, phase: 'sf1' | 'sf2' | 'final') {
-    bracketDataRef.current = bracket
-    currentMatchPhaseRef.current = phase
-    setBracketData(bracket)
-    setCurrentMatchPhase(phase)
-  }
-
-  function fetchAliveCountFromServer() {
-    fetch(`/api/sessions/${roomCode}/bracket`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (typeof d.aliveCount === 'number') {
-          setAliveCount(d.aliveCount)
-        }
-      })
-      .catch((err) => console.error('[aliveCount] fetch error:', err))
-  }
-
-  function applyFinalReadyState(bracket: BracketState, aliveCount?: number) {
-    pendingFinalIntroRef.current = bracket
-    syncBracketRefs(bracket, 'final')
-    setAliveCount(typeof aliveCount === 'number' ? aliveCount : 2)
-    if (isBracketFinalist(bracket, playerId)) {
-      isSpectatingRef.current = false
-      setIsSpectating(false)
-    }
-  }
-
-  function applyAliveCountFromPayload(data: {
-    aliveCount?: number
-    eliminated?: EliminatedPlayer[]
-  }) {
-    if (typeof data.aliveCount === 'number') {
-      setAliveCount(data.aliveCount)
-    } else if (data.eliminated?.length) {
-      fetchAliveCountFromServer()
-    }
-  }
-
-  function applyEliminationSpectatorState(
-    eliminated: EliminatedPlayer[] | undefined,
-    bracket?: BracketState | null,
-    finalReady?: boolean,
-  ) {
-    const amFinalist = Boolean(finalReady && bracket && isBracketFinalist(bracket, playerId))
-
-    if (amFinalist) {
-      isSpectatingRef.current = false
-      setIsSpectating(false)
-      return
-    }
-
-    if (eliminated?.some((e) => e.playerId === playerId)) {
-      isSpectatingRef.current = true
-      setIsSpectating(true)
-    }
-  }
-
-  function showFinalIntro(bracket: BracketState) {
-    setBracketData(bracket)
-    setCurrentMatchPhase('final')
-    setMatchWins([0, 0])
-    if (isBracketFinalist(bracket, playerId)) {
-      isSpectatingRef.current = false
-      setIsSpectating(false)
-    }
-    setAliveCount(2)
-    const finalist1 = getFinalistNickname(bracket, getBracketFinalists(bracket)[0] ?? '')
-    const finalist2 = getFinalistNickname(bracket, getBracketFinalists(bracket)[1] ?? '')
-    setMatchResultData({
-      winnerNickname: '',
-      matchLabel: 'The Final',
-      finalScore: `${finalist1} vs ${finalist2}`,
-      nextLabel: 'First to 3 nearest answers wins!',
-    })
-    setPhase('match-result')
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'final:ready',
-      payload: {
-        bracket,
-        matchWinnerNickname: '',
-        matchLabel: 'The Final',
-        finalScore: `${finalist1} vs ${finalist2}`,
-        nextLabel: 'First to 3 nearest answers wins!',
-        nextMatchPhase: 'final',
-        aliveCount: 2,
-      },
-    })
-  }
-
-  function advanceAfterReveal() {
-    if (!isHost || !playerId) return
-    if (gameOverRef.current) {
-      setPhase('winner')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'game:over',
-        payload: {},
-      })
-      return
-    }
-
-    const pending = pendingTiebreakRef.current
-    if (pending) {
-      applyTiebreakStartedState(pending, playerId, getRoundTransitionSetters(), FAR_FUTURE_MS)
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'tiebreak:started',
-        payload: {
-          roundId: pending.roundId,
-          question: pending.question,
-          startedAt: pending.startedAt,
-          playerIds: pending.playerIds,
-        },
-      })
-      return
-    }
-
-    const pendingFinal = pendingFinalIntroRef.current
-    if (pendingFinal) {
-      pendingFinalIntroRef.current = null
-      showFinalIntro(pendingFinal)
-      return
-    }
-
-    fetch(`/api/sessions/${roomCode}/bracket`)
-      .then((r) => r.json())
-      .then((sessionState) => {
-        if (sessionState.phase === 'final' && sessionState.bracket) {
-          showFinalIntro(sessionState.bracket as BracketState)
-          return
-        }
-        if (sessionState.phase === 'semifinal' && sessionState.bracket) {
-          setBracketData(sessionState.bracket as BracketState)
-          setCurrentMatchPhase('sf1')
-          setPhase('bracket')
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'bracket:ready',
-            payload: { bracket: sessionState.bracket },
-          })
-          return
-        }
-
-        fetch(`/api/sessions/${roomCode}/rounds/next`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId, sessionSecret }),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (!data.roundId && !data.bracketReady) {
-              if (data.error === 'Current round still active') {
-                fetchRoundReveal()
-                return
-              }
-              if (data.error === 'No questions available') {
-                setQuestionsExhausted(true)
-                channelRef.current?.send({ type: 'broadcast', event: 'game:exhausted', payload: {} })
-              }
-              return
-            }
-            applyNextRoundResponse(data)
-          })
-      })
-      .catch((err) => console.error('[advance] session phase check failed:', err))
-  }
-
-  // Shared close-handling logic extracted to avoid duplication
-  function handleCloseData(data: any) {
-    if (data.error) {
-      console.error('[close] API error:', data.error)
-      fetchRoundReveal()
-      return
-    }
-    if (data.wasAlreadyClosed && !data.tiebreakNeeded) {
-      if (roundClosedRef.current) return
-      fetchRoundReveal()
-      return
-    }
-
-    // --- TIEBREAK NEEDED (also recover if a late closer already showed reveal) ---
-    if (data.tiebreakNeeded && data.tiebreakRoundId) {
-      if (pendingTiebreakRef.current?.roundId === data.tiebreakRoundId) return
-      const alreadyRevealing = roundClosedRef.current
-      roundClosedRef.current = true
-      setEliminated([])
-      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-      setPhase('reveal')
-
-      const tbQuestion: QuestionData = {
-        id: data.tiebreakQuestion.id,
-        text: data.tiebreakQuestion.text,
-        timeLimit: data.tiebreakQuestion.timeLimit,
-        category: data.tiebreakQuestion.category,
-        options: data.tiebreakOptions ?? undefined,
-      }
-      const deadline = new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000
-      setTiebreakDeadlineMs(deadline)
-      const pending = {
-        roundId: data.tiebreakRoundId,
-        question: tbQuestion,
-        startedAt: data.tiebreakStartedAt,
-        playerIds: data.tiebreakPlayerIds ?? [],
-      }
-      pendingTiebreakRef.current = pending
-      setPendingTiebreak(pending)
-
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'round:closed',
-        payload: {
-          correctAnswer: data.correctAnswer,
-          answers: data.answers,
-          eliminated: [],
-          winner: null,
-          gameOver: false,
-          tiebreakNeeded: true,
-          tiebreakRoundId: data.tiebreakRoundId,
-          tiebreakQuestion: { ...data.tiebreakQuestion, options: data.tiebreakOptions },
-          tiebreakPlayerIds: data.tiebreakPlayerIds,
-          tiebreakStartedAt: data.tiebreakStartedAt,
-        },
-      })
-      if (alreadyRevealing) {
-        setTimeout(() => advanceAfterReveal(), 0)
-      }
-      return
-    }
-    // --- END TIEBREAK NEEDED ---
-
-    if (roundClosedRef.current) return
-    roundClosedRef.current = true
-
-    // --- BRACKET MODE: bracket just generated ---
-    if (data.bracketReady && data.bracket) {
-      setBracketData(data.bracket)
-      setCurrentMatchPhase('sf1')
-      setPhase('bracket')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'bracket:ready',
-        payload: { bracket: data.bracket },
-      })
-      return
-    }
-
-    // --- BRACKET MODE: tie — replay with new question ---
-    if (data.isTie) {
-      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-      setPhase('reveal')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'tie:replay',
-        payload: { correctAnswer: data.correctAnswer, answers: data.answers },
-      })
-      // auto-advance useEffect will call /rounds/next after 5s
-      return
-    }
-
-    // --- BRACKET MODE: game over (Final winner) ---
-    if (data.gameOver && data.winner) {
-      setGameOver(true)
-      gameOverRef.current = true
-      setWinner(data.winner ?? null)
-      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-      setPhase('reveal')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'round:closed',
-        payload: {
-          correctAnswer: data.correctAnswer,
-          answers: data.answers,
-          eliminated: [],
-          winner: data.winner,
-          gameOver: true,
-        },
-      })
-      return
-    }
-
-    // --- BRACKET MODE: SF match complete (winner advances) ---
-    if (data.sfComplete) {
-      const currentBracketSF = bracketDataRef.current?.currentSF
-      const sfLabel = currentBracketSF === 1 ? 'Semi-Final 1' : 'Semi-Final 2'
-      const sfKey = currentBracketSF === 1 ? 'sf1' : 'sf2'
-      const sfWins = (data.bracket as any)?.[sfKey]?.wins ?? [0, 0]
-      const finalScore = `${sfWins[0]} \u2013 ${sfWins[1]}`
-      const nextLabel = data.finalReady ? 'The Final is next!' : 'Semi-Final 2 up next'
-      const nextMatchPhase = data.finalReady ? 'final' : 'sf2'
-
-      setBracketData(data.bracket)
-      setMatchWins([0, 0])
-      setCurrentMatchPhase(nextMatchPhase as 'sf1' | 'sf2' | 'final')
-      setMatchResultData({
-        winnerNickname: data.matchWinnerNickname ?? '',
-        matchLabel: sfLabel,
-        finalScore,
-        nextLabel,
-      })
-      setPhase('match-result')
-
-      const eventName = data.finalReady ? 'final:ready' : 'match:complete'
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: eventName,
-        payload: {
-          bracket: data.bracket,
-          matchWinnerNickname: data.matchWinnerNickname,
-          matchLabel: sfLabel,
-          finalScore,
-          nextLabel,
-          nextMatchPhase,
-        },
-      })
-      return
-    }
-
-    // --- BRACKET MODE: match continues (no winner yet) ---
-    if (data.bracket && !data.finalReady && !data.bracketReady && !data.sfComplete && !data.isTie && !(data.gameOver && data.winner)) {
-      const inferred = inferMatchPhaseFromBracket(data.bracket)
-      if (inferred && !currentMatchPhaseRef.current) {
-        syncBracketRefs(data.bracket, inferred)
-      }
-    }
-
-    if (data.bracket && currentMatchPhaseRef.current && !data.finalReady && !data.bracketReady && !data.sfComplete && !data.isTie && !(data.gameOver && data.winner)) {
-      const sfKey2 = data.bracket.currentSF === 1 ? 'sf1' : data.bracket.currentSF === 2 ? 'sf2' : null
-      const newWins: [number, number] = sfKey2
-        ? (data.bracket as any)[sfKey2].wins
-        : [data.bracket.finalWins?.[0] ?? 0, data.bracket.finalWins?.[1] ?? 0]
-      setMatchWins(newWins)
-      setBracketData(data.bracket)
-      setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-      setPhase('reveal')
-      channelRef.current?.send({ type: 'broadcast', event: 'match:point', payload: { wins: newWins, bracket: data.bracket } })
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'round:closed',
-        payload: {
-          correctAnswer: data.correctAnswer,
-          answers: data.answers,
-          eliminated: [],
-          winner: null,
-          gameOver: false,
-        },
-      })
-      return
-    }
-
-    // --- NORMAL MODE ---
-    setEliminated(data.eliminated ?? [])
-    setRevealData({ correctAnswer: data.correctAnswer, answers: data.answers })
-    setPhase('reveal')
-
-    if (data.finalReady && data.bracket && !data.sfComplete) {
-      applyFinalReadyState(data.bracket, data.aliveCount)
-    }
-
-    if (data.gameOver) {
-      setGameOver(true)
-      gameOverRef.current = true
-      setWinner(data.winner ?? null)
-    }
-
-    applyAliveCountFromPayload(data)
-    applyEliminationSpectatorState(data.eliminated, data.bracket, data.finalReady)
-
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'round:closed',
-      payload: {
-        correctAnswer: data.correctAnswer,
-        answers: data.answers,
-        eliminated: data.eliminated,
-        aliveCount: data.aliveCount,
-        finalReady: data.finalReady,
-        bracket: data.bracket,
-        winner: data.winner,
-        gameOver: data.gameOver,
-      },
-    })
-  }
-
-  function fetchRoundReveal() {
-    if (!playerId || !sessionSecret || !roundIdRef.current) return
-    const params = new URLSearchParams({ playerId, sessionSecret })
-    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}?${params}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error || data.status !== 'closed') return
-        handleCloseData({ ...data, wasAlreadyClosed: false })
-      })
-      .catch(err => console.error('[reveal] fetch error:', err))
-  }
-
-  function attemptClose() {
-    if (!playerId || !sessionSecret || roundClosedRef.current || !roundIdRef.current) return
-    fetch(`/api/sessions/${roomCode}/rounds/${roundIdRef.current}/close`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId, sessionSecret }),
-    })
-      .then(async (r) => {
-        const data = await r.json().catch(() => ({}))
-        handleCloseData(normalizeCloseResponse(r.status, data))
-      })
-      .catch(err => console.error('[close] network error:', err))
-  }
-
   // Timer expired → 8s grace period → close the round (any connected player)
   useEffect(() => {
     if (!isExpired || !roundId) return
@@ -746,15 +289,11 @@ export function GameScreen({
       return
     }
 
-    // Start 8s grace period
+    // Start 8s grace period — each client derives this locally from the shared
+    // round deadline, so no broadcast is needed.
     const deadline = Date.now() + POST_TIMER_GRACE_MS
     setIsGracePeriod(true)
     setGraceDeadlineMs(deadline)
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'grace:started',
-      payload: { graceDeadlineMs: deadline, roundId: roundIdRef.current },
-    })
 
     graceTimeoutRef.current = setTimeout(() => {
       graceTimeoutRef.current = null
@@ -804,7 +343,8 @@ export function GameScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpired, phase, roomCode, playerId, sessionSecret])
 
-  // Auto-advance after reveal
+  // Auto-advance after reveal — every client derives the next transition locally;
+  // only the host asks the server to create the next round.
   useEffect(() => {
     if (phase !== 'reveal') return
     setAutoAdvanceIn(12)
@@ -816,7 +356,8 @@ export function GameScreen({
       clearInterval(tick)
       clearTimeout(advance)
     }
-  }, [phase, isHost, playerId, roomCode])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, roomCode])
 
   // Winner auto-redirect
   useEffect(() => {
@@ -836,7 +377,6 @@ export function GameScreen({
     sessionSecret,
     ready: ready && !!playerId,
     initialHostId: sessionHostId,
-    channelRef,
     roundIdRef,
     currentHostIdRef,
     isSpectatingRef,
@@ -845,117 +385,15 @@ export function GameScreen({
     graceTimeoutRef,
     setCurrentHostId,
     attemptClose,
-    onRoundClosed: (payload) => {
-      if (payload.tiebreakNeeded && payload.tiebreakRoundId) {
-        handleCloseData({ ...payload, wasAlreadyClosed: false })
-        return
-      }
-      if (roundClosedRef.current) {
-        return
-      }
-      roundClosedRef.current = true
-
-      setEliminated((payload.eliminated as EliminatedPlayer[]) ?? [])
-      setRevealData({
-        correctAnswer: payload.correctAnswer as number,
-        answers: payload.answers as RankedAnswer[],
-      })
-      setPhase('reveal')
-
-      if (payload.finalReady && payload.bracket) {
-        applyFinalReadyState(payload.bracket as BracketState, payload.aliveCount as number | undefined)
-      }
-
-      if (payload.gameOver) {
-        setGameOver(true)
-        gameOverRef.current = true
-        setWinner((payload.winner as WinnerInfo) ?? null)
-      }
-
-      const eliminatedList = (payload.eliminated as EliminatedPlayer[]) ?? []
-      applyAliveCountFromPayload({
-        aliveCount: payload.aliveCount as number | undefined,
-        eliminated: eliminatedList,
-      })
-      applyEliminationSpectatorState(
-        eliminatedList,
-        payload.bracket as BracketState | undefined,
-        payload.finalReady as boolean | undefined,
-      )
+    onRoundClosed: () => {
+      // Broadcast is a hint — re-fetch the authoritative close result.
+      fetchRoundReveal()
     },
     onRoundStarted: (payload) => {
-      applyRoundStartedState(
-        payload as NextRoundPayload,
-        getRoundTransitionSetters(),
-        getRoundTransitionContext(),
-      )
-    },
-    onGameOver: () => setPhase('winner'),
-    onBracketReady: (bracket) => {
-      setBracketData(bracket)
-      setCurrentMatchPhase('sf1')
-      setPhase('bracket')
-    },
-    onMatchPoint: (wins, bracket) => {
-      setMatchWins(wins)
-      setBracketData(bracket)
-    },
-    onMatchComplete: (payload) => {
-      setBracketData(payload.bracket as BracketState)
-      setCurrentMatchPhase((payload.nextMatchPhase as 'sf2') ?? 'sf2')
-      setMatchWins([0, 0])
-      setMatchResultData({
-        winnerNickname: payload.matchWinnerNickname as string,
-        matchLabel: payload.matchLabel as string,
-        finalScore: payload.finalScore as string,
-        nextLabel: payload.nextLabel as string,
-      })
-      setPhase('match-result')
-    },
-    onTieReplay: (payload) => {
-      setRevealData({
-        correctAnswer: payload.correctAnswer as number,
-        answers: payload.answers as RankedAnswer[],
-      })
-      setPhase('reveal')
-    },
-    onFinalReady: (payload) => {
-      const bracket = payload.bracket as BracketState
-      setBracketData(bracket)
-      setCurrentMatchPhase('final')
-      setMatchWins([0, 0])
-      if (isBracketFinalist(bracket, playerId)) {
-        isSpectatingRef.current = false
-        setIsSpectating(false)
-      }
-      setAliveCount(typeof payload.aliveCount === 'number' ? (payload.aliveCount as number) : 2)
-      setMatchResultData({
-        winnerNickname: payload.matchWinnerNickname as string,
-        matchLabel: payload.matchLabel as string,
-        finalScore: payload.finalScore as string,
-        nextLabel: 'The Final is next!',
-      })
-      setPhase('match-result')
-    },
-    onTiebreakStarted: (payload) => {
-      applyTiebreakStartedState(
-        {
-          roundId: payload.roundId as string,
-          question: payload.question as QuestionData,
-          startedAt: payload.startedAt as string,
-          playerIds: (payload.playerIds as string[]) ?? [],
-        },
-        playerId,
-        getRoundTransitionSetters(),
-        FAR_FUTURE_MS,
-      )
+      verifyRoundStarted(payload as unknown as NextRoundPayload)
     },
     onRoundAnswered: (answeredId) => {
       setAnsweredPlayerIds((prev) => new Set([...prev, answeredId]))
-    },
-    onGraceStarted: (deadline) => {
-      setIsGracePeriod(true)
-      setGraceDeadlineMs(deadline)
     },
     onAllAnswered: () => {
       setIsGracePeriod(false)
@@ -974,22 +412,13 @@ export function GameScreen({
     if (res.ok) {
       const data = await res.json()
       setPhase('waiting')
-      // Track own answer locally — Supabase broadcasts are not delivered back to sender
+      // Track own answer locally — the server also broadcasts round:answered
       setAnsweredPlayerIds(prev => new Set([...prev, playerId]))
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'round:answered',
-        payload: { roundId: roundIdRef.current, playerId },
-      })
 
-      // Server confirmed all alive players have answered — close immediately
+      // Server confirmed all alive players have answered — close immediately.
+      // The server also broadcasts all:answered; attemptClose is idempotent.
       if (data.allAnswered) {
         allAnsweredConfirmedRef.current = true
-        channelRef.current?.send({
-          type: 'broadcast',
-          event: 'all:answered',
-          payload: { roundId: roundIdRef.current },
-        })
         if (graceTimeoutRef.current) {
           clearTimeout(graceTimeoutRef.current)
           graceTimeoutRef.current = null
@@ -1000,8 +429,6 @@ export function GameScreen({
       }
     }
   }
-
-  const amICompeting = computeAmICompeting(bracketData, currentMatchPhase, playerId)
 
   if (!ready) {
     return <LoadingState message="Loading game..." />
@@ -1034,17 +461,7 @@ export function GameScreen({
         myPlayerId={playerId ?? ''}
         onReady={() => {
           if (!isHost || !playerId) return
-          fetch(`/api/sessions/${roomCode}/rounds/next`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerId, sessionSecret }),
-          })
-            .then(r => r.json())
-            .then(nextData => {
-              if (!nextData.roundId && !nextData.bracketReady) return
-              applyNextRoundResponse(nextData)
-            })
-            .catch((err) => console.error('[bracket] next round error:', err))
+          requestNextRound()
         }}
       />
     )
@@ -1060,17 +477,7 @@ export function GameScreen({
         onContinue={() => {
           if (!isHost || !playerId) return
           setMatchResultData(null)
-          fetch(`/api/sessions/${roomCode}/rounds/next`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerId, sessionSecret }),
-          })
-            .then(r => r.json())
-            .then(nextData => {
-              if (!nextData.roundId && !nextData.bracketReady) return
-              applyNextRoundResponse(nextData)
-            })
-            .catch((err) => console.error('[match-result] next round error:', err))
+          requestNextRound()
         }}
       />
     )

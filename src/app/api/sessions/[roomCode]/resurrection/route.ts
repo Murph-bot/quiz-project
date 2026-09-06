@@ -11,7 +11,7 @@ export async function PATCH(
   const { roomCode: rawCode } = await params
   const roomCode = normalizeRoomCode(rawCode)
   const body = await req.json()
-  const { resurrectionInterval, playerId } = body
+  const { resurrectionInterval, playerId, sessionSecret } = body
 
   if (!roomCode) {
     return NextResponse.json({ error: 'Invalid room code' }, { status: 400 })
@@ -19,8 +19,8 @@ export async function PATCH(
   if (!VALID_INTERVALS.includes(resurrectionInterval)) {
     return NextResponse.json({ error: 'Invalid resurrection interval' }, { status: 400 })
   }
-  if (!playerId) {
-    return NextResponse.json({ error: 'playerId required' }, { status: 400 })
+  if (!playerId || !sessionSecret) {
+    return NextResponse.json({ error: 'playerId and sessionSecret required' }, { status: 400 })
   }
 
   const supabase = createServerClient()
@@ -40,6 +40,7 @@ export async function PATCH(
     .select('is_host')
     .eq('id', playerId)
     .eq('session_id', session.id)
+    .eq('session_secret', sessionSecret)
     .single()
 
   if (playerError || !player || !player.is_host) {

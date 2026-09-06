@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { generateRoomCode } from '@/lib/roomCode'
+import { checkRateLimit, clientKey } from '@/lib/rateLimit'
 
 const MAX_RETRIES = 5
+const CREATE_LIMIT = 10
+const CREATE_WINDOW_MS = 60 * 60 * 1000
 
 export async function POST(req: NextRequest) {
+  if (!checkRateLimit(clientKey(req, 'session-create'), CREATE_LIMIT, CREATE_WINDOW_MS)) {
+    return NextResponse.json({ error: 'Too many sessions created — try again later' }, { status: 429 })
+  }
+
   const body = await req.json()
   const nickname = (body.nickname ?? '').trim()
 
