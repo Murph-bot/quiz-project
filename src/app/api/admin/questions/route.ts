@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { text, answer, category, time_limit } = body
   if (!text || typeof text !== 'string' || text.trim().length === 0) return NextResponse.json({ error: 'text is required' }, { status: 400 })
   if (!Number.isInteger(answer)) return NextResponse.json({ error: 'answer must be an integer' }, { status: 400 })

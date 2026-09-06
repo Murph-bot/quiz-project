@@ -16,7 +16,7 @@ export async function PATCH(
 ) {
   const { roomCode: rawCode } = await params
   const roomCode = parseRoomCode(rawCode)
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { playerId, requesterId, sessionSecret } = body
 
   if (!roomCode) return invalidRoomCode()

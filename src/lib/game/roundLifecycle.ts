@@ -409,8 +409,10 @@ export function createRoundLifecycle(deps: RoundLifecycleDeps) {
         .then((r) => r.json())
         .then((d) => {
           const phase = d?.session?.phase
-          if (phase === 'semifinal' || phase === 'final') {
-            applyRoundPayload({ ...payload, bracket: (d.session.bracket ?? payload.bracket) as BracketState })
+          const bracket = d?.session?.bracket as BracketState | null | undefined
+          // Only the server's bracket is applied — the broadcast payload is a hint.
+          if ((phase === 'semifinal' || phase === 'final') && bracket) {
+            applyRoundPayload({ ...payload, bracketReady: true, bracket })
           }
         })
         .catch((err) => console.error('[round:started] verify failed:', err))

@@ -95,7 +95,7 @@ function makeSuddenDeathAllTieMock({
             single: jest.fn().mockResolvedValue({
               data: {
                 id: 'round-51',
-                status: 'active',
+                started_at: '2020-01-01T00:00:00Z', status: 'active',
                 question_id: 'q-1',
                 tiebreak_players: null,
                 round_number: roundNumber,
@@ -162,7 +162,7 @@ function makeSuddenDeathAllTieMock({
 
       if (table === 'questions') {
         const n = next('questions')
-        if (n === 1) {
+        if (n <= 2) {
           // SELECT correct answer for the round
           return {
             select: jest.fn().mockReturnThis(),
@@ -283,7 +283,7 @@ function makeSuddenDeathNormalElimMock({
             single: jest.fn().mockResolvedValue({
               data: {
                 id: 'round-51',
-                status: 'active',
+                started_at: '2020-01-01T00:00:00Z', status: 'active',
                 question_id: 'q-1',
                 tiebreak_players: null,
                 round_number: roundNumber,
@@ -430,7 +430,7 @@ function makeNPlayerReplayResolutionMock({
             single: jest.fn().mockResolvedValue({
               data: {
                 id: 'replay-round-1',
-                status: 'active',
+                started_at: '2020-01-01T00:00:00Z', status: 'active',
                 question_id: 'q-1',
                 tiebreak_players: ['p1', 'p2', 'p3'],
                 round_number: 52,
@@ -490,7 +490,7 @@ function makeNPlayerReplayResolutionMock({
 
       if (table === 'questions') {
         const n = next('questions')
-        if (n === 1) {
+        if (n <= 2) {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),

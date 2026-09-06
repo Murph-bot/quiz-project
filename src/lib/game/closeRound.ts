@@ -13,6 +13,10 @@ import type { Round, Session } from '@/types'
 
 type Supabase = ReturnType<typeof createServerClient>
 
+/** Clock-skew tolerance: a client whose clock runs slightly fast may fire its
+ *  close a moment before the server-side deadline — don't reject those. */
+const CLOSE_EARLY_TOLERANCE_MS = 2000
+
 export async function closeRoundHandler(
   supabase: Supabase,
   session: Session,
@@ -21,6 +25,44 @@ export async function closeRoundHandler(
 ): Promise<NextResponse> {
   if (round.status === 'closed') {
     return NextResponse.json({ wasAlreadyClosed: true })
+  }
+
+  if (!round.question_id) {
+    return NextResponse.json({ error: 'Round has no question' }, { status: 500 })
+  }
+
+  // Enforce the round deadline server-side: closing early is legitimate only
+  // when every eligible player has already answered.
+  const { data: roundQuestion } = await supabase
+    .from('questions')
+    .select('time_limit')
+    .eq('id', round.question_id)
+    .single()
+
+  const deadlineMs =
+    new Date(round.started_at).getTime() + (roundQuestion?.time_limit ?? 0) * 1000
+  if (Date.now() < deadlineMs - CLOSE_EARLY_TOLERANCE_MS) {
+    const tiebreakPlayers = Array.isArray(round.tiebreak_players)
+      ? round.tiebreak_players
+      : null
+    const { count: answerCount } = await supabase
+      .from('answers')
+      .select('id', { count: 'exact', head: true })
+      .eq('round_id', roundId)
+
+    let eligible = tiebreakPlayers?.length ?? 0
+    if (!tiebreakPlayers || tiebreakPlayers.length === 0) {
+      const { count } = await supabase
+        .from('players')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', session.id)
+        .eq('is_alive', true)
+      eligible = count ?? 0
+    }
+
+    if (eligible === 0 || (answerCount ?? 0) < eligible) {
+      return NextResponse.json({ error: 'Round still in progress' }, { status: 409 })
+    }
   }
 
   if (session.phase === 'semifinal' || session.phase === 'final') {

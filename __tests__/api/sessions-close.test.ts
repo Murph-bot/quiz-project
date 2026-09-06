@@ -74,7 +74,7 @@ function makeCloseMock({
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({
-              data: { id: 'round-1', status: roundStatus, question_id: 'q-1', tiebreak_players: null, round_number: 1 },
+              data: { id: 'round-1', status: roundStatus, question_id: 'q-1', tiebreak_players: null, round_number: 1, started_at: '2020-01-01T00:00:00Z' },
               error: null,
             }),
           }
@@ -220,7 +220,7 @@ function makeAllWrongReplayMock({
             single: jest.fn().mockResolvedValue({
               data: {
                 id: 'round-1',
-                status: 'active',
+                started_at: '2020-01-01T00:00:00Z', status: 'active',
                 question_id: 'q-1',
                 tiebreak_players: null,
                 round_number: 1,
@@ -280,7 +280,7 @@ function makeAllWrongReplayMock({
 
       if (table === 'questions') {
         const n = next('questions')
-        if (n === 1) {
+        if (n <= 2) {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
@@ -438,7 +438,7 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
               single: jest.fn().mockResolvedValue({
-                data: { id: 'round-1', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
+                data: { id: 'round-1', started_at: '2020-01-01T00:00:00Z', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
                 error: null,
               }),
             }
@@ -725,7 +725,7 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
               select: jest.fn().mockReturnThis(),
               eq: jest.fn().mockReturnThis(),
               single: jest.fn().mockResolvedValue({
-                data: { id: 'round-1', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
+                data: { id: 'round-1', started_at: '2020-01-01T00:00:00Z', status: 'active', question_id: 'q-1', tiebreak_players: null, round_number: 1 },
                 error: null,
               }),
             }
@@ -837,5 +837,186 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
     const body = await res.json()
     expect(body.wasAlreadyClosed).toBe(true)
     expect(updatePlayersMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects an early close while the timer is still running and not everyone answered', async () => {
+    // Round started seconds ago — deadline far in the future.
+    const freshRound = {
+      id: 'round-1',
+      status: 'active',
+      question_id: 'q-1',
+      tiebreak_players: null,
+      round_number: 1,
+      started_at: new Date().toISOString(),
+    }
+    const mock = {
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        if (table === 'rounds') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: freshRound, error: null }),
+          }
+        }
+        if (table === 'questions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { time_limit: 30 }, error: null }),
+          }
+        }
+        if (table === 'answers') {
+          // 1 answer submitted so far
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({ count: 1, error: null }),
+            }),
+          }
+        }
+        if (table === 'players') {
+          const n = (mock as { __pc?: number }).__pc = ((mock as { __pc?: number }).__pc ?? 0) + 1
+          if (n === 1) {
+            // verifyPlayerSecret
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+            }
+          }
+          // alive-count query → 3 eligible players
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ count: 3, error: null }),
+              }),
+            }),
+          }
+        }
+        return {}
+      }),
+    }
+    ;(createServerClient as jest.Mock).mockReturnValue(mock)
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('Round still in progress')
+  })
+
+  it('allows an early close when every eligible player has answered', async () => {
+    const freshRound = {
+      id: 'round-1',
+      status: 'active',
+      question_id: 'q-1',
+      tiebreak_players: null,
+      round_number: 1,
+      started_at: new Date().toISOString(),
+    }
+    const playersCallMap: Record<string, number> = {}
+    const mock = {
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          const n = (playersCallMap.sessions = (playersCallMap.sessions ?? 0) + 1)
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+            }
+          }
+          return { update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) }) }
+        }
+        if (table === 'rounds') {
+          const n = (playersCallMap.rounds = (playersCallMap.rounds ?? 0) + 1)
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: freshRound, error: null }),
+            }
+          }
+          // atomic close update
+          return {
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  select: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: 'round-1' }, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === 'questions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: { time_limit: 30, answer: 1989 }, error: null }),
+          }
+        }
+        if (table === 'answers') {
+          // 3 of 3 answered (count query) and the ranked-answers fetch
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockResolvedValue({ data: mockRawAnswers, count: 3, error: null }),
+          }
+        }
+        if (table === 'players') {
+          const n = (playersCallMap.players = (playersCallMap.players ?? 0) + 1)
+          if (n === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { id: 'host-1' }, error: null }),
+            }
+          }
+          if (n === 2) {
+            // alive-count for the early-close check → all 3 eligible
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ count: 3, error: null }),
+                }),
+              }),
+            }
+          }
+          if (n === 3) {
+            // active players for ranking
+            return {
+              select: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ data: mockRawAnswers.map(a => ({ id: a.player_id, nickname: a.players.nickname })), error: null }),
+                }),
+              }),
+            }
+          }
+          if (n === 4) {
+            // UPDATE is_alive
+            return { update: jest.fn().mockReturnValue({ in: jest.fn().mockResolvedValue({ error: null }) }) }
+          }
+          // alive count after elim
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
+              }),
+            }),
+          }
+        }
+        return {}
+      }),
+    }
+    ;(createServerClient as jest.Mock).mockReturnValue(mock)
+    const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.correctAnswer).toBe(1989)
   })
 })

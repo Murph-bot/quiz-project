@@ -12,7 +12,7 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const update: Record<string, unknown> = {}
   if (body.text !== undefined) {
     if (typeof body.text !== 'string' || body.text.trim().length === 0) return NextResponse.json({ error: 'text is invalid' }, { status: 400 })

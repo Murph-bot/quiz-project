@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Too many sessions created — try again later' }, { status: 429 })
   }
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const nickname = (body.nickname ?? '').trim()
 
   if (!nickname || nickname.length > 20) {

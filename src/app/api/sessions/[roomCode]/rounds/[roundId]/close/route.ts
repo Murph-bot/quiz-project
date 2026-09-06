@@ -44,7 +44,7 @@ export async function POST(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status, question_id, tiebreak_players, round_number')
+    .select('id, status, question_id, tiebreak_players, round_number, started_at')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()

@@ -9,7 +9,7 @@ export async function POST(
 ) {
   const { roomCode: rawCode, roundId } = await params
   const roomCode = normalizeRoomCode(rawCode)
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { playerId, sessionSecret, value } = body
 
   if (!roomCode) {

@@ -125,6 +125,10 @@ export function GameScreen({
   const roundIdRef = useRef(roundId)
   useEffect(() => { roundIdRef.current = roundId }, [roundId])
 
+  // phase ref so broadcast handlers can gate events on the current phase
+  const phaseRef = useRef(phase)
+  useEffect(() => { phaseRef.current = phase }, [phase])
+
   // Bracket state
   const [bracketData, setBracketData] = useState<BracketState | null>(initialBracket)
   const [matchWins, setMatchWins] = useState<[number, number]>([0, 0])
@@ -399,7 +403,16 @@ export function GameScreen({
       setIsGracePeriod(false)
       setGraceDeadlineMs(FAR_FUTURE_MS)
     },
-    onGameExhausted: () => setQuestionsExhausted(true),
+    onGameExhausted: () => {
+      // Broadcasts are hints — exhaustion can only legitimately follow a
+      // failed advance attempt (awaiting reveal/next) or a game start with
+      // zero questions in the category (no round yet). A forged event during
+      // active play is ignored.
+      const awaitingAdvance = phaseRef.current === 'reveal' || phaseRef.current === 'match-result'
+      if (awaitingAdvance || !roundIdRef.current) {
+        setQuestionsExhausted(true)
+      }
+    },
   })
 
   async function handleSubmit(value: number) {

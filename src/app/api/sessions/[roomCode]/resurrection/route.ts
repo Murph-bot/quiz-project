@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   const { roomCode: rawCode } = await params
   const roomCode = normalizeRoomCode(rawCode)
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { resurrectionInterval, playerId, sessionSecret } = body
 
   if (!roomCode) {

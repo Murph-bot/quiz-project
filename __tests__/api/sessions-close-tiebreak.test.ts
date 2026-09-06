@@ -103,7 +103,7 @@ function makeDetectionMock({
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({
-              data: { id: 'round-1', status: 'active', question_id: 'q-1', tiebreak_players: null },
+              data: { id: 'round-1', started_at: '2020-01-01T00:00:00Z', status: 'active', question_id: 'q-1', tiebreak_players: null },
               error: null,
             }),
           }
@@ -172,7 +172,7 @@ function makeDetectionMock({
 
       if (table === 'questions') {
         const n = next('questions')
-        if (n === 1) {
+        if (n <= 2) {
           // SELECT correct answer for the round
           return {
             select: jest.fn().mockReturnThis(),
@@ -318,7 +318,7 @@ function makeResolutionMock({
   // Tiebreak round: only p4 and p5 are competing
   const tbRoundData = {
     id: 'tb-round-1',
-    status: 'active',
+    started_at: '2020-01-01T00:00:00Z', status: 'active',
     question_id: 'q-1',
     tiebreak_players: ['p4', 'p5'],
   }
@@ -410,7 +410,7 @@ function makeResolutionMock({
 
       if (table === 'questions') {
         const n = next('questions')
-        if (n === 1) {
+        if (n <= 2) {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
