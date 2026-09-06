@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
-
-const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
+import { canonicalCategory } from '@/lib/categories'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -35,10 +34,11 @@ export async function POST(req: NextRequest) {
   const { text, answer, category, time_limit } = body
   if (!text || typeof text !== 'string' || text.trim().length === 0) return NextResponse.json({ error: 'text is required' }, { status: 400 })
   if (!Number.isInteger(answer)) return NextResponse.json({ error: 'answer must be an integer' }, { status: 400 })
-  if (!VALID_CATEGORIES.includes(category)) return NextResponse.json({ error: `category must be one of: ${VALID_CATEGORIES.join(', ')}` }, { status: 400 })
+  const questionCategory = typeof category === 'string' ? canonicalCategory(category) : null
+  if (!questionCategory || questionCategory === 'all') return NextResponse.json({ error: 'category is invalid' }, { status: 400 })
   if (!Number.isInteger(time_limit) || time_limit < 5 || time_limit > 60) return NextResponse.json({ error: 'time_limit must be an integer between 5 and 60' }, { status: 400 })
   const supabase = createServerClient()
-  const { data, error } = await supabase.from('questions').insert({ text: text.trim(), answer, category, time_limit }).select().single()
+  const { data, error } = await supabase.from('questions').insert({ text: text.trim(), answer, category: questionCategory, time_limit }).select().single()
   if (error || !data) return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }

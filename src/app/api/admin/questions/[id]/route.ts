@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
-
-const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
+import { canonicalCategory } from '@/lib/categories'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -23,8 +22,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     update.answer = body.answer
   }
   if (body.category !== undefined) {
-    if (!VALID_CATEGORIES.includes(body.category)) return NextResponse.json({ error: 'invalid category' }, { status: 400 })
-    update.category = body.category
+    const questionCategory = typeof body.category === 'string' ? canonicalCategory(body.category) : null
+    if (!questionCategory || questionCategory === 'all') return NextResponse.json({ error: 'invalid category' }, { status: 400 })
+    update.category = questionCategory
   }
   if (body.time_limit !== undefined) {
     if (!Number.isInteger(body.time_limit) || body.time_limit < 5 || body.time_limit > 60) return NextResponse.json({ error: 'time_limit must be 5–60' }, { status: 400 })

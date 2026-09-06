@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-
-const VALID_CATEGORIES = ['Geography', 'Nature', 'Animals', 'Music Industry', 'Nations', 'Popular Products', 'Popular Tools', 'History', 'Music Instruments', 'Sodas', 'Alcoholic Drinks', 'Pop Culture', 'Movies', 'Formula 1', 'Food & Drink', 'Technology', '00s Nostalgia']
+import { QUESTION_CATEGORIES } from '@/lib/categories'
 
 interface Question {
   id: string
@@ -21,7 +20,7 @@ export function AdminShell() {
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<Partial<Question>>({})
-  const [addForm, setAddForm] = useState({ text: '', answer: '', category: 'history', time_limit: '15' })
+  const [addForm, setAddForm] = useState({ text: '', answer: '', category: 'History', time_limit: '30' })
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importResult, setImportResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -111,7 +110,7 @@ export function AdminShell() {
           <input className="border rounded px-3 py-2 text-sm flex-1 min-w-[200px]" placeholder="Question text" value={addForm.text} onChange={e => setAddForm(f => ({ ...f, text: e.target.value }))} required />
           <input className="border rounded px-3 py-2 text-sm w-24" placeholder="Answer" type="number" value={addForm.answer} onChange={e => setAddForm(f => ({ ...f, answer: e.target.value }))} required />
           <select className="border rounded px-3 py-2 text-sm" value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}>
-            {VALID_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            {QUESTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <input className="border rounded px-3 py-2 text-sm w-20" placeholder="Time (s)" type="number" value={addForm.time_limit} onChange={e => setAddForm(f => ({ ...f, time_limit: e.target.value }))} required />
           <button type="submit" className="bg-qk-field text-qk-text rounded px-4 py-2 text-sm font-bold hover:bg-qk-void">Add</button>
@@ -122,7 +121,7 @@ export function AdminShell() {
       {/* CSV Import */}
       <div className="bg-white rounded-xl p-4 mb-6 shadow-sm">
         <h2 className="font-bold text-gray-700 mb-3">Import CSV</h2>
-        <p className="text-xs text-gray-400 mb-2">Format: <code>text,answer,category,time_limit</code> — categories: {VALID_CATEGORIES.join(', ')}</p>
+        <p className="text-xs text-gray-400 mb-2">Format: <code>text,answer,category,time_limit</code> — categories: {QUESTION_CATEGORIES.join(', ')}</p>
         <form onSubmit={handleImport} className="flex gap-2 items-center">
           <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files?.[0] ?? null)} className="text-sm" />
           <button type="submit" disabled={!csvFile} className="bg-gray-700 text-white rounded px-4 py-2 text-sm font-bold hover:bg-gray-900 disabled:opacity-40">Import</button>
@@ -134,7 +133,7 @@ export function AdminShell() {
       <div className="flex gap-2 mb-4">
         <select className="border rounded px-3 py-2 text-sm" value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}>
           <option value="">All categories</option>
-          {VALID_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          {QUESTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <input className="border rounded px-3 py-2 text-sm flex-1" placeholder="Search text..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
       </div>
@@ -159,7 +158,7 @@ export function AdminShell() {
                     <>
                       <td className="px-4 py-2"><textarea className="border rounded px-2 py-1 text-sm w-full" value={editValues.text ?? q.text} onChange={e => setEditValues(v => ({ ...v, text: e.target.value }))} rows={2} /></td>
                       <td className="px-4 py-2"><input type="number" className="border rounded px-2 py-1 text-sm w-20" value={editValues.answer ?? q.answer} onChange={e => setEditValues(v => ({ ...v, answer: parseInt(e.target.value) }))} /></td>
-                      <td className="px-4 py-2"><select className="border rounded px-2 py-1 text-sm" value={editValues.category ?? q.category} onChange={e => setEditValues(v => ({ ...v, category: e.target.value }))}>{VALID_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
+                      <td className="px-4 py-2"><select className="border rounded px-2 py-1 text-sm" value={editValues.category ?? q.category} onChange={e => setEditValues(v => ({ ...v, category: e.target.value }))}>{QUESTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                       <td className="px-4 py-2"><input type="number" className="border rounded px-2 py-1 text-sm w-16" value={editValues.time_limit ?? q.time_limit} onChange={e => setEditValues(v => ({ ...v, time_limit: parseInt(e.target.value) }))} /></td>
                       <td className="px-4 py-2 flex gap-1">
                         <button onClick={() => handleSave(q.id)} className="bg-green-500 text-white rounded px-3 py-1 text-xs font-bold">Save</button>
