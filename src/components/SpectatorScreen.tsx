@@ -29,15 +29,23 @@ export function SpectatorScreen({
   const [secondsLeft, setSecondsLeft] = useState(0)
 
   useEffect(() => {
-    if (!question || !startedAt) {
-      setSecondsLeft(0)
-      return
-    }
-    setSecondsLeft(computeSecondsLeft(startedAt, question.timeLimit))
-    const interval = setInterval(() => {
+    // Deferred so the initial value renders before state updates.
+    const timer = setTimeout(() => {
+      if (!question || !startedAt) {
+        setSecondsLeft(0)
+        return
+      }
       setSecondsLeft(computeSecondsLeft(startedAt, question.timeLimit))
+    }, 0)
+    const interval = setInterval(() => {
+      if (question && startedAt) {
+        setSecondsLeft(computeSecondsLeft(startedAt, question.timeLimit))
+      }
     }, 500)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
   }, [question, startedAt])
 
   return (

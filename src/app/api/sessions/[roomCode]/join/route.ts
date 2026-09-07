@@ -8,6 +8,7 @@ import {
   sessionNotFound,
 } from '@/lib/api/sessionAuth'
 import { checkRateLimit, clientKey } from '@/lib/rateLimit'
+import { computeRejoinCode, isValidRejoinCode, rejoinCodesMatch } from '@/lib/rejoinCode'
 
 const JOIN_LIMIT = 30
 const JOIN_WINDOW_MS = 60 * 60 * 1000
@@ -27,6 +28,7 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}))
   const nickname = (body.nickname ?? '').trim()
+  const rejoinCode = typeof body.rejoinCode === 'string' ? body.rejoinCode.trim().toUpperCase() : ''
 
   if (!nickname || nickname.length > 20) {
     return badRequest('Invalid nickname')
@@ -38,7 +40,9 @@ export async function POST(
   if (!session) return sessionNotFound()
 
   if (session.status !== 'lobby') {
-    // Allow eliminated spectators to reconnect with their original playerId
+    // Allow eliminated spectators / disconnected players to reconnect with
+    // their original playerId — but only when they present the per-player
+    // rejoin code, so knowing a nickname is not enough to impersonate.
     const { data: existingPlayer } = await supabase
       .from('players')
       .select('id, session_secret')
@@ -46,7 +50,13 @@ export async function POST(
       .eq('nickname', nickname)
       .single()
 
-    if (!existingPlayer) {
+    if (
+      !existingPlayer ||
+      !existingPlayer.session_secret ||
+      !isValidRejoinCode(rejoinCode) ||
+      !rejoinCodesMatch(rejoinCode, await computeRejoinCode(existingPlayer.session_secret))
+    ) {
+      // Same message for unknown nicknames and wrong codes — no info leak.
       return NextResponse.json({ error: 'Game already started' }, { status: 409 })
     }
 
@@ -71,5 +81,8 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to join session' }, { status: 500 })
   }
 
-  return NextResponse.json({ playerId, sessionSecret }, { status: 201 })
+  return NextResponse.json(
+    { playerId, sessionSecret, rejoinCode: await computeRejoinCode(sessionSecret) },
+    { status: 201 },
+  )
 }

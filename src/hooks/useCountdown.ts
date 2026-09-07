@@ -13,10 +13,17 @@ export function useCountdown(deadlineMs: number): { secondsLeft: number; isExpir
 
   useEffect(() => {
     const update = () => setSecondsLeft(computeSeconds(deadlineMs))
-    update()
-    setHasTicked(true)
+    // Deferred so the initial 0 renders before the real value — keeps SSR
+    // hydration consistent and avoids a synchronous setState in the effect.
+    const timer = setTimeout(() => {
+      update()
+      setHasTicked(true)
+    }, 0)
     const interval = setInterval(update, 500)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
   }, [deadlineMs])
 
   // Never treat the pre-effect initial 0 as expired — that spuriously closes rounds on mount.

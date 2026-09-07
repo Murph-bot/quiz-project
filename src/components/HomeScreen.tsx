@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -12,8 +12,19 @@ export default function HomeScreen() {
   const router = useRouter()
   const [nickname, setNickname] = useState('')
   const [roomCode, setRoomCode] = useState('')
+  const [rejoinCode, setRejoinCode] = useState('')
+  const [needRejoinCode, setNeedRejoinCode] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Prefill the nickname (and rejoin code) from a previous session on this browser.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setNickname(sessionStorage.getItem('nickname') ?? '')
+      setRejoinCode(sessionStorage.getItem('rejoinCode') ?? '')
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   function validate(requireCode: boolean): boolean {
     if (!nickname.trim()) {
@@ -32,6 +43,7 @@ export default function HomeScreen() {
   }
 
   async function handleCreate() {
+    if (loading) return
     if (!validate(false)) return
     setLoading(true)
     setError('')
@@ -49,6 +61,7 @@ export default function HomeScreen() {
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
       sessionStorage.setItem('sessionSecret', data.sessionSecret)
+      sessionStorage.setItem('rejoinCode', data.rejoinCode)
       router.push(`/lobby/${data.roomCode}`)
     } catch {
       setError('Network error — please try again')
@@ -58,6 +71,7 @@ export default function HomeScreen() {
   }
 
   async function handleJoin() {
+    if (loading) return
     if (!validate(true)) return
     setLoading(true)
     setError('')
@@ -66,16 +80,22 @@ export default function HomeScreen() {
       const res = await fetch(`/api/sessions/${code}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nickname.trim() }),
+        body: JSON.stringify({
+          nickname: nickname.trim(),
+          rejoinCode: rejoinCode.trim().toUpperCase() || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Failed to join game')
+        // The game already started — a rejoin code is needed to reconnect.
+        if (data.error === 'Game already started') setNeedRejoinCode(true)
         return
       }
       sessionStorage.setItem('playerId', data.playerId)
       sessionStorage.setItem('nickname', nickname.trim())
       sessionStorage.setItem('sessionSecret', data.sessionSecret)
+      if (data.rejoinCode) sessionStorage.setItem('rejoinCode', data.rejoinCode)
       if (data.spectatorReconnect) {
         router.push(`/game/${code}`)
       } else {
@@ -100,23 +120,33 @@ export default function HomeScreen() {
           <label htmlFor="nickname" className="text-sm font-bold text-qk-label uppercase tracking-wide">
             Your nickname
           </label>
-          <input
-            id="nickname"
-            type="text"
-            placeholder="Enter your name"
-            maxLength={20}
-            value={nickname}
-            onChange={(e) => {
-              setNickname(e.target.value)
-              setError('')
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleCreate()
             }}
-            autoComplete="nickname"
-            className={`${inputClass} min-h-[64px] py-4 text-xl`}
-          />
-
-          <Button onClick={handleCreate} disabled={loading} fullWidth>
-            🎮 Create Game
-          </Button>
+            className="flex flex-col gap-5"
+          >
+            <label htmlFor="nickname" className="text-sm font-bold text-qk-label uppercase tracking-wide">
+              Your nickname
+            </label>
+            <input
+              id="nickname"
+              type="text"
+              placeholder="Enter your name"
+              maxLength={20}
+              value={nickname}
+              onChange={(e) => {
+                setNickname(e.target.value)
+                setError('')
+              }}
+              autoComplete="nickname"
+              className={`${inputClass} min-h-[64px] py-4 text-xl`}
+            />
+            <Button type="submit" disabled={loading} fullWidth>
+              🎮 Create Game
+            </Button>
+          </form>
 
           <div className="flex items-center gap-2">
             <div className="flex-1 h-px bg-qk-violet/25" />
@@ -136,6 +166,14 @@ export default function HomeScreen() {
               onChange={(e) => {
                 setRoomCode(e.target.value.toUpperCase())
                 setError('')
+                setNeedRejoinCode(false)
+              }}
+              onKeyDown={(e) => {
+                // Enter in the room-code field joins (default form submit would create).
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleJoin()
+                }
               }}
               autoComplete="off"
               autoCorrect="off"
@@ -147,6 +185,37 @@ export default function HomeScreen() {
               Join
             </Button>
           </div>
+
+          {needRejoinCode && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="rejoin-code" className="text-sm font-bold text-qk-label uppercase tracking-wide">
+                Rejoin code
+              </label>
+              <input
+                id="rejoin-code"
+                type="text"
+                placeholder="6-character code"
+                maxLength={6}
+                value={rejoinCode}
+                onChange={(e) => {
+                  setRejoinCode(e.target.value.toUpperCase().replace(/[^0-9A-F]/g, ''))
+                  setError('')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void handleJoin()
+                  }
+                }}
+                autoComplete="off"
+                aria-label="Rejoin code"
+                className={`${inputClass} min-h-[52px] px-4 py-3 text-lg uppercase tracking-widest text-center`}
+              />
+              <p className="text-qk-muted text-xs">
+                Shown in the lobby — needed to reconnect from a new device mid-game.
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-qk-danger text-xs text-center font-semibold">{error}</p>}
         </Card>

@@ -34,8 +34,11 @@ interface Props {
 
 export default function LobbyScreen({ roomCode, initialSession }: Props) {
   const router = useRouter()
-  const { playerId, nickname, sessionSecret, ready } = usePlayerSession()
-  const [players, setPlayers] = useState<PresencePlayer[]>([])
+  const { playerId, nickname, sessionSecret, rejoinCode, ready } = usePlayerSession()
+  // Everyone who has joined (from the DB) — survives tab closes.
+  const [joinedPlayers, setJoinedPlayers] = useState<PresencePlayer[]>([])
+  // Players with the lobby tab open right now (presence).
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
   const [category, setCategory] = useState(
     canonicalCategory(initialSession.category) ?? 'all',
   )
@@ -52,6 +55,37 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     navigateOn: POLL_NAVIGATE_STATUSES,
   })
 
+  // Joined-player list from the server — presence alone only shows open tabs.
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+    async function fetchJoined() {
+      try {
+        const res = await fetch(`/api/sessions/${roomCode}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        const rows = (data?.players ?? []) as Array<{
+          id: string
+          nickname: string
+          is_host: boolean
+          is_alive: boolean
+        }>
+        setJoinedPlayers(
+          rows.map((p) => ({ playerId: p.id, nickname: p.nickname, isHost: p.is_host })),
+        )
+      } catch {
+        // transient network errors — the next tick will retry
+      }
+    }
+    void fetchJoined()
+    const interval = setInterval(fetchJoined, 5000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [roomCode, ready])
+
   useEffect(() => {
     if (!ready) return
     if (!playerId || !nickname) {
@@ -65,10 +99,10 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<PresencePlayer>()
         const list = Object.values(state).flat()
-        setPlayers(list)
+        setOnlineIds(new Set(list.map((p) => p.playerId).filter(Boolean) as string[]))
 
-        const onlineIds = list.map((p) => p.playerId).filter(Boolean)
-        handlePresenceSync(onlineIds, {
+        const onlinePlayerIds = list.map((p) => p.playerId).filter(Boolean)
+        handlePresenceSync(onlinePlayerIds, {
           roomCode,
           playerId,
           sessionSecret,
@@ -148,7 +182,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   }
 
   async function handleStart() {
-    if (players.length < MIN_PLAYERS || !isHost || !playerId) return
+    if (joinedPlayers.length < MIN_PLAYERS || !isHost || !playerId) return
     setStarting(true)
     const res = await fetch(`/api/sessions/${roomCode}/start`, {
       method: 'POST',
@@ -174,9 +208,14 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           <SectionLabel className="mb-1">Room Code</SectionLabel>
           <p className="text-qk-cyan text-5xl font-black tracking-[0.3em]">{roomCode}</p>
           <p className="text-qk-muted text-xs mt-2">Share this code with friends</p>
+          {rejoinCode && (
+            <p className="text-qk-muted/80 text-xs mt-1">
+              Your rejoin code: <span className="font-bold text-qk-cyan tracking-widest">{rejoinCode}</span>
+            </p>
+          )}
         </div>
 
-        <PlayerList players={players} />
+        <PlayerList players={joinedPlayers} onlineIds={onlineIds} />
 
         {isHost && (
           <div className="flex flex-col gap-2">
@@ -221,11 +260,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         {isHost ? (
           <Button
             onClick={handleStart}
-            disabled={players.length < MIN_PLAYERS || starting}
+            disabled={joinedPlayers.length < MIN_PLAYERS || starting}
             fullWidth
           >
-            {players.length < MIN_PLAYERS
-              ? `Need ${MIN_PLAYERS - players.length} more player${MIN_PLAYERS - players.length > 1 ? 's' : ''}`
+            {joinedPlayers.length < MIN_PLAYERS
+              ? `Need ${MIN_PLAYERS - joinedPlayers.length} more player${MIN_PLAYERS - joinedPlayers.length > 1 ? 's' : ''}`
               : starting
                 ? 'Starting...'
                 : '🚀 Start Game'}

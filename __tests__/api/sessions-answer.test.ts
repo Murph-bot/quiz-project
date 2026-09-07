@@ -17,13 +17,29 @@ const params = (roomCode: string, roundId: string) => ({
   params: Promise.resolve({ roomCode, roundId }),
 })
 
-const mockSession = { id: 'sess-1' }
+const mockSession = { id: 'sess-1', phase: 'normal', bracket: null }
 const mockRound = { id: 'round-1', session_id: 'sess-1', status: 'active' }
+
+const SEMI_BRACKET = {
+  sf1: { p1id: 'p1', p1: 'Alex', p2id: 'p2', p2: 'Maria', wins: [0, 0] },
+  sf2: { p1id: 'p3', p1: 'Nick', p2id: 'p4', p2: 'Sara', wins: [0, 0] },
+  currentSF: 1,
+  finalists: [],
+}
+
+const FINAL_BRACKET = {
+  sf1: { p1id: 'p1', p1: 'Alex', p2id: 'p2', p2: 'Maria', wins: [2, 0] },
+  sf2: { p1id: '', p1: '', p2id: '', p2: '', wins: [0, 0] },
+  currentSF: null,
+  finalists: ['p1', 'p2'],
+}
 
 function makeSupabase({
   roundStatus = 'active',
   insertError = null as null | { code: string; message: string },
   tiebreakPlayers = undefined as string[] | null | undefined,
+  sessionPhase = 'normal' as 'normal' | 'semifinal' | 'final',
+  sessionBracket = null as Record<string, unknown> | null,
   playerInSession = true,
   playerIsAlive = true,
   answerCount = 1,
@@ -43,7 +59,10 @@ function makeSupabase({
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          single: jest.fn().mockResolvedValue({
+            data: { ...mockSession, phase: sessionPhase, bracket: sessionBracket },
+            error: null,
+          }),
         }
       }
       if (table === 'rounds') {
@@ -250,6 +269,63 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
   it('returns allAnswered: false for tiebreak when only one tiebreaker has answered', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeSupabase({ tiebreakPlayers: ['p1', 'p2'], answerCount: 1, aliveCount: 5 })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.allAnswered).toBe(false)
+  })
+
+  // --- Bracket answer scoping ---
+
+  it('returns 403 when a non-participant answers a semifinal round', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'semifinal', sessionBracket: SEMI_BRACKET })
+    )
+    // p3 is in SF2 — the current match is SF1 (p1 vs p2)
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p3', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('Not a match participant')
+  })
+
+  it('returns 200 when the current semifinal participant answers', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'semifinal', sessionBracket: SEMI_BRACKET })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 403 when a non-finalist answers a final round', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'final', sessionBracket: FINAL_BRACKET })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p3', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(403)
+  })
+
+  it('returns 200 when a finalist answers a final round', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'final', sessionBracket: FINAL_BRACKET })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p2', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+  })
+
+  it('counts only match participants toward all-answered in a semifinal', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'semifinal', sessionBracket: SEMI_BRACKET, answerCount: 2, aliveCount: 4 })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p2', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.allAnswered).toBe(true)
+  })
+
+  it('does not flag all-answered in a semifinal while a match player is still typing', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ sessionPhase: 'semifinal', sessionBracket: SEMI_BRACKET, answerCount: 1, aliveCount: 4 })
     )
     const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
     expect(res.status).toBe(200)

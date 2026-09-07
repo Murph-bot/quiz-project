@@ -11,6 +11,30 @@ interface Props {
   onReady: () => void
 }
 
+function MatchCard({
+  match,
+  label,
+  highlighted,
+}: {
+  match: BracketState['sf1']
+  label: string
+  highlighted: boolean
+}) {
+  return (
+    <div className={`${highlighted ? 'rounded-2xl shadow-qk-neon' : ''}`}>
+      <Card padding="md" className={highlighted ? 'border-qk-cyan/70' : ''}>
+        <p className="text-xs font-bold text-qk-label uppercase tracking-widest mb-3">{label}</p>
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-black text-qk-text text-lg">{match.p1}</span>
+          <span className="text-qk-magenta font-black text-sm">VS</span>
+          <span className="font-black text-qk-text text-lg">{match.p2}</span>
+        </div>
+        <p className="text-xs text-qk-muted text-center mt-2">First to 2 nearest wins</p>
+      </Card>
+    </div>
+  )
+}
+
 export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
   const [countdown, setCountdown] = useState(5)
   const onReadyRef = useRef(onReady)
@@ -28,22 +52,6 @@ export function BracketScreen({ bracket, myPlayerId, onReady }: Props) {
 
   const isInSF1 = bracket.sf1.p1id === myPlayerId || bracket.sf1.p2id === myPlayerId
   const isInSF2 = bracket.sf2.p1id === myPlayerId || bracket.sf2.p2id === myPlayerId
-
-  function MatchCard({ match, label, highlighted }: { match: typeof bracket.sf1; label: string; highlighted: boolean }) {
-    return (
-      <div className={`${highlighted ? 'rounded-2xl shadow-qk-neon' : ''}`}>
-        <Card padding="md" className={highlighted ? 'border-qk-cyan/70' : ''}>
-        <p className="text-xs font-bold text-qk-label uppercase tracking-widest mb-3">{label}</p>
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-black text-qk-text text-lg">{match.p1}</span>
-          <span className="text-qk-magenta font-black text-sm">VS</span>
-          <span className="font-black text-qk-text text-lg">{match.p2}</span>
-        </div>
-        <p className="text-xs text-qk-muted text-center mt-2">First to 2 nearest wins</p>
-        </Card>
-      </div>
-    )
-  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">

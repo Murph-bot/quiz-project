@@ -27,8 +27,11 @@ export function useSessionStatusPoll({
   const router = useRouter()
   const navigateOnRef = useRef(navigateOn)
   const getPathRef = useRef(getPath)
-  navigateOnRef.current = navigateOn
-  getPathRef.current = getPath
+
+  useEffect(() => {
+    navigateOnRef.current = navigateOn
+    getPathRef.current = getPath
+  }, [navigateOn, getPath])
 
   useEffect(() => {
     if (!enabled) return

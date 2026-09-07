@@ -38,7 +38,12 @@ export function AdminShell() {
     setLoading(false)
   }, [page, categoryFilter, search])
 
-  useEffect(() => { fetchQuestions() }, [fetchQuestions])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchQuestions()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [fetchQuestions])
 
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this question?')) return

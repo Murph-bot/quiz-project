@@ -23,6 +23,21 @@ export function inferMatchPhaseFromBracket(b: BracketState): MatchPhase | null {
   return null
 }
 
+/** The two players of the current bracket match, or null outside bracket phases. */
+export function getBracketMatchPlayerIds(session: {
+  phase?: string | null
+  bracket?: BracketState | null
+}): string[] | null {
+  if (session.phase !== 'semifinal' && session.phase !== 'final') return null
+  if (!session.bracket) return null
+  if (session.phase === 'final') {
+    return session.bracket.finalists ?? null
+  }
+  const sf =
+    session.bracket.currentSF === 1 ? session.bracket.sf1 : session.bracket.sf2
+  return sf ? [sf.p1id, sf.p2id] : null
+}
+
 /** Am I one of the two players competing in the current bracket match? */
 export function isCompetingInMatch(
   bd: BracketState | null,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getBracketMatchPlayerIds } from '@/lib/bracket'
 import { closeBracketRound } from '@/lib/game/closeBracket'
 import {
   buildRankedAnswers,
@@ -52,12 +53,18 @@ export async function closeRoundHandler(
 
     let eligible = tiebreakPlayers?.length ?? 0
     if (!tiebreakPlayers || tiebreakPlayers.length === 0) {
-      const { count } = await supabase
-        .from('players')
-        .select('id', { count: 'exact', head: true })
-        .eq('session_id', session.id)
-        .eq('is_alive', true)
-      eligible = count ?? 0
+      // Bracket rounds: only the current match pair can answer.
+      const matchPlayerIds = getBracketMatchPlayerIds(session)
+      if (matchPlayerIds) {
+        eligible = matchPlayerIds.length
+      } else {
+        const { count } = await supabase
+          .from('players')
+          .select('id', { count: 'exact', head: true })
+          .eq('session_id', session.id)
+          .eq('is_alive', true)
+        eligible = count ?? 0
+      }
     }
 
     if (eligible === 0 || (answerCount ?? 0) < eligible) {

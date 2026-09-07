@@ -1,5 +1,6 @@
 import {
   getBracketFinalists,
+  getBracketMatchPlayerIds,
   getFinalistNickname,
   inferMatchPhaseFromBracket,
   isBracketFinalist,
@@ -57,5 +58,19 @@ describe('bracket helpers', () => {
     expect(getFinalistNickname(bracket, 'p1')).toBe('A')
     expect(getFinalistNickname(bracket, 'p3')).toBe('C')
     expect(getFinalistNickname(bracket, 'unknown')).toBe('unknown')
+  })
+
+  it('returns the current match pair for bracket phases', () => {
+    const sf1 = { ...bracket, currentSF: 1 as const, finalists: [] }
+    expect(getBracketMatchPlayerIds({ phase: 'semifinal', bracket: sf1 })).toEqual(['p1', 'p2'])
+    const sf2 = { ...bracket, currentSF: 2 as const, finalists: [] }
+    expect(getBracketMatchPlayerIds({ phase: 'semifinal', bracket: sf2 })).toEqual(['p3', 'p4'])
+    expect(getBracketMatchPlayerIds({ phase: 'final', bracket })).toEqual(['p1', 'p3'])
+  })
+
+  it('returns null outside bracket phases or when the bracket is missing', () => {
+    expect(getBracketMatchPlayerIds({ phase: 'normal', bracket })).toBeNull()
+    expect(getBracketMatchPlayerIds({ phase: 'semifinal', bracket: null })).toBeNull()
+    expect(getBracketMatchPlayerIds({ phase: 'final', bracket: null })).toBeNull()
   })
 })

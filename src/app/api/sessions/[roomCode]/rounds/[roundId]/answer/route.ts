@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { broadcastToRoom } from '@/lib/realtime'
 import { normalizeRoomCode } from '@/lib/roomCode'
+import { getBracketMatchPlayerIds } from '@/lib/bracket'
 
 export async function POST(
   req: NextRequest,
@@ -26,13 +27,15 @@ export async function POST(
 
   const { data: session, error: sessionError } = await supabase
     .from('sessions')
-    .select('id')
+    .select('id, phase, bracket')
     .eq('room_code', roomCode)
     .single()
 
   if (sessionError || !session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
+
+  const sessionRow = session as unknown as import('@/types').Session
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
@@ -70,6 +73,12 @@ export async function POST(
     return NextResponse.json({ error: 'Not a tiebreak participant' }, { status: 403 })
   }
 
+  // In bracket phases only the two players of the current match may answer.
+  const matchPlayerIds = getBracketMatchPlayerIds(sessionRow)
+  if (matchPlayerIds && !matchPlayerIds.includes(playerId)) {
+    return NextResponse.json({ error: 'Not a match participant' }, { status: 403 })
+  }
+
   const { error: insertError } = await supabase
     .from('answers')
     .insert({ round_id: roundId, player_id: playerId, value })
@@ -93,6 +102,9 @@ export async function POST(
   let eligibleCount: number | null = null
   if (tiebreakParticipants) {
     eligibleCount = tiebreakParticipants.length
+  } else if (matchPlayerIds) {
+    // Bracket rounds: only the two match players count toward all-answered.
+    eligibleCount = matchPlayerIds.length
   } else {
     const { count } = await supabase
       .from('players')

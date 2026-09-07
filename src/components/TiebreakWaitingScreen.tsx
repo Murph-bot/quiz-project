@@ -13,11 +13,14 @@ export function TiebreakWaitingScreen({ roundNumber, deadlineMs }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(0)
 
   useEffect(() => {
-    setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
-    const interval = setInterval(() => {
-      setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
-    }, 500)
-    return () => clearInterval(interval)
+    const update = () => setSecondsLeft(Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000)))
+    // Deferred so the initial value renders before state updates.
+    const timer = setTimeout(update, 0)
+    const interval = setInterval(update, 500)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
   }, [deadlineMs])
 
   return (

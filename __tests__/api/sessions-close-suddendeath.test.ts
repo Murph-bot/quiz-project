@@ -121,7 +121,7 @@ function makeSuddenDeathAllTieMock({
         if (n === 3) {
           // SELECT question_id (used rounds) for createTiebreakRound
           const roundsData = { data: [], error: null }
-          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+          const chainableEq = Object.assign(Promise.resolve(roundsData), {
             eq: jest.fn().mockResolvedValue(roundsData),
             is: jest.fn().mockResolvedValue(roundsData),
           })
@@ -454,7 +454,7 @@ function makeNPlayerReplayResolutionMock({
         }
         if (n === 3) {
           const roundsData = { data: [], error: null }
-          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+          const chainableEq = Object.assign(Promise.resolve(roundsData), {
             eq: jest.fn().mockResolvedValue(roundsData),
             is: jest.fn().mockResolvedValue(roundsData),
           })

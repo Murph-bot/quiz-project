@@ -128,10 +128,10 @@ function makeDetectionMock({
           //   bracketReady:       .select(...).eq('session_id',x).eq('status','closed').is('tiebreak_players',null) → await is()
           // Make each method return a thenable that also has the next method so both patterns work.
           const roundsData = { data: [], error: null }
-          const chainableIs: any = Object.assign(Promise.resolve(roundsData), {
+          const chainableIs = Object.assign(Promise.resolve(roundsData), {
             is: jest.fn().mockResolvedValue(roundsData),
           })
-          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+          const chainableEq = Object.assign(Promise.resolve(roundsData), {
             eq: jest.fn().mockReturnValue(chainableIs),
             is: jest.fn().mockResolvedValue(roundsData),
           })
@@ -367,10 +367,10 @@ function makeResolutionMock({
           // SELECT question_id (used rounds) for still-tied path
           // OR SELECT rounds with answers for generateBracketForSession (chains .eq().eq().is())
           const roundsData3 = { data: [], error: null }
-          const chainableIs3: any = Object.assign(Promise.resolve(roundsData3), {
+          const chainableIs3 = Object.assign(Promise.resolve(roundsData3), {
             is: jest.fn().mockResolvedValue(roundsData3),
           })
-          const chainableEq3: any = Object.assign(Promise.resolve(roundsData3), {
+          const chainableEq3 = Object.assign(Promise.resolve(roundsData3), {
             eq: jest.fn().mockReturnValue(chainableIs3),
             is: jest.fn().mockResolvedValue(roundsData3),
             order: jest.fn().mockReturnThis(),

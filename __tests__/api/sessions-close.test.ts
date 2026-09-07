@@ -162,20 +162,16 @@ function makeCloseMock({
 
 function makeWorstTiebreakMock({
   rawAnswers,
-  tiedIds,
 }: {
   rawAnswers: Array<{ player_id: string; value: number; players: { nickname: string } }>
-  tiedIds: string[]
 }) {
-  return makeAllWrongReplayMock({ rawAnswers, tiebreakPlayerIds: tiedIds })
+  return makeAllWrongReplayMock({ rawAnswers })
 }
 
 function makeAllWrongReplayMock({
   rawAnswers,
-  tiebreakPlayerIds,
 }: {
   rawAnswers: Array<{ player_id: string; value: number; players: { nickname: string } }>
-  tiebreakPlayerIds?: string[]
 }) {
   const replayQuestion = {
     id: 'q-replay',
@@ -244,7 +240,7 @@ function makeAllWrongReplayMock({
         }
         if (n === 3) {
           const roundsData = { data: [], error: null }
-          const chainableEq: any = Object.assign(Promise.resolve(roundsData), {
+          const chainableEq = Object.assign(Promise.resolve(roundsData), {
             eq: jest.fn().mockResolvedValue(roundsData),
             is: jest.fn().mockResolvedValue(roundsData),
           })
@@ -540,7 +536,7 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
       { player_id: 'p3', value: 1973, players: { nickname: 'Nick' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeWorstTiebreakMock({ rawAnswers: tiedWorstAnswers, tiedIds: ['p2', 'p3'] }),
+      makeWorstTiebreakMock({ rawAnswers: tiedWorstAnswers }),
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()
@@ -556,7 +552,7 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/close', () => {
       { player_id: 'p3', value: 1973, players: { nickname: 'Nick' } },
     ]
     ;(createServerClient as jest.Mock).mockReturnValue(
-      makeWorstTiebreakMock({ rawAnswers: tiedAnswers, tiedIds: ['p2', 'p3'] }),
+      makeWorstTiebreakMock({ rawAnswers: tiedAnswers }),
     )
     const res = await POST(makeRequest('AB12', 'round-1'), params('AB12', 'round-1'))
     const body = await res.json()

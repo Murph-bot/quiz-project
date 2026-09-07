@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { generateRoomCode } from '@/lib/roomCode'
 import { checkRateLimit, clientKey } from '@/lib/rateLimit'
+import { computeRejoinCode } from '@/lib/rejoinCode'
 
 const MAX_RETRIES = 5
 const CREATE_LIMIT = 10
@@ -76,5 +77,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create player' }, { status: 500 })
   }
 
-  return NextResponse.json({ roomCode, playerId, sessionSecret }, { status: 201 })
+  return NextResponse.json(
+    { roomCode, playerId, sessionSecret, rejoinCode: await computeRejoinCode(sessionSecret) },
+    { status: 201 },
+  )
 }
