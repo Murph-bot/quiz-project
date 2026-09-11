@@ -31,7 +31,19 @@ jobs:
       - name: Test
         run: npm test -- --ci
 
+      - name: Check Cloudflare credentials
+        id: cf
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy to Cloudflare Workers
+        if: steps.cf.outputs.present == 'true'
         run: npx opennextjs-cloudflare deploy
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -39,7 +51,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Deploy skipped notice
+        if: steps.cf.outputs.present != 'true'
+        run: echo "::notice::Cloudflare deploy skipped — add the CLOUDFLARE_API_TOKEN repo secret to enable it."
+
       - name: Set worker runtime secrets
+        if: steps.cf.outputs.present == 'true'
         run: |
           cat > /tmp/secrets.json <<'SECRETS'
           {
