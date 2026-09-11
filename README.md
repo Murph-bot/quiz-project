@@ -47,6 +47,7 @@ once the CLI is available.
 ```bash
 npm run dev     # dev server (127.0.0.1:3000)
 npm test        # jest — use `npx jest --runInBand` if a worker crashes
+npm run test:e2e # playwright golden path — env-gated, see below
 npm run lint    # eslint
 npm run build   # production build
 ```
@@ -67,6 +68,25 @@ npm run build   # production build
   `src/lib/game/gameRoundTransitions.ts`.
 - **Rate limiting** (`src/lib/rateLimit.ts`) is an in-memory fixed window on
   session create/join — a soft cap only; it does not span serverless instances.
+
+## E2E testing
+
+`e2e/golden-path.spec.ts` covers create → join → start → answer → reveal with
+three real browser contexts. It is **env-gated**: without the vars below every
+test skips, so `npm run test:e2e` is a no-op locally until configured.
+
+```bash
+export E2E_BASE_URL=http://localhost:3000            # app under test
+export E2E_SUPABASE_URL=https://<test-project>.supabase.co
+export E2E_SUPABASE_SERVICE_ROLE_KEY=<test-key>
+npx playwright install chromium   # one-time browser install
+npm run dev                       # app pointed at the TEST project
+npm run test:e2e
+```
+
+Point these at a **dedicated test Supabase project**, never production — the
+spec seeds and deletes real rows. The app under test must use the same test
+project in its own env. CI can run it once those secrets exist.
 
 ## Hosting
 
