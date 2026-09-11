@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.de.sentry.io",
               "img-src 'self' data:",
               "font-src 'self'",
               "frame-ancestors 'none'",

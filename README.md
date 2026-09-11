@@ -31,10 +31,11 @@ npm run dev                  # http://localhost:3000
 | `ADMIN_SECRET` | server | Admin panel login (`/admin`) |
 | `CLEANUP_SECRET` | server | Netlify scheduled-cleanup + manual `/api/cleanup` calls |
 | `CRON_SECRET` | server | Vercel cron calls to `/api/cleanup` (only if Vercel crons are enabled) |
+| `NEXT_PUBLIC_SENTRY_DSN` | client + server | Optional — Sentry error monitoring; leave unset to keep the SDK inert |
 
 ### Database
 
-Migrations live in `supabase/migrations/` (`001`–`011`). There is no local
+Migrations live in `supabase/migrations/` (`001`–`013`). There is no local
 Supabase CLI setup — apply them in order in the Supabase **SQL editor**.
 `011_normalize_categories.sql` includes apply notes in its header. Seed data is
 in `supabase/seed.sql`. `src/lib/database.types.ts` is hand-maintained to match

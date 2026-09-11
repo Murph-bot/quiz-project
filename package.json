@@ -13,6 +13,7 @@
     "netlify:deploy": "netlify deploy --prod"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.74.0",
     "@supabase/supabase-js": "^2.99.1",
     "@tailwindcss/postcss": "^4.2.1",
     "next": "16.1.6",
