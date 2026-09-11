@@ -1,6 +1,7 @@
 'use client'
 
 import { Card } from '@/components/ui/Card'
+import { MuteToggle } from '@/components/ui/MuteToggle'
 import { formatNumber } from '@/lib/format'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
@@ -32,10 +33,11 @@ export function RevealPanel({
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
-        <div className="text-center">
+        <div className="text-center relative">
           <span className="bg-qk-surface/80 text-qk-text border border-qk-violet/30 px-3 py-1 rounded-full text-xs font-bold">
             ROUND {roundNumber} — RESULTS
           </span>
+          <MuteToggle className="absolute right-0 -top-2" />
         </div>
 
         {winner && (

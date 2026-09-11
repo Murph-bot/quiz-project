@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useCountdown } from '@/hooks/useCountdown'
 import { useGameRoomEvents } from '@/hooks/useGameRoomEvents'
 import { usePlayerSession } from '@/hooks/usePlayerSession'
+import { useWakeLock } from '@/hooks/useWakeLock'
+import { playSfx } from '@/lib/sfx'
 import type {
   NextRoundPayload,
   PendingTiebreak,
@@ -371,6 +373,28 @@ export function GameScreen({
       clearTimeout(redirect)
     }
   }, [phase, router])
+
+  // Keep the screen awake while a question is live or closing.
+  useWakeLock(phase === 'answering' || phase === 'waiting')
+
+  // Phase-change sound + haptic cues.
+  useEffect(() => {
+    if (phase === 'reveal') {
+      const wasEliminated = playerId !== null && eliminated.some((e) => e.playerId === playerId)
+      if (wasEliminated) {
+        playSfx('eliminated')
+        navigator.vibrate?.([80, 60, 80])
+      } else {
+        playSfx('survived')
+      }
+    } else if (phase === 'winner') {
+      playSfx('victory')
+    } else if (phase === 'answering') {
+      playSfx('roundStart')
+    }
+    // eliminated/playerId are read at the moment the phase flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   useGameRoomEvents({
     roomCode,

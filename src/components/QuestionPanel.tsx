@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCountdown } from '@/hooks/useCountdown'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
+import { MuteToggle } from '@/components/ui/MuteToggle'
 import { formatNumber } from '@/lib/format'
+import { playSfx } from '@/lib/sfx'
 
 interface Props {
   roundNumber: number
@@ -34,11 +36,20 @@ export function QuestionPanel({
   const disabled = isWaiting || submitted || (secondsLeft === 0 && !isGracePeriod)
   const isUrgent = secondsLeft <= 4 && secondsLeft > 0
 
+  // Ticking under 5s while actively answering.
+  useEffect(() => {
+    if (!isWaiting && !isGracePeriod && secondsLeft > 0 && secondsLeft <= 5) {
+      playSfx('tick')
+    }
+  }, [secondsLeft, isWaiting, isGracePeriod])
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (disabled || input === '') return
     const value = parseInt(input, 10)
     if (!Number.isInteger(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) return
+    playSfx('lockIn')
+    navigator.vibrate?.(50)
     setSubmittedValue(value)
     onSubmit(value)
   }
@@ -57,9 +68,12 @@ export function QuestionPanel({
           <span className="bg-qk-surface/80 text-qk-text border border-qk-violet/30 px-3 py-1 rounded-full text-xs font-bold">
             ROUND {roundNumber}
           </span>
-          <span className="bg-qk-surface/80 text-qk-label border border-qk-violet/30 px-3 py-1 rounded-full text-xs font-bold uppercase">
-            {question.category}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="bg-qk-surface/80 text-qk-label border border-qk-violet/30 px-3 py-1 rounded-full text-xs font-bold uppercase">
+              {question.category}
+            </span>
+            <MuteToggle />
+          </div>
         </div>
 
         <Card className="text-center" padding="md">

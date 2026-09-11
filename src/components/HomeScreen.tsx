@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { MuteToggle } from '@/components/ui/MuteToggle'
 
 const inputClass =
   'w-full bg-qk-inset border border-qk-violet/30 rounded-2xl px-5 text-qk-text placeholder-qk-muted/70 font-black focus:outline-none focus:border-qk-cyan/70 focus:shadow-qk-neon-sm'
@@ -114,9 +115,10 @@ export default function HomeScreen() {
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-safe pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
-        <div className="text-center">
+        <div className="text-center relative">
           <h1 className="text-4xl font-black text-qk-text tracking-tight">⚔️ QuizKnight</h1>
           <p className="text-qk-muted text-sm mt-1 font-medium">Last one standing wins</p>
+          <MuteToggle className="absolute right-0 top-0" />
         </div>
 
         <Card padding="lg" className="flex flex-col gap-5 overflow-hidden">
