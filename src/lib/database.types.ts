@@ -95,6 +95,8 @@ export interface Database {
           answer: number
           category: string
           time_limit: number
+          unit: string | null
+          hint: string | null
         }
         Insert: {
           id?: string
@@ -102,6 +104,8 @@ export interface Database {
           answer: number
           category: string
           time_limit: number
+          unit?: string | null
+          hint?: string | null
         }
         Update: {
           id?: string
@@ -109,6 +113,8 @@ export interface Database {
           answer?: number
           category?: string
           time_limit?: number
+          unit?: string | null
+          hint?: string | null
         }
         Relationships: []
       }
@@ -121,7 +127,6 @@ export interface Database {
           started_at: string
           status: RoundStatus
           tiebreak_players: string[] | null
-          options: number[] | null
         }
         Insert: {
           id?: string
@@ -131,7 +136,6 @@ export interface Database {
           started_at?: string
           status?: RoundStatus
           tiebreak_players?: string[] | null
-          options?: number[] | null
         }
         Update: {
           id?: string
@@ -141,7 +145,6 @@ export interface Database {
           started_at?: string
           status?: RoundStatus
           tiebreak_players?: string[] | null
-          options?: number[] | null
         }
         Relationships: []
       }

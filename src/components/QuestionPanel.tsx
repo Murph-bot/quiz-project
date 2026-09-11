@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useCountdown } from '@/hooks/useCountdown'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
+import { formatNumber } from '@/lib/format'
 
 interface Props {
   roundNumber: number
@@ -101,7 +102,7 @@ export function QuestionPanel({
               className="w-full min-h-[56px] rounded-2xl py-4 text-2xl font-black text-center bg-qk-cyan/10 text-qk-cyan border border-qk-cyan/80 shadow-[inset_0_0_18px_rgb(94_239_255_/_0.18),0_0_8px_rgb(94_239_255_/_0.22)]"
               aria-live="polite"
             >
-              {submittedValue}
+              {formatNumber(submittedValue)}
             </div>
           ) : (
             <>

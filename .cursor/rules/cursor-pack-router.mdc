@@ -1,0 +1,37 @@
+---
+description: Routes Cursor agent to the right skills and rules for your projects. Always apply.
+alwaysApply: true
+---
+# Cursor Pack Router
+
+You have access to **everything-cursor-code** — a personal skill/rule pack.
+
+## On session start
+
+1. Identify which repo you're in: `quizknight`, `club_website`, or `portfolio_website`
+2. If `.cursor/PROJECT.md` exists, read it
+3. Otherwise read the matching file from the pack's `projects/` folder when doing non-trivial work
+
+## Skill discovery
+
+Skills live in `~/.cursor/skills/` (after `./install.sh global`). Cursor loads them by **description** — you do not need the user to name the skill file.
+
+**Prefer reading the skill** (`SKILL.md`) when:
+- Starting a specialized workflow (TDD, E2E, security review)
+- Working on deploy (Vercel vs Netlify)
+- Unsure of project conventions
+
+## Subagents
+
+Use the **Task** tool with `subagent_type` for focused work:
+- `planner`, `code-reviewer`, `tdd-guide`, `build-error-resolver`, `security-reviewer`, `explore`
+
+## Do not use (Claude legacy)
+
+- `~/.claude/` paths
+- `/plugin install` or slash commands as APIs
+- `AskUserQuestion` — use **AskQuestion** tool instead
+
+## Master index
+
+Full map: `everything-cursor-code/CURSOR.md` in Documents or this repo.

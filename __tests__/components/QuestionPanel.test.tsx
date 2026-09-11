@@ -79,7 +79,7 @@ describe('QuestionPanel (free numeric input)', () => {
     const input = await getEnabledInput()
     fireEvent.change(input, { target: { value: '17508' } })
     fireEvent.click(screen.getByRole('button', { name: /lock it in/i }))
-    expect(screen.getByText('17508')).toBeInTheDocument()
+    expect(screen.getByText('17,508')).toBeInTheDocument()
     expect(screen.queryByLabelText('Your guess')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /lock it in/i })).not.toBeInTheDocument()
   })

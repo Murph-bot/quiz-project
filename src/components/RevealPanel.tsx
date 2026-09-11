@@ -1,6 +1,7 @@
 'use client'
 
 import { Card } from '@/components/ui/Card'
+import { formatNumber } from '@/lib/format'
 import type { RankedAnswer, EliminatedPlayer, WinnerInfo } from '@/types'
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -45,7 +46,7 @@ export function RevealPanel({
 
         <Card className="text-center" padding="md">
           <div className="text-xs font-bold text-qk-label uppercase tracking-widest">Correct Answer</div>
-          <div className="text-5xl font-black text-qk-cyan">{correctAnswer}</div>
+          <div className="text-5xl font-black text-qk-cyan">{formatNumber(correctAnswer)}</div>
         </Card>
 
         {spectatorBanner && (
@@ -91,7 +92,7 @@ export function RevealPanel({
                       <span
                         className={`font-black text-base ${isEliminated ? 'text-qk-danger' : 'text-qk-text'}`}
                       >
-                        {a.value}
+                        {formatNumber(a.value ?? 0)}
                       </span>
                       <span
                         className={`text-xs ml-2 ${
@@ -102,7 +103,7 @@ export function RevealPanel({
                               : 'text-qk-muted'
                         }`}
                       >
-                        {a.delta === 0 ? 'exact!' : `off by ${a.delta}`}
+                        {a.delta === 0 ? 'exact!' : `off by ${formatNumber(a.delta)}`}
                       </span>
                     </>
                   )}
