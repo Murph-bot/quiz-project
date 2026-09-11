@@ -52,6 +52,12 @@
   50%      { transform: rotate(8deg) scale(1.15); }
 }
 
+@keyframes answerReveal {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 @keyframes eliminationShake {
   0%, 100% { transform: translateX(0); }
   20% { transform: translateX(-4px); }
@@ -97,7 +103,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .phase-enter,
   .elimination-shake,
-  .qk-timer-ring-urgent {
+  .qk-timer-ring-urgent,
+  .qk-answer-reveal,
+  .qk-guess-reveal {
     animation: none !important;
   }
 }

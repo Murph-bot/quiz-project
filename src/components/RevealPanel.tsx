@@ -30,6 +30,13 @@ export function RevealPanel({
 }: Props) {
   const eliminatedIds = new Set(eliminated.map((e) => e.playerId))
 
+  // Dramatic sequencing: the answer lands first, then guesses flip in ranked
+  // order (best → worst, so the eliminated row is the final beat). Total
+  // stagger is capped to stay well inside the 12s auto-advance window.
+  const rowDelayMs = Math.min(500, 3600 / Math.max(answers.length, 1))
+  const firstRowMs = 600
+  const winnerBannerMs = firstRowMs + answers.length * rowDelayMs + 400
+
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh px-4 pt-4 pb-safe phase-enter">
       <div className="w-full max-w-sm flex flex-col gap-4">
@@ -41,13 +48,20 @@ export function RevealPanel({
         </div>
 
         {winner && (
-          <div className="bg-qk-warn/15 border border-qk-warn/50 rounded-2xl py-3 text-center">
+          <div
+            className="bg-qk-warn/15 border border-qk-warn/50 rounded-2xl py-3 text-center"
+            style={{ opacity: 0, animation: `fadeIn 0.4s ease ${winnerBannerMs}ms forwards` }}
+          >
             <div className="text-lg font-black text-qk-warn">🏆 {winner.nickname} wins!</div>
           </div>
         )}
 
-        <Card className="text-center" padding="md">
-          <div className="text-xs font-bold text-qk-label uppercase tracking-widest">Correct Answer</div>
+        <Card
+          className="text-center qk-answer-reveal"
+          padding="md"
+          style={{ opacity: 0, animation: 'answerReveal 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) 150ms both' }}
+        >
+          <div className="text-xs font-bold text-qk-label uppercase tracking-widest">The answer is…</div>
           <div className="text-5xl font-black text-qk-cyan">{formatNumber(correctAnswer)}</div>
         </Card>
 
@@ -60,21 +74,25 @@ export function RevealPanel({
           </div>
         )}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" aria-live="polite">
           {answers.map((a, i) => {
             const isEliminated = eliminatedIds.has(a.playerId)
+            const entryMs = firstRowMs + i * rowDelayMs
             return (
               <div
                 key={a.playerId}
-                className={`rounded-xl px-4 py-3 min-h-[44px] flex justify-between items-center border ${
+                className={`rounded-xl px-4 py-3 min-h-[44px] flex justify-between items-center border qk-guess-reveal ${
                   isEliminated
-                    ? 'bg-qk-danger/10 border-qk-danger/40 elimination-shake'
-                    : 'bg-qk-surface/80 border-qk-violet/25'
+                    ? 'bg-qk-danger/10 border-qk-danger/40'
+                    : i === 0 && !a.noAnswer
+                      ? 'bg-qk-cyan/10 border-qk-cyan/60 shadow-qk-neon-sm'
+                      : 'bg-qk-surface/80 border-qk-violet/25'
                 }`}
                 style={{
                   opacity: 0,
-                  animation: 'fadeIn 0.3s ease forwards',
-                  animationDelay: `${i * 50}ms`,
+                  animation: isEliminated
+                    ? `fadeIn 0.35s ease ${entryMs}ms forwards, eliminationShake 0.45s ease-in-out ${entryMs + 300}ms`
+                    : `fadeIn 0.35s ease ${entryMs}ms forwards`,
                 }}
               >
                 <div className="flex items-center gap-2">
