@@ -542,6 +542,7 @@ export function GameScreen({
         winner={winner}
         autoAdvanceIn={autoAdvanceIn}
         spectatorBanner={isSpectating ? (nickname ?? undefined) : null}
+        onSkipAhead={isHost ? advanceAfterReveal : undefined}
       />
     )
   }

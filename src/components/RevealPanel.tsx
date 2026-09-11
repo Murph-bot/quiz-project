@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card } from '@/components/ui/Card'
 import { MuteToggle } from '@/components/ui/MuteToggle'
 import { formatNumber } from '@/lib/format'
@@ -16,6 +17,8 @@ interface Props {
   winner: WinnerInfo | null
   autoAdvanceIn: number
   spectatorBanner?: string | null
+  /** Host only — advances immediately instead of waiting out the timer. */
+  onSkipAhead?: () => void
 }
 
 export function RevealPanel({
@@ -27,7 +30,9 @@ export function RevealPanel({
   winner,
   autoAdvanceIn,
   spectatorBanner,
+  onSkipAhead,
 }: Props) {
+  const [skipClicked, setSkipClicked] = useState(false)
   const eliminatedIds = new Set(eliminated.map((e) => e.playerId))
 
   // Dramatic sequencing: the answer lands first, then guesses flip in ranked
@@ -138,11 +143,26 @@ export function RevealPanel({
             Game over — results in <span className="font-bold text-qk-text">5s</span>
           </p>
         ) : (
-          autoAdvanceIn > 0 && (
-            <p className="text-center text-qk-muted text-xs">
-              Next question in <span className="font-bold text-qk-text">{autoAdvanceIn}s</span>
-            </p>
-          )
+          <>
+            {autoAdvanceIn > 0 && (
+              <p className="text-center text-qk-muted text-xs">
+                Next question in <span className="font-bold text-qk-text">{autoAdvanceIn}s</span>
+              </p>
+            )}
+            {onSkipAhead && (
+              <button
+                type="button"
+                disabled={skipClicked}
+                onClick={() => {
+                  setSkipClicked(true)
+                  onSkipAhead()
+                }}
+                className="w-full min-h-[48px] rounded-2xl py-3 text-base font-black transition-all active:scale-95 disabled:opacity-50 border bg-qk-cyan/10 text-qk-cyan border-qk-cyan/60 hover:bg-qk-cyan/20"
+              >
+                {skipClicked ? 'Advancing…' : 'Next →'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

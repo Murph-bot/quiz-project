@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import QRCode from 'react-qr-code'
 import { supabase } from '@/lib/supabase'
@@ -60,35 +60,40 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   })
 
   // Joined-player list from the server — presence alone only shows open tabs.
+  // Also doubles as kick detection: if our own player row disappears, we've
+  // been removed from the session.
+  const fetchJoined = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/sessions/${roomCode}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const rows = (data?.players ?? []) as Array<{
+        id: string
+        nickname: string
+        is_host: boolean
+        is_alive: boolean
+      }>
+      if (playerId && rows.length > 0 && !rows.some((p) => p.id === playerId)) {
+        router.push('/')
+        return
+      }
+      setJoinedPlayers(
+        rows.map((p) => ({ playerId: p.id, nickname: p.nickname, isHost: p.is_host })),
+      )
+    } catch {
+      // transient network errors — the next tick will retry
+    }
+  }, [roomCode, playerId, router])
+
   useEffect(() => {
     if (!ready) return
-    let cancelled = false
-    async function fetchJoined() {
-      try {
-        const res = await fetch(`/api/sessions/${roomCode}`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (cancelled) return
-        const rows = (data?.players ?? []) as Array<{
-          id: string
-          nickname: string
-          is_host: boolean
-          is_alive: boolean
-        }>
-        setJoinedPlayers(
-          rows.map((p) => ({ playerId: p.id, nickname: p.nickname, isHost: p.is_host })),
-        )
-      } catch {
-        // transient network errors — the next tick will retry
-      }
-    }
-    void fetchJoined()
+    const timer = setTimeout(() => void fetchJoined(), 0)
     const interval = setInterval(fetchJoined, 5000)
     return () => {
-      cancelled = true
+      clearTimeout(timer)
       clearInterval(interval)
     }
-  }, [roomCode, ready])
+  }, [ready, fetchJoined])
 
   useEffect(() => {
     if (!ready) return
@@ -127,6 +132,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           })
           .catch((err) => console.error('[host:changed] verify failed:', err))
       })
+      .on('broadcast', { event: 'player:kicked' }, () => {
+        // Hint only — the refetch authoritatively removes the row (and ejects
+        // us if we were the one kicked).
+        void fetchJoined()
+      })
       .on('broadcast', { event: 'game:started' }, () => {
         router.push(`/game/${roomCode}`)
       })
@@ -153,6 +163,7 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
     sessionSecret,
     handlePresenceSync,
     syncHostFromBroadcast,
+    fetchJoined,
   ])
 
   if (!ready) {
@@ -183,6 +194,17 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
       body: JSON.stringify({ resurrectionInterval: value, playerId, sessionSecret }),
     })
     if (!res.ok) setResurrectionInterval(previous)
+  }
+
+  async function handleKick(targetId: string, nick: string) {
+    if (!isHost || !playerId || !sessionSecret) return
+    if (!window.confirm(`Kick ${nick} from the lobby?`)) return
+    const res = await fetch(`/api/sessions/${roomCode}/players/${targetId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId, sessionSecret }),
+    })
+    if (res.ok) void fetchJoined()
   }
 
   async function handleStart() {
@@ -236,7 +258,11 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
           )}
         </div>
 
-        <PlayerList players={joinedPlayers} onlineIds={onlineIds} />
+        <PlayerList
+          players={joinedPlayers}
+          onlineIds={onlineIds}
+          onKickPlayer={isHost ? (id, nick) => void handleKick(id, nick) : undefined}
+        />
 
         {isHost && (
           <div className="flex flex-col gap-2">
