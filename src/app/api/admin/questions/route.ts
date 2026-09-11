@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 import { canonicalCategory } from '@/lib/categories'
+import { isMissingColumnError } from '@/lib/questionPicker'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -55,14 +56,16 @@ export async function POST(req: NextRequest) {
   if (unit != null && (typeof unit !== 'string' || unit.trim().length > 40)) return NextResponse.json({ error: 'unit must be a string of at most 40 characters' }, { status: 400 })
   if (hint != null && (typeof hint !== 'string' || hint.trim().length > 140)) return NextResponse.json({ error: 'hint must be a string of at most 140 characters' }, { status: 400 })
   const supabase = createServerClient()
-  const { data, error } = await supabase.from('questions').insert({
-    text: text.trim(),
-    answer,
-    category: questionCategory,
-    time_limit,
+  const row = { text: text.trim(), answer, category: questionCategory, time_limit }
+  const meta = {
     unit: typeof unit === 'string' && unit.trim() ? unit.trim() : null,
     hint: typeof hint === 'string' && hint.trim() ? hint.trim() : null,
-  }).select().single()
+  }
+  let { data, error } = await supabase.from('questions').insert({ ...row, ...meta }).select().single()
+  // unit/hint come from migration 012 — retry without them if absent.
+  if (isMissingColumnError(error)) {
+    ;({ data, error } = await supabase.from('questions').insert(row).select().single())
+  }
   if (error || !data) return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 import { QUESTION_CATEGORIES, canonicalCategory } from '@/lib/categories'
+import { isMissingColumnError } from '@/lib/questionPicker'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -58,7 +59,12 @@ export async function POST(req: NextRequest) {
   }
   if (errors.length > 0) return NextResponse.json({ errors }, { status: 422 })
   const supabase = createServerClient()
-  const { error } = await supabase.from('questions').insert(rows)
+  let { error } = await supabase.from('questions').insert(rows)
+  // unit/hint come from migration 012 — retry without them if absent.
+  if (isMissingColumnError(error)) {
+    const baseRows = rows.map((r) => ({ text: r.text, answer: r.answer, category: r.category, time_limit: r.time_limit }))
+    ;({ error } = await supabase.from('questions').insert(baseRows))
+  }
   if (error) { console.error('[import]', error.message); return NextResponse.json({ error: 'Import failed' }, { status: 500 }) }
   return NextResponse.json({ imported: rows.length })
 }

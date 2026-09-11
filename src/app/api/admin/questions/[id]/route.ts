@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 import { canonicalCategory } from '@/lib/categories'
+import { isMissingColumnError } from '@/lib/questionPicker'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -40,7 +41,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   const supabase = createServerClient()
-  const { data, error } = await supabase.from('questions').update(update).eq('id', id).select().single()
+  let { data, error } = await supabase.from('questions').update(update).eq('id', id).select().single()
+  // unit/hint come from migration 012 — retry without them if absent.
+  if (isMissingColumnError(error)) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { unit: _u, hint: _h, ...baseUpdate } = update
+    ;({ data, error } = await supabase.from('questions').update(baseUpdate).eq('id', id).select().single())
+  }
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(data)
 }

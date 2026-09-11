@@ -8,6 +8,12 @@ type Supabase = ReturnType<typeof createServerClient>
 export const QUESTION_COLS = 'id, text, answer, category, time_limit, unit, hint'
 export const QUESTION_COLS_BASE = 'id, text, answer, category, time_limit'
 
+/** PostgREST/Postgres "column does not exist" — schema predates migration 012. */
+export function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST204' || error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')
+}
+
 export async function fetchQuestionsForCategory(
   supabase: Supabase,
   category: string,
