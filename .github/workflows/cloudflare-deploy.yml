@@ -44,7 +44,7 @@ jobs:
 
       - name: Deploy to Cloudflare Workers
         if: steps.cf.outputs.present == 'true'
-        run: npx opennextjs-cloudflare deploy
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
