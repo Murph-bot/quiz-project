@@ -122,9 +122,6 @@ export default function HomeScreen() {
         </div>
 
         <Card padding="lg" className="flex flex-col gap-5 overflow-hidden">
-          <label htmlFor="nickname" className="text-sm font-bold text-qk-label uppercase tracking-wide">
-            Your nickname
-          </label>
           <form
             onSubmit={(e) => {
               e.preventDefault()
