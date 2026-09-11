@@ -130,7 +130,23 @@ describe('pendingTiebreakFromFollowUpRound', () => {
         text: 'Tiebreak Q?',
         timeLimit: 30,
         category: 'history',
+        unit: null,
+        hint: null,
       },
+    })
+  })
+
+  it('passes unit and hint metadata through to the tiebreak question', () => {
+    expect(
+      pendingTiebreakFromFollowUpRound({
+        id: 'r2',
+        status: 'active',
+        started_at: '2026-01-01T00:00:10.000Z',
+        tiebreak_players: ['alice'],
+        question: { ...question, unit: 'islands', hint: 'More than you think' },
+      }),
+    ).toMatchObject({
+      tiebreakQuestion: { unit: 'islands', hint: 'More than you think' },
     })
   })
 })

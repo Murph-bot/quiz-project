@@ -55,6 +55,8 @@ export interface Question {
   answer: number
   category: string
   time_limit: number
+  unit?: string | null
+  hint?: string | null
 }
 
 export interface RankedAnswer {

@@ -58,6 +58,8 @@ export async function POST(
     text: string
     timeLimit: number
     category: string
+    unit: string | null
+    hint: string | null
   } | null = null
 
   if (!skipInitialRound) {
@@ -83,6 +85,8 @@ export async function POST(
       text: question.text,
       timeLimit: question.time_limit,
       category: question.category,
+      unit: question.unit ?? null,
+      hint: question.hint ?? null,
     }
   }
 

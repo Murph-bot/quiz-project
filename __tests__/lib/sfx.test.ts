@@ -3,7 +3,6 @@
  */
 import { isMuted, setMuted, playSfx } from '@/lib/sfx'
 
-interface FakeGain { gain: { setValueAtTime: jest.Mock; linearRampToValueAtTime: jest.Mock; exponentialRampToValueAtTime: jest.Mock } }
 interface FakeOsc { type: string; frequency: { value: number }; connect: jest.Mock; start: jest.Mock; stop: jest.Mock }
 
 // One shared fake context — sfx.ts caches the AudioContext as a module

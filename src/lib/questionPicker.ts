@@ -3,16 +3,24 @@ import type { Question } from '@/types'
 
 type Supabase = ReturnType<typeof createServerClient>
 
+// unit/hint come from migration 012 — fall back to the base column set if the
+// migration hasn't been applied yet so question selection never breaks.
+export const QUESTION_COLS = 'id, text, answer, category, time_limit, unit, hint'
+export const QUESTION_COLS_BASE = 'id, text, answer, category, time_limit'
+
 export async function fetchQuestionsForCategory(
   supabase: Supabase,
   category: string,
 ): Promise<Question[]> {
-  let query = supabase.from('questions').select('id, text, answer, category, time_limit')
-  if (category !== 'all') {
-    query = query.ilike('category', category)
+  for (const cols of [QUESTION_COLS, QUESTION_COLS_BASE]) {
+    let query = supabase.from('questions').select(cols)
+    if (category !== 'all') {
+      query = query.ilike('category', category)
+    }
+    const { data, error } = await query
+    if (!error) return (data ?? []) as unknown as Question[]
   }
-  const { data } = await query
-  return (data ?? []) as Question[]
+  return []
 }
 
 export async function getUsedQuestionIds(
@@ -52,7 +60,7 @@ export type TiebreakRoundResult =
       ok: true
       roundId: string
       startedAt: string
-      question: { id: string; text: string; timeLimit: number; category: string }
+      question: { id: string; text: string; timeLimit: number; category: string; unit: string | null; hint: string | null }
     }
   | { ok: false; error: 'no_questions' | 'insert_failed' }
 
@@ -96,6 +104,8 @@ export async function createTiebreakRound(
       text: tbQuestion.text,
       timeLimit: tbQuestion.time_limit,
       category: tbQuestion.category,
+      unit: tbQuestion.unit ?? null,
+      hint: tbQuestion.hint ?? null,
     },
   }
 }

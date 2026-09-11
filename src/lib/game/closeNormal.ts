@@ -14,7 +14,7 @@ interface CloseNormalParams {
   skippedElimination: boolean
   tiebreakNeeded: boolean
   tiebreakRoundId: string | null
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
+  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
 }

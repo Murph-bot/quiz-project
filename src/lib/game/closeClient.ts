@@ -47,6 +47,8 @@ export interface FollowUpTiebreakRound {
     text: string
     time_limit: number
     category: string
+    unit?: string | null
+    hint?: string | null
   } | null
 }
 
@@ -55,7 +57,7 @@ export function pendingTiebreakFromFollowUpRound(round: FollowUpTiebreakRound | 
   tiebreakRoundId: string
   tiebreakStartedAt: string
   tiebreakPlayerIds: string[]
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string }
+  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit: string | null; hint: string | null }
 } | null {
   if (!round || round.status !== 'active') return null
   if (!Array.isArray(round.tiebreak_players) || round.tiebreak_players.length === 0) return null
@@ -70,6 +72,8 @@ export function pendingTiebreakFromFollowUpRound(round: FollowUpTiebreakRound | 
       text: round.question.text,
       timeLimit: round.question.time_limit,
       category: round.question.category,
+      unit: round.question.unit ?? null,
+      hint: round.question.hint ?? null,
     },
   }
 }

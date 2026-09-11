@@ -10,7 +10,7 @@ import { playSfx } from '@/lib/sfx'
 
 interface Props {
   roundNumber: number
-  question: { id: string; text: string; timeLimit: number; category: string }
+  question: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null }
   startedAt: string
   isWaiting: boolean
   isGracePeriod: boolean
@@ -106,6 +106,16 @@ export function QuestionPanel({
 
         <Card className="text-center" padding="md">
           <p className="text-qk-text font-bold text-lg leading-snug">{question.text}</p>
+          {question.unit && (
+            <p className="mt-2">
+              <span className="inline-block bg-qk-violet/20 text-qk-violet border border-qk-violet/40 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                in {question.unit}
+              </span>
+            </p>
+          )}
+          {question.hint && (
+            <p className="text-qk-muted text-sm mt-2 italic">💡 {question.hint}</p>
+          )}
         </Card>
       </div>
 

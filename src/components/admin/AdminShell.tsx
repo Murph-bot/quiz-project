@@ -8,6 +8,8 @@ interface Question {
   answer: number
   category: string
   time_limit: number
+  unit: string | null
+  hint: string | null
 }
 
 export function AdminShell() {
@@ -20,7 +22,7 @@ export function AdminShell() {
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<Partial<Question>>({})
-  const [addForm, setAddForm] = useState({ text: '', answer: '', category: 'History', time_limit: '30' })
+  const [addForm, setAddForm] = useState({ text: '', answer: '', category: 'History', time_limit: '30', unit: '', hint: '' })
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [importResult, setImportResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -67,10 +69,10 @@ export function AdminShell() {
     const res = await fetch('/api/admin/questions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: addForm.text, answer: parseInt(addForm.answer), category: addForm.category, time_limit: parseInt(addForm.time_limit) }),
+      body: JSON.stringify({ text: addForm.text, answer: parseInt(addForm.answer), category: addForm.category, time_limit: parseInt(addForm.time_limit), unit: addForm.unit || null, hint: addForm.hint || null }),
     })
     if (res.ok) {
-      setAddForm({ text: '', answer: '', category: 'history', time_limit: '15' })
+      setAddForm({ text: '', answer: '', category: 'History', time_limit: '30', unit: '', hint: '' })
       fetchQuestions()
     } else {
       const d = await res.json()
@@ -118,6 +120,8 @@ export function AdminShell() {
             {QUESTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
           <input className="border rounded px-3 py-2 text-sm w-20" placeholder="Time (s)" type="number" value={addForm.time_limit} onChange={e => setAddForm(f => ({ ...f, time_limit: e.target.value }))} required />
+          <input className="border rounded px-3 py-2 text-sm w-28" placeholder="Unit (opt)" maxLength={40} value={addForm.unit} onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} />
+          <input className="border rounded px-3 py-2 text-sm flex-1 min-w-[140px]" placeholder="Hint (optional)" maxLength={140} value={addForm.hint} onChange={e => setAddForm(f => ({ ...f, hint: e.target.value }))} />
           <button type="submit" className="bg-qk-field text-qk-text rounded px-4 py-2 text-sm font-bold hover:bg-qk-void">Add</button>
           {error && <p className="w-full text-red-500 text-sm">{error}</p>}
         </form>
@@ -126,7 +130,7 @@ export function AdminShell() {
       {/* CSV Import */}
       <div className="bg-white rounded-xl p-4 mb-6 shadow-sm">
         <h2 className="font-bold text-gray-700 mb-3">Import CSV</h2>
-        <p className="text-xs text-gray-400 mb-2">Format: <code>text,answer,category,time_limit</code> — categories: {QUESTION_CATEGORIES.join(', ')}</p>
+        <p className="text-xs text-gray-400 mb-2">Format: <code>text,answer,category,time_limit</code> (optionally <code>,unit,hint</code>) — categories: {QUESTION_CATEGORIES.join(', ')}</p>
         <form onSubmit={handleImport} className="flex gap-2 items-center">
           <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files?.[0] ?? null)} className="text-sm" />
           <button type="submit" disabled={!csvFile} className="bg-gray-700 text-white rounded px-4 py-2 text-sm font-bold hover:bg-gray-900 disabled:opacity-40">Import</button>
@@ -161,7 +165,13 @@ export function AdminShell() {
                 <tr key={q.id} className="hover:bg-gray-50">
                   {editingId === q.id ? (
                     <>
-                      <td className="px-4 py-2"><textarea className="border rounded px-2 py-1 text-sm w-full" value={editValues.text ?? q.text} onChange={e => setEditValues(v => ({ ...v, text: e.target.value }))} rows={2} /></td>
+                      <td className="px-4 py-2">
+                        <textarea className="border rounded px-2 py-1 text-sm w-full" value={editValues.text ?? q.text} onChange={e => setEditValues(v => ({ ...v, text: e.target.value }))} rows={2} />
+                        <div className="flex gap-1 mt-1">
+                          <input className="border rounded px-2 py-1 text-xs w-24" placeholder="Unit" maxLength={40} value={editValues.unit ?? q.unit ?? ''} onChange={e => setEditValues(v => ({ ...v, unit: e.target.value }))} />
+                          <input className="border rounded px-2 py-1 text-xs flex-1" placeholder="Hint" maxLength={140} value={editValues.hint ?? q.hint ?? ''} onChange={e => setEditValues(v => ({ ...v, hint: e.target.value }))} />
+                        </div>
+                      </td>
                       <td className="px-4 py-2"><input type="number" className="border rounded px-2 py-1 text-sm w-20" value={editValues.answer ?? q.answer} onChange={e => setEditValues(v => ({ ...v, answer: parseInt(e.target.value) }))} /></td>
                       <td className="px-4 py-2"><select className="border rounded px-2 py-1 text-sm" value={editValues.category ?? q.category} onChange={e => setEditValues(v => ({ ...v, category: e.target.value }))}>{QUESTION_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                       <td className="px-4 py-2"><input type="number" className="border rounded px-2 py-1 text-sm w-16" value={editValues.time_limit ?? q.time_limit} onChange={e => setEditValues(v => ({ ...v, time_limit: parseInt(e.target.value) }))} /></td>
@@ -172,7 +182,15 @@ export function AdminShell() {
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3 text-gray-800">{q.text}</td>
+                      <td className="px-4 py-3 text-gray-800">
+                        {q.text}
+                        {(q.unit || q.hint) && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {q.unit && <span className="mr-2">unit: {q.unit}</span>}
+                            {q.hint && <span>hint: {q.hint}</span>}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-700 font-mono">{q.answer}</td>
                       <td className="px-4 py-3 text-gray-500">{q.category}</td>
                       <td className="px-4 py-3 text-gray-500">{q.time_limit}s</td>

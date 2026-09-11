@@ -136,11 +136,29 @@ export async function GET(
 
   let pendingTiebreak = null
   if (followUp?.question_id) {
-    const { data: tbQuestion } = await supabase
+    type TbRow = {
+      id: string
+      text: string
+      time_limit: number
+      category: string
+      unit?: string | null
+      hint?: string | null
+    }
+    // unit/hint columns come from migration 012 — retry without them if absent.
+    const firstTry = await supabase
       .from('questions')
-      .select('id, text, time_limit, category')
+      .select('id, text, time_limit, category, unit, hint')
       .eq('id', followUp.question_id)
       .single()
+    let tbQuestion: TbRow | null = firstTry.data as TbRow | null
+    if (!tbQuestion) {
+      const fallback = await supabase
+        .from('questions')
+        .select('id, text, time_limit, category')
+        .eq('id', followUp.question_id)
+        .single()
+      tbQuestion = fallback.data as TbRow | null
+    }
     pendingTiebreak = pendingTiebreakFromFollowUpRound({
       id: followUp.id,
       status: followUp.status,

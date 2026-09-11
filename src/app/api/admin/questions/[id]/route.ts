@@ -30,6 +30,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!Number.isInteger(body.time_limit) || body.time_limit < 5 || body.time_limit > 60) return NextResponse.json({ error: 'time_limit must be 5–60' }, { status: 400 })
     update.time_limit = body.time_limit
   }
+  if (body.unit !== undefined) {
+    if (body.unit !== null && (typeof body.unit !== 'string' || body.unit.trim().length > 40)) return NextResponse.json({ error: 'unit must be a string of at most 40 characters' }, { status: 400 })
+    update.unit = typeof body.unit === 'string' && body.unit.trim() ? body.unit.trim() : null
+  }
+  if (body.hint !== undefined) {
+    if (body.hint !== null && (typeof body.hint !== 'string' || body.hint.trim().length > 140)) return NextResponse.json({ error: 'hint must be a string of at most 140 characters' }, { status: 400 })
+    update.hint = typeof body.hint === 'string' && body.hint.trim() ? body.hint.trim() : null
+  }
   if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   const supabase = createServerClient()
   const { data, error } = await supabase.from('questions').update(update).eq('id', id).select().single()

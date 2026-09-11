@@ -70,11 +70,31 @@ export default async function GamePage({ params }: Props) {
 
   if (!round.question_id) return notFound()
 
-  const { data: question } = await supabase
+  type QuestionRow = {
+    id: string
+    text: string
+    answer: number
+    category: string
+    time_limit: number
+    unit?: string | null
+    hint?: string | null
+  }
+  // unit/hint come from migration 012 — retry without them if absent.
+  const firstTry = await supabase
     .from('questions')
-    .select('id, text, answer, category, time_limit')
+    .select('id, text, answer, category, time_limit, unit, hint')
     .eq('id', round.question_id)
     .single()
+  let question: QuestionRow | null = firstTry.data as QuestionRow | null
+
+  if (!question) {
+    const fallback = await supabase
+      .from('questions')
+      .select('id, text, answer, category, time_limit')
+      .eq('id', round.question_id)
+      .single()
+    question = fallback.data as QuestionRow | null
+  }
 
   if (!question) return notFound()
 
@@ -133,6 +153,8 @@ export default async function GamePage({ params }: Props) {
           text: question.text,
           timeLimit: question.time_limit,
           category: question.category,
+          unit: question.unit ?? null,
+          hint: question.hint ?? null,
         }}
         initialStartedAt={round.started_at}
         initialRevealData={revealData}

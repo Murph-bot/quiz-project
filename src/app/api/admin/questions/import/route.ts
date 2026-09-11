@@ -31,14 +31,15 @@ export async function POST(req: NextRequest) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
   if (lines.length === 0) return NextResponse.json({ error: 'Empty file' }, { status: 400 })
   const header = lines[0].toLowerCase()
-  if (header !== 'text,answer,category,time_limit') {
-    return NextResponse.json({ error: 'Invalid CSV header. Expected: text,answer,category,time_limit' }, { status: 400 })
+  const hasMeta = header === 'text,answer,category,time_limit,unit,hint'
+  if (header !== 'text,answer,category,time_limit' && !hasMeta) {
+    return NextResponse.json({ error: 'Invalid CSV header. Expected: text,answer,category,time_limit (optionally ,unit,hint)' }, { status: 400 })
   }
   const errors: { row: number; field: string; message: string }[] = []
-  const rows: { text: string; answer: number; category: string; time_limit: number }[] = []
+  const rows: { text: string; answer: number; category: string; time_limit: number; unit: string | null; hint: string | null }[] = []
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
-    const [rawText, rawAnswer, rawCategory, rawTimeLimit] = cols
+    const [rawText, rawAnswer, rawCategory, rawTimeLimit, rawUnit, rawHint] = cols
     const row = i + 1
     if (!rawText || rawText.trim().length === 0) errors.push({ row, field: 'text', message: 'Required' })
     const answer = parseInt(rawAnswer, 10)
@@ -49,8 +50,10 @@ export async function POST(req: NextRequest) {
     if (!questionCategory) errors.push({ row, field: 'category', message: `Invalid category "${rawCategory}". Must be one of: ${QUESTION_CATEGORIES.join(', ')}` })
     const time_limit = parseInt(rawTimeLimit, 10)
     if (isNaN(time_limit) || time_limit < 5 || time_limit > 60) errors.push({ row, field: 'time_limit', message: `Must be an integer 5–60, got "${rawTimeLimit}"` })
+    const unit = hasMeta && rawUnit ? rawUnit.trim().slice(0, 40) : null
+    const hint = hasMeta && rawHint ? rawHint.trim().slice(0, 140) : null
     if (errors.length === 0 || errors[errors.length - 1].row !== row) {
-      rows.push({ text: rawText.trim(), answer, category: questionCategory!, time_limit })
+      rows.push({ text: rawText.trim(), answer, category: questionCategory!, time_limit, unit, hint })
     }
   }
   if (errors.length > 0) return NextResponse.json({ errors }, { status: 422 })

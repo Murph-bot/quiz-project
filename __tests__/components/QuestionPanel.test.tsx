@@ -95,6 +95,25 @@ describe('QuestionPanel (free numeric input)', () => {
     expect(screen.getByText(/waiting for round to close/i)).toBeInTheDocument()
   })
 
+  it('renders the unit chip and hint when the question has metadata', async () => {
+    render(
+      <QuestionPanel
+        {...makeProps({
+          question: { ...question, unit: 'islands', hint: 'More than you think' },
+        })}
+      />,
+    )
+    expect(screen.getByText('in islands')).toBeInTheDocument()
+    expect(screen.getByText(/more than you think/i)).toBeInTheDocument()
+    await getEnabledInput()
+  })
+
+  it('omits the unit chip and hint when the question has none', async () => {
+    render(<QuestionPanel {...makeProps()} />)
+    expect(screen.queryByText(/^in /)).not.toBeInTheDocument()
+    await getEnabledInput()
+  })
+
   it('shows the grace-period banner with the remaining seconds', async () => {
     render(<QuestionPanel {...makeProps({ isGracePeriod: true, graceSecondsLeft: 7 })} />)
     expect(screen.getByText('⏳ Grace period')).toBeInTheDocument()

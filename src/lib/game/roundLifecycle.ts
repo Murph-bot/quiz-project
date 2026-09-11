@@ -217,6 +217,8 @@ export function createRoundLifecycle(deps: RoundLifecycleDeps) {
         text: data.tiebreakQuestion.text,
         timeLimit: data.tiebreakQuestion.timeLimit,
         category: data.tiebreakQuestion.category,
+        unit: data.tiebreakQuestion.unit ?? null,
+        hint: data.tiebreakQuestion.hint ?? null,
       }
       const deadline =
         new Date(data.tiebreakStartedAt).getTime() + data.tiebreakQuestion.timeLimit * 1000

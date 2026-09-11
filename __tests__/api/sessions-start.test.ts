@@ -16,7 +16,7 @@ function makeRequest(roomCode: string, body: object) {
 const params = (roomCode: string) => ({ params: Promise.resolve({ roomCode }) })
 
 const mockSession = { id: 'sess-1', status: 'lobby', category: 'all', host_id: 'p1' }
-const mockQuestion = { id: 'q-1', text: 'When?', answer: 1989, category: 'history', time_limit: 12 }
+const mockQuestion = { id: 'q-1', text: 'When?', answer: 1989, category: 'history', time_limit: 12, unit: 'year', hint: 'Late eighties' }
 const mockRound = { id: 'round-1', started_at: '2026-03-15T10:00:00Z' }
 
 describe('POST /api/sessions/[roomCode]/start', () => {
@@ -204,6 +204,8 @@ describe('POST /api/sessions/[roomCode]/start', () => {
       text: 'When?',
       timeLimit: 12,
       category: 'history',
+      unit: 'year',
+      hint: 'Late eighties',
     })
   })
 })

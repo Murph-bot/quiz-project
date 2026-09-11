@@ -11,6 +11,8 @@ export interface QuestionData {
   text: string
   timeLimit: number
   category: string
+  unit?: string | null
+  hint?: string | null
 }
 
 export interface PendingTiebreak {

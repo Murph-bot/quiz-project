@@ -140,7 +140,7 @@ export async function maybeCreateIdenticalWrongReplay(params: {
 }): Promise<{
   tiebreakNeeded: boolean
   tiebreakRoundId: string | null
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
+  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
   errorResponse?: NextResponse
@@ -185,7 +185,7 @@ export async function maybeCreateWorstTiebreak(params: {
   answers: RankedAnswer[]
 }): Promise<{
   tiebreakRoundId: string | null
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string } | null
+  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null } | null
   tiebreakPlayerIds: string[] | null
   tiebreakStartedAt: string | null
   errorResponse?: NextResponse
