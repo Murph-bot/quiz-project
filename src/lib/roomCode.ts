@@ -1,4 +1,6 @@
-const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+// Ambiguous glyphs excluded (I/O vs 1/0) since hosts read codes aloud.
+// Validator below stays permissive so codes issued before this change still join.
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export function generateRoomCode(): string {
   return Array.from(

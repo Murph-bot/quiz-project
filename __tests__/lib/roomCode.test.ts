@@ -14,6 +14,12 @@ describe('generateRoomCode', () => {
     const codes = new Set(Array.from({ length: 20 }, generateRoomCode))
     expect(codes.size).toBeGreaterThan(1)
   })
+
+  it('never contains ambiguous characters (I, O, 0, 1)', () => {
+    for (let i = 0; i < 200; i++) {
+      expect(generateRoomCode()).not.toMatch(/[IO01]/)
+    }
+  })
 })
 
 describe('isValidRoomCode', () => {
