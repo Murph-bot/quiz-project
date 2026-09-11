@@ -90,7 +90,8 @@ project in its own env. CI can run it once those secrets exist.
 
 ## Hosting
 
-Production runs on **Cloudflare Workers** (`quizknight.workers.dev`) via the
+Production runs on **Cloudflare Workers** (`quizknight.sotiriosgoulas.com`,
+custom domain; `quizknight.sotirios-k-goulas.workers.dev` also works) via the
 [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare) adapter — Next.js
 SSR, API routes, and static assets all served from one Worker.
 
