@@ -43,6 +43,7 @@
     "jest-environment-jsdom": "^30.3.0",
     "jest-environment-node": "^30.3.0",
     "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "typescript": "^5",
     "wrangler": "^4.131.1"
   }
