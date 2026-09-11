@@ -60,3 +60,9 @@ next-env.d.ts
 
 # editor tooling
 .cursor/
+
+# cloudflare / opennext
+.open-next/
+.dev.vars
+.wrangler/
+cf-deploy.log

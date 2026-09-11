@@ -1,4 +1,4 @@
-name: Deploy to Netlify
+name: Deploy to Cloudflare
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: netlify-production
+  group: cloudflare-production
   cancel-in-progress: true
 
 jobs:
@@ -31,16 +31,15 @@ jobs:
       - name: Test
         run: npm test -- --ci
 
-      - name: Build
-        run: npm run build
+      - name: Deploy to Cloudflare Workers
+        run: npx opennextjs-cloudflare deploy
         env:
+          # Build-time inlined values
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Runtime values — wrangler forwards these into the worker env
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
           CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
-
-      - name: Deploy to Netlify
-        run: npx netlify-cli deploy --prod --dir=.next --functions=netlify/functions
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

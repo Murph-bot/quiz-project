@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": "./worker.ts",
+  "name": "quizknight",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "quizknight",
+    },
+  ],
+  "triggers": {
+    // Replaces the Netlify scheduled functions + Vercel crons.
+    // 03:00 UTC → /api/cleanup, 09:00 UTC → /api/ping
+    "crons": ["0 3 * * *", "0 9 * * *"],
+  },
+  "vars": {
+    // NEXT_PUBLIC_* values are also inlined at build time for client code.
+    // Set non-secret NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // here or via `wrangler vars` — secrets go through `wrangler secret put`.
+  },
+}

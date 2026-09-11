@@ -90,16 +90,29 @@ project in its own env. CI can run it once those secrets exist.
 
 ## Hosting
 
-Production runs on **Netlify** (`quizknight-433.netlify.app`); a Vercel
-deployment (`quiz-project-phi-sooty.vercel.app`) exists as fallback.
+Production runs on **Cloudflare Workers** (`quizknight.workers.dev`) via the
+[`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare) adapter — Next.js
+SSR, API routes, and static assets all served from one Worker.
 
-- Netlify: `netlify/functions/scheduled-ping.ts` + `scheduled-cleanup.ts`
-  (inline `config.schedule`) hit `/api/ping` and `/api/cleanup` daily.
-- Vercel: `vercel.json` crons hit the same endpoints on the Vercel deployment.
+- **Config**: `wrangler.jsonc` (worker name, `nodejs_compat`, assets binding,
+  `WORKER_SELF_REFERENCE` service binding, cron triggers). `worker.ts` is the
+  custom entry — it re-exports the OpenNext fetch handler and adds a
+  `scheduled()` handler that self-invokes `/api/cleanup` (03:00 UTC) and
+  `/api/ping` (09:00 UTC), replacing the old Netlify functions + Vercel crons.
+- **Build/preview/deploy**: `npm run preview` (local workers-runtime preview),
+  `npm run deploy` (build + `wrangler deploy`).
+- **Env vars**: build-time `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` are
+  inlined; runtime values (`SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET`,
+  `CLEANUP_SECRET`) are set with `wrangler secret put <NAME>` or supplied via
+  CI env at deploy time.
+- **CI**: `.github/workflows/cloudflare-deploy.yml` gates on lint + typecheck +
+  tests, then `opennextjs-cloudflare deploy` with `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` repo secrets.
+- Local wrangler dev needs the app's env in `.dev.vars` (gitignored) — copy
+  `.env.local` into it.
 
-**Both are currently configured** — cleanup runs are duplicated across
-providers (harmless but wasteful; they share the same Supabase project).
-Eventually pick one provider for scheduled jobs and remove the other side.
+Rollback: the previous Netlify/Vercel config lives in git history
+(`git revert` the migration commit).
 
 ## Known follow-ups
 
@@ -108,9 +121,10 @@ Eventually pick one provider for scheduled jobs and remove the other side.
   hints and re-confirm against the API before applying (`round:closed`,
   `round:started`, `host:changed` are all verified server-side). Residual
   risk: `all:answered` / `game:exhausted` can still be forged to trigger an
-  early close attempt or a premature exhaustion screen, and the close
-  endpoint does not itself enforce the round deadline. For full enforcement,
-  move to **private channels + Realtime authorization** (Supabase dashboard).
+  early close attempt or a premature exhaustion screen (the close endpoint
+  does enforce the round deadline, so at worst it wastes a request). For full
+  enforcement, move to **private channels + Realtime authorization** (Supabase
+  dashboard).
 - Session create/start are multi-step writes; consider atomic RPC functions
   (`rpc()`) if partial-failure orphans become a problem (cleanup sweeps them).
 - Replace the in-memory rate limiter with a distributed store if the app ever
