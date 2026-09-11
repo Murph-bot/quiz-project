@@ -17,11 +17,14 @@ export default function HomeScreen() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Prefill the nickname (and rejoin code) from a previous session on this browser.
+  // Prefill the nickname (and rejoin code) from a previous session on this browser,
+  // and the room code from an invite link (?join=CODE).
   useEffect(() => {
     const timer = setTimeout(() => {
       setNickname(sessionStorage.getItem('nickname') ?? '')
       setRejoinCode(sessionStorage.getItem('rejoinCode') ?? '')
+      const joinCode = new URLSearchParams(window.location.search).get('join')
+      if (joinCode) setRoomCode(joinCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))
     }, 0)
     return () => clearTimeout(timer)
   }, [])

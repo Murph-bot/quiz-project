@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import QRCode from 'react-qr-code'
 import { supabase } from '@/lib/supabase'
 import { canonicalCategory, VALID_CATEGORIES } from '@/lib/categories'
 import { useHostFailover } from '@/hooks/useHostFailover'
@@ -46,7 +47,10 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
   const [starting, setStarting] = useState(false)
 
   const [currentHostId, setCurrentHostId] = useState(initialSession.host_id)
+  const [copied, setCopied] = useState(false)
   const isHost = playerId !== null && currentHostId === playerId
+  const inviteLink =
+    typeof window !== 'undefined' ? `${window.location.origin}/?join=${roomCode}` : `/?join=${roomCode}`
   const { syncHostFromBroadcast, handlePresenceSync } = useHostFailover(initialSession.host_id)
 
   useSessionStatusPoll({
@@ -207,7 +211,24 @@ export default function LobbyScreen({ roomCode, initialSession }: Props) {
         <div className="text-center">
           <SectionLabel className="mb-1">Room Code</SectionLabel>
           <p className="text-qk-cyan text-5xl font-black tracking-[0.3em]">{roomCode}</p>
-          <p className="text-qk-muted text-xs mt-2">Share this code with friends</p>
+          <div className="mt-4 flex flex-col items-center gap-3">
+            <div className="bg-white p-3 rounded-2xl">
+              <QRCode value={inviteLink} size={128} aria-label={`QR code joining room ${roomCode}`} />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(inviteLink).then(() => {
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                })
+              }}
+              className="text-qk-cyan text-xs font-bold underline underline-offset-2 min-h-[44px] px-3"
+            >
+              {copied ? '✓ Copied!' : 'Copy invite link'}
+            </button>
+          </div>
+          <p className="text-qk-muted text-xs mt-1">Scan or share — the code is filled in automatically</p>
           {rejoinCode && (
             <p className="text-qk-muted/80 text-xs mt-1">
               Your rejoin code: <span className="font-bold text-qk-cyan tracking-widest">{rejoinCode}</span>
