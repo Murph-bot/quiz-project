@@ -101,10 +101,11 @@ SSR, API routes, and static assets all served from one Worker.
   `/api/ping` (09:00 UTC), replacing the old Netlify functions + Vercel crons.
 - **Build/preview/deploy**: `npm run preview` (local workers-runtime preview),
   `npm run deploy` (build + `wrangler deploy`).
-- **Env vars**: build-time `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` are
-  inlined; runtime values (`SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET`,
-  `CLEANUP_SECRET`) are set with `wrangler secret put <NAME>` or supplied via
-  CI env at deploy time.
+- **Env vars**: `NEXT_PUBLIC_SUPABASE_URL` / `..._ANON_KEY` are inlined at
+  build time; runtime values (`SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_SECRET`,
+  `CLEANUP_SECRET`, and the two public Supabase vars for server-side reads)
+  are pushed with `wrangler secret bulk secrets.json` — the CI deploy does
+  this automatically from repo secrets.
 - **CI**: `.github/workflows/cloudflare-deploy.yml` gates on lint + typecheck +
   tests, then `opennextjs-cloudflare deploy` with `CLOUDFLARE_API_TOKEN` +
   `CLOUDFLARE_ACCOUNT_ID` repo secrets.
