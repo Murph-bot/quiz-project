@@ -54,7 +54,7 @@ export function RevealPanel({
 
         {winner && (
           <div
-            className="bg-qk-warn/15 border border-qk-warn/50 rounded-2xl py-3 text-center"
+            className="qk-guess-reveal bg-qk-warn/15 border border-qk-warn/50 rounded-2xl py-3 text-center"
             style={{ opacity: 0, animation: `fadeIn 0.4s ease ${winnerBannerMs}ms forwards` }}
           >
             <div className="text-lg font-black text-qk-warn">🏆 {winner.nickname} wins!</div>

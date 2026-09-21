@@ -34,6 +34,15 @@ export function QuestionPanel({
   const progress = question.timeLimit > 0 ? Math.round((secondsLeft / question.timeLimit) * 100) : 0
   const submitted = submittedValue !== null
   const disabled = isWaiting || submitted || (secondsLeft === 0 && !isGracePeriod)
+  const closing = isWaiting
+    ? graceSecondsLeft && graceSecondsLeft > 0
+      ? `Closing in ${graceSecondsLeft}s`
+      : 'Closing this round'
+    : isGracePeriod && !submitted
+      ? graceSecondsLeft && graceSecondsLeft > 0
+        ? `Last chance to answer, ${graceSecondsLeft}s`
+        : 'Last chance to answer'
+      : null
   const isUrgent = secondsLeft <= 4 && secondsLeft > 0
 
   // Ticking under 5s while actively answering.
@@ -152,11 +161,8 @@ export function QuestionPanel({
             </>
           )}
         </form>
-        {isWaiting && (
-          <p className="text-center text-qk-muted text-sm mt-1">Waiting for round to close...</p>
-        )}
-        {isGracePeriod && !isWaiting && !submitted && (
-          <p className="text-center text-qk-muted text-sm mt-1">⏳ Last chance to answer...</p>
+        {closing && (
+          <p className="text-center text-qk-muted text-sm mt-1">{closing}</p>
         )}
       </div>
     </div>

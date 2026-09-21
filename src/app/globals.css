@@ -108,6 +108,11 @@ body {
   .qk-guess-reveal {
     animation: none !important;
   }
+
+  .qk-answer-reveal,
+  .qk-guess-reveal {
+    opacity: 1 !important;
+  }
 }
 
 @utility pb-safe {

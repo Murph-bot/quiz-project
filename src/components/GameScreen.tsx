@@ -567,8 +567,8 @@ export function GameScreen({
             question={question}
             startedAt={startedAt}
             isWaiting={true}
-            isGracePeriod={false}
-            graceSecondsLeft={0}
+            isGracePeriod={isGracePeriod}
+            graceSecondsLeft={graceSecondsLeft}
             onSubmit={() => {}}
           />
         </>
