@@ -92,7 +92,7 @@ describe('QuestionPanel (free numeric input)', () => {
     fireEvent.change(input, { target: { value: '500' } })
     fireEvent.click(screen.getByRole('button', { name: /lock it in/i }))
     expect(onSubmit).not.toHaveBeenCalled()
-    expect(screen.getByText(/waiting for round to close/i)).toBeInTheDocument()
+    expect(screen.getByText('Closing this round')).toBeInTheDocument()
   })
 
   it('renders the unit chip and hint when the question has metadata', async () => {
