@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { QUESTION_CATEGORIES } from '@/lib/categories'
 
 interface Question {
@@ -13,6 +14,7 @@ interface Question {
 }
 
 export function AdminShell() {
+  const router = useRouter()
   const [questions, setQuestions] = useState<Question[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -100,7 +102,7 @@ export function AdminShell() {
 
   async function handleLogout() {
     await fetch('/api/admin/logout', { method: 'POST' })
-    window.location.href = '/admin/login'
+    router.push('/admin/login')
   }
 
   return (
