@@ -5,7 +5,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 const cookieSet = jest.fn()
-const mockHeaders = { get: jest.fn(() => null as string | null) }
+const mockHeaders = { get: jest.fn<string | null, [string]>(() => null) }
 jest.mock('next/headers', () => ({
   headers: jest.fn(() => Promise.resolve(mockHeaders)),
   cookies: jest.fn(() => Promise.resolve({ set: cookieSet })),

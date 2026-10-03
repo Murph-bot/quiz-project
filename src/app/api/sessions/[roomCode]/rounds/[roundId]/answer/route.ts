@@ -87,6 +87,13 @@ export async function POST(
     if (insertError.code === '23505') {
       return NextResponse.json({ error: 'Already answered' }, { status: 409 })
     }
+    // Raised by the check_answer_deadline trigger (see
+    // supabase/migrations/015_answer_deadline_trigger.sql): the round was
+    // closed, or its started_at + time_limit deadline passed, between our
+    // status check above and this insert.
+    if (insertError.code === 'QK001' || insertError.code === 'QK002') {
+      return NextResponse.json({ error: 'Round is closed' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to submit answer' }, { status: 500 })
   }
 

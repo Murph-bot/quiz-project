@@ -174,6 +174,29 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     expect(res.status).toBe(409)
   })
 
+  it('returns 409 when the DB deadline trigger rejects a late answer', async () => {
+    // The round still reads as 'active' here (the host hasn't closed it
+    // yet), but the BEFORE INSERT trigger on `answers` independently enforces
+    // `now() <= started_at + time_limit + grace` and rejects the insert —
+    // this is what closes the race between a slow client and a timed-out
+    // round that a route-level status check alone can't catch.
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ insertError: { code: 'QK002', message: 'Round deadline has passed' } })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('Round is closed')
+  })
+
+  it('returns 409 when the DB trigger rejects an insert into a non-active round', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeSupabase({ insertError: { code: 'QK001', message: 'Round is not active' } })
+    )
+    const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 1989 }), params('AB12', 'round-1'))
+    expect(res.status).toBe(409)
+  })
+
   it('returns 409 if player already answered (duplicate)', async () => {
     ;(createServerClient as jest.Mock).mockReturnValue(
       makeSupabase({ insertError: { code: '23505', message: 'duplicate' } })
