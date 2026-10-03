@@ -29,6 +29,14 @@ export async function signAdminToken(): Promise<string> {
   return `${exp}.${sig}`
 }
 
+/** Constant-time comparison of two equal-length strings (e.g. hex digests). */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
 export async function verifyAdminToken(token: string): Promise<boolean> {
   try {
     const dot = token.lastIndexOf('.')
@@ -39,14 +47,25 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
     if (!Number.isInteger(exp) || exp < Date.now()) return false
 
     const expected = await hmac(`${exp}.admin-session`)
-    if (expected.length !== sig.length) return false
-    // constant-time comparison
-    let diff = 0
-    for (let i = 0; i < sig.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i)
-    return diff === 0
+    return timingSafeEqualStr(expected, sig)
   } catch {
     return false
   }
+}
+
+/**
+ * Verifies a login password against ADMIN_SECRET without leaking timing
+ * information through length- or content-dependent comparisons: both sides
+ * are hashed to a fixed-length digest first, then compared in constant time.
+ */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const secret = process.env.ADMIN_SECRET
+  if (!secret) return false
+  const [candidate, expected] = await Promise.all([
+    hmac(`pwd.${password}`),
+    hmac(`pwd.${secret}`),
+  ])
+  return timingSafeEqualStr(candidate, expected)
 }
 
 export { ADMIN_COOKIE_NAME }

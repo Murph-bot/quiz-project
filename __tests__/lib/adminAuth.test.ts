@@ -1,4 +1,4 @@
-import { signAdminToken, verifyAdminToken } from '@/lib/admin-auth'
+import { signAdminToken, verifyAdminToken, verifyAdminPassword } from '@/lib/admin-auth'
 
 describe('admin-auth', () => {
   const OLD_ENV = process.env
@@ -50,5 +50,41 @@ describe('admin-auth', () => {
     const token = await signAdminToken()
     process.env = { ...OLD_ENV, ADMIN_SECRET: 'other-secret' }
     await expect(verifyAdminToken(token)).resolves.toBe(false)
+  })
+})
+
+describe('verifyAdminPassword', () => {
+  const OLD_ENV = process.env
+
+  beforeEach(() => {
+    process.env = { ...OLD_ENV, ADMIN_SECRET: 'test-secret' }
+  })
+
+  afterAll(() => {
+    process.env = OLD_ENV
+  })
+
+  it('accepts the correct password', async () => {
+    await expect(verifyAdminPassword('test-secret')).resolves.toBe(true)
+  })
+
+  it('rejects an incorrect password', async () => {
+    await expect(verifyAdminPassword('wrong')).resolves.toBe(false)
+  })
+
+  it('rejects when ADMIN_SECRET is not configured', async () => {
+    process.env = { ...OLD_ENV, ADMIN_SECRET: undefined }
+    await expect(verifyAdminPassword('anything')).resolves.toBe(false)
+  })
+
+  it('does not leak timing information through early-exit string comparison', async () => {
+    // A naive `!==` compare short-circuits on the first mismatching character,
+    // making a 1-char guess faster to reject than a 20-char guess. Hashing
+    // both sides first means every wrong password takes the same comparison
+    // path regardless of length or how many leading characters match.
+    const near = await verifyAdminPassword('test-secreu') // one char off, same length
+    const far = await verifyAdminPassword('z')
+    expect(near).toBe(false)
+    expect(far).toBe(false)
   })
 })

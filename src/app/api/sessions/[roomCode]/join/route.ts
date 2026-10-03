@@ -22,7 +22,9 @@ export async function POST(
 
   if (!roomCode) return invalidRoomCode()
 
-  if (!checkRateLimit(clientKey(req, `join:${roomCode}`), JOIN_LIMIT, JOIN_WINDOW_MS)) {
+  const supabase = getSupabase()
+
+  if (!(await checkRateLimit(clientKey(req, `join:${roomCode}`), JOIN_LIMIT, JOIN_WINDOW_MS, supabase))) {
     return NextResponse.json({ error: 'Too many join attempts — try again later' }, { status: 429 })
   }
 
@@ -33,8 +35,6 @@ export async function POST(
   if (!nickname || nickname.length > 20) {
     return badRequest('Invalid nickname')
   }
-
-  const supabase = getSupabase()
   const session = await loadSession(supabase, roomCode, 'id, status')
 
   if (!session) return sessionNotFound()

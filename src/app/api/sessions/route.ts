@@ -9,7 +9,9 @@ const CREATE_LIMIT = 10
 const CREATE_WINDOW_MS = 60 * 60 * 1000
 
 export async function POST(req: NextRequest) {
-  if (!checkRateLimit(clientKey(req, 'session-create'), CREATE_LIMIT, CREATE_WINDOW_MS)) {
+  const supabase = createServerClient()
+
+  if (!(await checkRateLimit(clientKey(req, 'session-create'), CREATE_LIMIT, CREATE_WINDOW_MS, supabase))) {
     return NextResponse.json({ error: 'Too many sessions created — try again later' }, { status: 429 })
   }
 
@@ -19,8 +21,6 @@ export async function POST(req: NextRequest) {
   if (!nickname || nickname.length > 20) {
     return NextResponse.json({ error: 'Invalid nickname' }, { status: 400 })
   }
-
-  const supabase = createServerClient()
   const playerId = crypto.randomUUID()
   const sessionSecret = crypto.randomUUID()
 
