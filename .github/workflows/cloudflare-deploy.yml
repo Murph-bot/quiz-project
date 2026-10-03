@@ -42,33 +42,49 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy to Cloudflare Workers
-        if: steps.cf.outputs.present == 'true'
-        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Deploy skipped notice
         if: steps.cf.outputs.present != 'true'
         run: echo "::notice::Cloudflare deploy skipped — add the CLOUDFLARE_API_TOKEN repo secret to enable it."
 
       - name: Set worker runtime secrets
         if: steps.cf.outputs.present == 'true'
+        # Secrets are passed via `env:` (not interpolated into the heredoc)
+        # and built into JSON with `jq -n --arg`, so a secret value
+        # containing a quote, backslash or newline can't break the file —
+        # with string interpolation that would fail *after* the new code is
+        # already deployed, leaving the Worker on stale secrets. Setting
+        # secrets before `deploy` means a failure here blocks the deploy
+        # instead of outliving it.
         run: |
-          cat > /tmp/secrets.json <<'SECRETS'
-          {
-            "SUPABASE_SERVICE_ROLE_KEY": "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
-            "ADMIN_SECRET": "${{ secrets.ADMIN_SECRET }}",
-            "CLEANUP_SECRET": "${{ secrets.CLEANUP_SECRET }}",
-            "NEXT_PUBLIC_SUPABASE_URL": "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",
-            "NEXT_PUBLIC_SUPABASE_ANON_KEY": "${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
-          }
-          SECRETS
+          jq -n \
+            --arg supabase_service_role_key "$SUPABASE_SERVICE_ROLE_KEY" \
+            --arg admin_secret "$ADMIN_SECRET" \
+            --arg cleanup_secret "$CLEANUP_SECRET" \
+            --arg next_public_supabase_url "$NEXT_PUBLIC_SUPABASE_URL" \
+            --arg next_public_supabase_anon_key "$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            '{
+              SUPABASE_SERVICE_ROLE_KEY: $supabase_service_role_key,
+              ADMIN_SECRET: $admin_secret,
+              CLEANUP_SECRET: $cleanup_secret,
+              NEXT_PUBLIC_SUPABASE_URL: $next_public_supabase_url,
+              NEXT_PUBLIC_SUPABASE_ANON_KEY: $next_public_supabase_anon_key
+            }' > /tmp/secrets.json
           npx wrangler secret bulk /tmp/secrets.json
           rm /tmp/secrets.json
         env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_SECRET: ${{ secrets.ADMIN_SECRET }}
+          CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy to Cloudflare Workers
+        if: steps.cf.outputs.present == 'true'
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
