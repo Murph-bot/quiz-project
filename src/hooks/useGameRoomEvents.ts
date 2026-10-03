@@ -54,6 +54,16 @@ export function useGameRoomEvents(config: GameRoomEventsConfig) {
       .on('broadcast', { event: 'round:started' }, ({ payload }) => {
         configRef.current.onRoundStarted(payload as Record<string, unknown>)
       })
+      // `round:answered` and `all:answered` are untrusted hints, same as every
+      // other broadcast on this channel — the room channel is public and any
+      // client with the room code can forge either event. `round:answered`
+      // only drives a cosmetic "who's answered" tick; a forged payload can't
+      // corrupt game state because the reveal always comes from the
+      // authoritative `round:closed` broadcast (verified server data), not
+      // from this tick. `all:answered` only calls attemptClose(), which is
+      // itself debounced (see roundLifecycle.ts) and safe to call spuriously:
+      // the server's close handler independently re-checks who has actually
+      // answered before closing.
       .on('broadcast', { event: 'round:answered' }, ({ payload }) => {
         if (payload.roundId !== configRef.current.roundIdRef.current) return
         if (payload.playerId) configRef.current.onRoundAnswered(payload.playerId as string)

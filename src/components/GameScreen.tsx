@@ -161,10 +161,12 @@ export function GameScreen({
 
   const roundClosedRef = useRef(false)
   const allAnsweredConfirmedRef = useRef(false)
+  const closeInFlightRef = useRef(false)
   // Reset when roundId changes so a new round can be closed
   useEffect(() => {
     roundClosedRef.current = false
     allAnsweredConfirmedRef.current = false
+    closeInFlightRef.current = false
   }, [roundId])
 
   const lifecycle = createRoundLifecycle({
@@ -207,6 +209,7 @@ export function GameScreen({
       currentMatchPhaseRef,
       isSpectatingRef,
       gameOverRef,
+      closeInFlightRef,
     },
   })
   const {

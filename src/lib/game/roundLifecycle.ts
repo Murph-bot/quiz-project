@@ -77,6 +77,9 @@ export interface RoundLifecycleRefs {
   currentMatchPhaseRef: MutableRefObject<MatchPhase | null>
   isSpectatingRef: MutableRefObject<boolean>
   gameOverRef: MutableRefObject<boolean>
+  /** Guards attemptClose against the thundering herd of calls a client-
+   *  broadcast `all:answered` can trigger (see useGameRoomEvents). */
+  closeInFlightRef: MutableRefObject<boolean>
 }
 
 export interface RoundLifecycleDeps {
@@ -371,6 +374,12 @@ export function createRoundLifecycle(deps: RoundLifecycleDeps) {
     if (!playerId || !sessionSecret || refs.roundClosedRef.current || !refs.roundIdRef.current) {
       return
     }
+    // Debounced: a client-originated `all:answered` broadcast is only a
+    // hint (see useGameRoomEvents) and every client can fire it repeatedly,
+    // so collapse concurrent calls into the one request already in flight
+    // rather than flooding the close endpoint with duplicates.
+    if (refs.closeInFlightRef.current) return
+    refs.closeInFlightRef.current = true
     fetch(`/api/sessions/${roomCode}/rounds/${refs.roundIdRef.current}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -381,6 +390,9 @@ export function createRoundLifecycle(deps: RoundLifecycleDeps) {
         applyCloseResult(normalizeCloseResponse(r.status, data) as CloseResultPayload)
       })
       .catch((err) => console.error('[close] network error:', err))
+      .finally(() => {
+        refs.closeInFlightRef.current = false
+      })
   }
 
   /** Apply a `round:started` payload — a new question round or a bracket intro. */
