@@ -44,6 +44,13 @@ describe('clientKey', () => {
     expect(clientKey(req, 'scope')).toBe('scope:1.2.3.4')
   })
 
+  it('prefers cf-connecting-ip over a client-supplied x-forwarded-for', () => {
+    const req = new Request('http://localhost', {
+      headers: { 'cf-connecting-ip': '7.7.7.7', 'x-forwarded-for': '1.2.3.4' },
+    })
+    expect(clientKey(req, 'scope')).toBe('scope:7.7.7.7')
+  })
+
   it('falls back to x-real-ip then unknown', () => {
     const req = new NextRequest('http://localhost/api/x', {
       headers: { 'x-real-ip': '9.9.9.9' },

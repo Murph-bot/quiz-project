@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { safeEqual } from '@/lib/admin-auth'
 
 function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') ?? ''
   // Accept CRON_SECRET (Vercel cron), CLEANUP_SECRET (Netlify scheduled functions / manual)
-  const cronSecret = process.env.CRON_SECRET
-  const cleanupSecret = process.env.CLEANUP_SECRET
-  if (cronSecret && auth === `Bearer ${cronSecret}`) return true
-  if (cleanupSecret && auth === `Bearer ${cleanupSecret}`) return true
-  return false
+  return [process.env.CRON_SECRET, process.env.CLEANUP_SECRET].some(
+    (secret) => !!secret && safeEqual(auth, `Bearer ${secret}`),
+  )
 }
 
 async function runCleanup(): Promise<NextResponse> {
