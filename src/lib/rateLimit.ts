@@ -31,8 +31,14 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   return true
 }
 
+// Trust only the header the current host overwrites: Vercel sets x-real-ip,
+// Cloudflare sets cf-connecting-ip. Each passes the other through from the
+// client unchanged, so it must not be read. X-Forwarded-For is local-dev only.
+export function clientIp(headers: Headers): string {
+  const hostIp = headers.get(process.env.VERCEL ? 'x-real-ip' : 'cf-connecting-ip')
+  return hostIp ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+}
+
 export function clientKey(req: Request, scope: string): string {
-  const fwd = req.headers.get('x-forwarded-for')
-  const ip = fwd?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? 'unknown'
-  return `${scope}:${ip}`
+  return `${scope}:${clientIp(req.headers)}`
 }

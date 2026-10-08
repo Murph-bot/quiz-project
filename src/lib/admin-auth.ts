@@ -38,15 +38,24 @@ export async function verifyAdminToken(token: string): Promise<boolean> {
     const exp = Number(expStr)
     if (!Number.isInteger(exp) || exp < Date.now()) return false
 
-    const expected = await hmac(`${exp}.admin-session`)
-    if (expected.length !== sig.length) return false
-    // constant-time comparison
-    let diff = 0
-    for (let i = 0; i < sig.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i)
-    return diff === 0
+    return safeEqual(sig, await hmac(`${exp}.admin-session`))
   } catch {
     return false
   }
+}
+
+/** Compares HMACs of both values so neither length nor content leaks through timing. */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
+  const secret = process.env.ADMIN_SECRET
+  if (!secret) return false
+  return safeEqual(await hmac(password), await hmac(secret))
+}
+
+export function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
 }
 
 export { ADMIN_COOKIE_NAME }

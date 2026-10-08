@@ -1,4 +1,4 @@
-import { signAdminToken, verifyAdminToken } from '@/lib/admin-auth'
+import { signAdminToken, verifyAdminPassword, verifyAdminToken } from '@/lib/admin-auth'
 
 describe('admin-auth', () => {
   const OLD_ENV = process.env
@@ -10,6 +10,12 @@ describe('admin-auth', () => {
 
   afterAll(() => {
     process.env = OLD_ENV
+  })
+
+  it('accepts only the exact admin password', async () => {
+    await expect(verifyAdminPassword('test-secret')).resolves.toBe(true)
+    await expect(verifyAdminPassword('test-secre')).resolves.toBe(false)
+    await expect(verifyAdminPassword('')).resolves.toBe(false)
   })
 
   it('signs a token that verifies', async () => {
