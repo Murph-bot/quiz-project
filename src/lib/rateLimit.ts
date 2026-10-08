@@ -31,15 +31,12 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): bo
   return true
 }
 
-// Prefer headers the host sets itself (Cloudflare, Vercel). The first
-// X-Forwarded-For entry is client-supplied on Cloudflare, so it is the last resort.
+// Trust only the header the current host overwrites: Vercel sets x-real-ip,
+// Cloudflare sets cf-connecting-ip. Each passes the other through from the
+// client unchanged, so it must not be read. X-Forwarded-For is local-dev only.
 export function clientIp(headers: Headers): string {
-  return (
-    headers.get('cf-connecting-ip') ??
-    headers.get('x-real-ip') ??
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    'unknown'
-  )
+  const hostIp = headers.get(process.env.VERCEL ? 'x-real-ip' : 'cf-connecting-ip')
+  return hostIp ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
 }
 
 export function clientKey(req: Request, scope: string): string {

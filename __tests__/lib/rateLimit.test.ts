@@ -44,18 +44,30 @@ describe('clientKey', () => {
     expect(clientKey(req, 'scope')).toBe('scope:1.2.3.4')
   })
 
-  it('prefers cf-connecting-ip over a client-supplied x-forwarded-for', () => {
+  it('on Cloudflare, uses cf-connecting-ip and ignores client-supplied x-real-ip', () => {
     const req = new Request('http://localhost', {
-      headers: { 'cf-connecting-ip': '7.7.7.7', 'x-forwarded-for': '1.2.3.4' },
+      headers: { 'cf-connecting-ip': '7.7.7.7', 'x-real-ip': '6.6.6.6', 'x-forwarded-for': '1.2.3.4' },
     })
     expect(clientKey(req, 'scope')).toBe('scope:7.7.7.7')
   })
 
-  it('falls back to x-real-ip then unknown', () => {
-    const req = new NextRequest('http://localhost/api/x', {
-      headers: { 'x-real-ip': '9.9.9.9' },
+  describe('on Vercel', () => {
+    beforeEach(() => {
+      process.env.VERCEL = '1'
     })
-    expect(clientKey(req, 'scope')).toBe('scope:9.9.9.9')
+    afterEach(() => {
+      delete process.env.VERCEL
+    })
+
+    it('uses x-real-ip and ignores client-supplied cf-connecting-ip', () => {
+      const req = new Request('http://localhost', {
+        headers: { 'x-real-ip': '9.9.9.9', 'cf-connecting-ip': '6.6.6.6' },
+      })
+      expect(clientKey(req, 'scope')).toBe('scope:9.9.9.9')
+    })
+  })
+
+  it('falls back to unknown without any address header', () => {
     const bare = new NextRequest('http://localhost/api/x')
     expect(clientKey(bare, 'scope')).toBe('scope:unknown')
   })
