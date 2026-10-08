@@ -93,7 +93,7 @@ export interface RoundLifecycleDeps {
  * game, and reconciles via GET fallbacks. Every client runs the same logic —
  * the server is the only broadcaster of game events.
  */
-export function createRoundLifecycle(deps: RoundLifecycleDeps) {
+export function useRoundLifecycle(deps: RoundLifecycleDeps) {
   const { roomCode, refs, setters } = deps
 
   function transitionContext(): RoundTransitionContext {

@@ -13,7 +13,7 @@ import type {
   QuestionData,
 } from '@/lib/game/gameRoundTransitions'
 import {
-  createRoundLifecycle,
+  useRoundLifecycle,
   FAR_FUTURE_MS,
   POST_TIMER_GRACE_MS,
 } from '@/lib/game/roundLifecycle'
@@ -41,6 +41,9 @@ import type {
   BracketState,
   GamePhase,
 } from '@/types'
+
+const AUTO_ADVANCE_SECONDS = 12
+const AUTO_REDIRECT_SECONDS = 30
 
 interface RevealData {
   correctAnswer: number
@@ -108,8 +111,15 @@ export function GameScreen({
   const [resurrected, setResurrected] = useState<{ playerId: string; nickname: string } | null>(null)
   const [isSuddenDeath, setIsSuddenDeath] = useState(false)
   const [isGracePeriod, setIsGracePeriod] = useState(false)
-  const [autoAdvanceIn, setAutoAdvanceIn] = useState(5)
-  const [autoRedirectIn, setAutoRedirectIn] = useState(30)
+  const [autoAdvanceIn, setAutoAdvanceIn] = useState(AUTO_ADVANCE_SECONDS)
+  const [autoRedirectIn, setAutoRedirectIn] = useState(AUTO_REDIRECT_SECONDS)
+  // Restart a countdown when its phase begins, during render rather than in an effect.
+  const [countdownPhase, setCountdownPhase] = useState(phase)
+  if (phase !== countdownPhase) {
+    setCountdownPhase(phase)
+    if (phase === 'reveal') setAutoAdvanceIn(AUTO_ADVANCE_SECONDS)
+    if (phase === 'winner') setAutoRedirectIn(AUTO_REDIRECT_SECONDS)
+  }
   const [isSpectating, setIsSpectating] = useState(false)
   const [aliveCount, setAliveCount] = useState<number>(initialAliveCount)
   const [showResurrectionSelf, setShowResurrectionSelf] = useState(false)
@@ -167,7 +177,7 @@ export function GameScreen({
     allAnsweredConfirmedRef.current = false
   }, [roundId])
 
-  const lifecycle = createRoundLifecycle({
+  const lifecycle = useRoundLifecycle({
     roomCode,
     getPlayerId: () => playerId,
     getSessionSecret: () => sessionSecret,
@@ -350,11 +360,10 @@ export function GameScreen({
   // only the host asks the server to create the next round.
   useEffect(() => {
     if (phase !== 'reveal') return
-    setAutoAdvanceIn(12)
     const tick = setInterval(() => setAutoAdvanceIn(s => Math.max(0, s - 1)), 1000)
     const advance = setTimeout(() => {
       advanceAfterReveal()
-    }, 12000)
+    }, AUTO_ADVANCE_SECONDS * 1000)
     return () => {
       clearInterval(tick)
       clearTimeout(advance)
@@ -365,9 +374,8 @@ export function GameScreen({
   // Winner auto-redirect
   useEffect(() => {
     if (phase !== 'winner') return
-    setAutoRedirectIn(30)
     const tick = setInterval(() => setAutoRedirectIn(s => Math.max(0, s - 1)), 1000)
-    const redirect = setTimeout(() => router.push('/'), 30000)
+    const redirect = setTimeout(() => router.push('/'), AUTO_REDIRECT_SECONDS * 1000)
     return () => {
       clearInterval(tick)
       clearTimeout(redirect)
