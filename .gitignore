@@ -66,3 +66,7 @@ next-env.d.ts
 .dev.vars
 .wrangler/
 cf-deploy.log
+
+# Claude Code personal overrides
+.claude/settings.local.json
+.claude/worktrees/
