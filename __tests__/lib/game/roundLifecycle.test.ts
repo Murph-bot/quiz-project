@@ -1,4 +1,4 @@
-import { createRoundLifecycle, type RoundLifecycleRefs, type RoundLifecycleSetters } from '@/lib/game/roundLifecycle'
+import { useRoundLifecycle, type RoundLifecycleRefs, type RoundLifecycleSetters } from '@/lib/game/roundLifecycle'
 
 function makeRefs(): RoundLifecycleRefs {
   return {
@@ -63,7 +63,7 @@ describe('attemptClose debounce', () => {
     // debounce guard each call issues its own POST, spiking the close
     // endpoint with duplicate requests for the same round.
     const refs = makeRefs()
-    const lifecycle = createRoundLifecycle({
+    const lifecycle = useRoundLifecycle({
       roomCode: 'AB12',
       getPlayerId: () => 'p1',
       getSessionSecret: () => 'secret-1',
@@ -83,7 +83,7 @@ describe('attemptClose debounce', () => {
 
   it('allows a new attemptClose once the previous request settles', async () => {
     const refs = makeRefs()
-    const lifecycle = createRoundLifecycle({
+    const lifecycle = useRoundLifecycle({
       roomCode: 'AB12',
       getPlayerId: () => 'p1',
       getSessionSecret: () => 'secret-1',
