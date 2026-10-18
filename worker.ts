@@ -25,7 +25,8 @@ const worker = {
   fetch: handler.fetch,
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    const path = event.cron === '0 9 * * *' ? '/api/ping' : '/api/cleanup'
+    // Single trigger "0 3,9 * * *": 09:00 UTC → ping, anything else (03:00) → cleanup
+    const path = new Date(event.scheduledTime).getUTCHours() === 9 ? '/api/ping' : '/api/cleanup'
     ctx.waitUntil(
       env.WORKER_SELF_REFERENCE.fetch(`https://worker${path}`, {
         headers:

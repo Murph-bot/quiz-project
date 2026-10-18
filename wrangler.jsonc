@@ -17,8 +17,9 @@
   ],
   "triggers": {
     // Replaces the Netlify scheduled functions + Vercel crons.
-    // 03:00 UTC → /api/cleanup, 09:00 UTC → /api/ping
-    "crons": ["0 3 * * *", "0 9 * * *"],
+    // One trigger (account has a 5-trigger limit), fires 03:00 and 09:00 UTC.
+    // worker.ts picks the job by UTC hour: 03 → /api/cleanup, 09 → /api/ping
+    "crons": ["0 3,9 * * *"],
   },
   "vars": {
     // NEXT_PUBLIC_* values are also inlined at build time for client code.

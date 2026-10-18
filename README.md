@@ -98,7 +98,7 @@ SSR, API routes, and static assets all served from one Worker.
 - **Config**: `wrangler.jsonc` (worker name, `nodejs_compat`, assets binding,
   `WORKER_SELF_REFERENCE` service binding, cron triggers). `worker.ts` is the
   custom entry — it re-exports the OpenNext fetch handler and adds a
-  `scheduled()` handler that self-invokes `/api/cleanup` (03:00 UTC) and
+  `scheduled()` handler on one cron trigger (`0 3,9 * * *`) that self-invokes `/api/cleanup` (03:00 UTC) and
   `/api/ping` (09:00 UTC), replacing the old Netlify functions + Vercel crons.
 - **Build/preview/deploy**: `npm run preview` (local workers-runtime preview),
   `npm run deploy` (build + `wrangler deploy`).
