@@ -48,6 +48,8 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Public Sentry DSN (not a secret), inlined into the client bundle at build time.
+          NEXT_PUBLIC_SENTRY_DSN: https://3e32d1167045b66a67853231e25ce9f1@o4512000811991040.ingest.de.sentry.io/4512278817013840
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 

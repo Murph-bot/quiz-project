@@ -25,5 +25,7 @@
     // NEXT_PUBLIC_* values are also inlined at build time for client code.
     // Set non-secret NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
     // here or via `wrangler vars` — secrets go through `wrangler secret put`.
+    // Sentry DSN is public by design (it ships in the browser bundle).
+    "NEXT_PUBLIC_SENTRY_DSN": "https://3e32d1167045b66a67853231e25ce9f1@o4512000811991040.ingest.de.sentry.io/4512278817013840",
   },
 }
