@@ -22,4 +22,18 @@ describe('computeRevealElimination', () => {
     expect(eliminated).toHaveLength(1)
     expect(eliminated[0].nickname).toBe('Maria')
   })
+
+  it('eliminates only from the tiebreak participants when the round was a tiebreak', () => {
+    const { eliminated } = computeRevealElimination(
+      [
+        { player_id: 'p1', value: 90, players: { nickname: 'Alex' } },
+        { player_id: 'p2', value: 120, players: { nickname: 'Maria' } },
+      ],
+      100,
+      activeList,
+      ['p1', 'p2'],
+    )
+
+    expect(eliminated).toEqual([{ playerId: 'p2', nickname: 'Maria' }])
+  })
 })

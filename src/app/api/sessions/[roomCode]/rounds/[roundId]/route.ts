@@ -48,7 +48,7 @@ export async function GET(
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
-    .select('id, status, question_id')
+    .select('id, status, question_id, tiebreak_players')
     .eq('id', roundId)
     .eq('session_id', session.id)
     .single()
@@ -96,10 +96,12 @@ export async function GET(
     .map((p) => ({ id: p.id, nickname: p.nickname }))
 
   const correctAnswer = question.answer
+  const tiebreakPlayers = Array.isArray(round.tiebreak_players) ? round.tiebreak_players : null
   const { answers, eliminated } = computeRevealElimination(
     rawAnswers.map((a) => ({ ...a, players: a.players ?? { nickname: 'Unknown' } })),
     correctAnswer,
     activeList,
+    tiebreakPlayers,
   )
 
   const { count: aliveCount } = await supabase
