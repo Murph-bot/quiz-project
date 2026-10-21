@@ -1,4 +1,4 @@
-import { fileOf, filterReview, normalizeChanged, parseFindings } from '../../scripts/filter-ai-review.js'
+import { fileOf, filterReview, normalizeChanged, parseFindings } from '../../scripts/filter-ai-review.mjs'
 
 const REVIEW = [
   '**Should fix** `src/lib/game/closeTiebreak.ts:96` - Incomplete response object',

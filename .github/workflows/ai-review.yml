@@ -88,7 +88,7 @@ jobs:
         if: steps.diff.outputs.skip != 'true'
         run: |
           if [ -f /tmp/review.md ] && [ "$(tr -d '[:space:]' < /tmp/review.md)" != "LGTM" ]; then
-            node scripts/filter-ai-review.js --review /tmp/review.md --changed /tmp/changed.txt > /tmp/review.filtered.md
+            node scripts/filter-ai-review.mjs --review /tmp/review.md --changed /tmp/changed.txt > /tmp/review.filtered.md
             mv /tmp/review.filtered.md /tmp/review.md
           fi
           cat /tmp/review.md >> "$GITHUB_STEP_SUMMARY"

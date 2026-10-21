@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict'
 
 /**
  * Record a short walkthrough of a real game against a live deployment.
@@ -8,12 +7,12 @@
  * real UI, and saves a webm per page. The game is real: same API and database
  * the site serves, no mocks.
  *
- * Usage: node scripts/record-demo.js [baseUrl] [outDir]
+ * Usage: node scripts/record-demo.mjs [baseUrl] [outDir]
  */
 
-const path = require('node:path')
-const fs = require('node:fs')
-const { chromium } = require('@playwright/test')
+import path from 'node:path'
+import fs from 'node:fs'
+import { chromium } from '@playwright/test'
 
 const BASE = process.argv[2] || 'https://quizknight.sotirios-k-goulas.workers.dev'
 const OUT_DIR =

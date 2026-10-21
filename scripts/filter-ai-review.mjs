@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-'use strict'
+
+import fs from 'node:fs'
+import { pathToFileURL } from 'node:url'
 
 /**
  * Drop AI review findings that do not cite a file in the pushed diff.
@@ -73,11 +75,11 @@ function filterReview(text, changed) {
     .join('\n\n---\n\n')
 }
 
-module.exports = { parseFindings, fileOf, filterReview, normalizeChanged }
+export { parseFindings, fileOf, filterReview, normalizeChanged }
 
-if (require.main === module) {
-  const fs = require('fs')
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
+if (isMain) {
   const args = process.argv.slice(2)
   const readArg = (name) => {
     const i = args.indexOf(name)
