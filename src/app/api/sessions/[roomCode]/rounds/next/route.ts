@@ -14,6 +14,14 @@ import { pickUnusedQuestion } from '@/lib/questionPicker'
 import { broadcastToRoom } from '@/lib/realtime'
 import type { BracketState } from '@/types'
 
+/**
+ * Resurrection stays dormant while a round starts with more than this many
+ * players alive. A 20-player room thins out before anyone comes back, so the
+ * game reaches its bracket instead of looping. Rooms at or below this count
+ * behave exactly as before.
+ */
+const RESURRECTION_START_ALIVE = 12
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomCode: string }> },
@@ -117,7 +125,8 @@ export async function POST(
     resurrectionInterval > 0 &&
     newRoundNumber % resurrectionInterval === 0 &&
     session.phase === 'normal' &&
-    !isSuddenDeath
+    !isSuddenDeath &&
+    (aliveCount ?? 0) <= RESURRECTION_START_ALIVE
   ) {
     const { data: eliminated } = await supabase
       .from('players')

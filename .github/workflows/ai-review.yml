@@ -46,6 +46,7 @@ jobs:
             ':(exclude)dist' ':(exclude)build' ':(exclude).next' ':(exclude)node_modules' \
             ':(exclude)*.min.*' ':(exclude)*.map' ':(exclude)*.svg' ':(exclude)*.png' ':(exclude)*.jpg' \
             ':(exclude)*.md' ':(exclude).github/workflows/ai-review.yml' > /tmp/push.diff || true
+          git diff --name-only "$BEFORE" "$AFTER" -- . > /tmp/changed.txt || true
           CHARS=$(wc -c < /tmp/push.diff | tr -d ' ')
           echo "Diff size: $CHARS chars"
           if [ "$CHARS" -eq 0 ]; then
@@ -86,6 +87,10 @@ jobs:
       - name: Post result
         if: steps.diff.outputs.skip != 'true'
         run: |
+          if [ -f /tmp/review.md ] && [ "$(tr -d '[:space:]' < /tmp/review.md)" != "LGTM" ]; then
+            node scripts/filter-ai-review.js --review /tmp/review.md --changed /tmp/changed.txt > /tmp/review.filtered.md
+            mv /tmp/review.filtered.md /tmp/review.md
+          fi
           cat /tmp/review.md >> "$GITHUB_STEP_SUMMARY"
           if [ "$(tr -d '[:space:]' < /tmp/review.md)" = "LGTM" ]; then
             echo "Clean review - no comment posted."; exit 0
