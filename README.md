@@ -35,7 +35,7 @@ npm run dev                  # http://localhost:3000
 
 ### Database
 
-Migrations live in `supabase/migrations/` (`001`–`013`). There is no local
+Migrations live in `supabase/migrations/` (`001`–`014`). There is no local
 Supabase CLI setup — apply them in order in the Supabase **SQL editor**.
 `011_normalize_categories.sql` includes apply notes in its header. Seed data is
 in `supabase/seed.sql`. `src/lib/database.types.ts` is hand-maintained to match

@@ -152,6 +152,50 @@ describe('POST /api/sessions/[roomCode]/start', () => {
     expect(res.status).toBe(409)
   })
 
+  it('returns 409 when a concurrent start already created round 1', async () => {
+    let playersCallCount = 0
+    ;(createServerClient as jest.Mock).mockReturnValue({
+      from: jest.fn().mockImplementation((table: string) => {
+        if (table === 'sessions') {
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({ data: mockSession, error: null }),
+          }
+        }
+        if (table === 'players') {
+          playersCallCount++
+          if (playersCallCount === 1) {
+            return {
+              select: jest.fn().mockReturnThis(),
+              eq: jest.fn().mockReturnThis(),
+              single: jest.fn().mockResolvedValue({ data: { is_host: true }, error: null }),
+            }
+          }
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ count: 5, error: null }) }),
+          }
+        }
+        if (table === 'questions') {
+          const result = Promise.resolve({ data: [mockQuestion], error: null })
+          return { select: jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue(result), then: result.then.bind(result) }) }
+        }
+        return {
+          insert: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+          }),
+        }
+      }),
+    })
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe('Game already started')
+  })
+
   it('returns 200 with round data including question shape on success', async () => {
     let sessionsCount = 0
     let playersCallCount = 0

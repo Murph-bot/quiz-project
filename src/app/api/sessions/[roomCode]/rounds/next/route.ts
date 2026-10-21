@@ -102,6 +102,11 @@ export async function POST(
     .single()
 
   if (newRoundError || !round) {
+    // A concurrent caller (reveal timer plus the Next button, or a stale host)
+    // already inserted this round number, so the unique key rejected ours.
+    if (newRoundError?.code === '23505') {
+      return NextResponse.json({ error: 'Current round still active' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
   }
 

@@ -40,6 +40,7 @@ function makeNextMock({
   noQuestions = false,
   eliminatedPlayers = [] as Array<{ id: string; nickname: string }>,
   aliveCount = 3,
+  roundInsertError = null as null | { code: string; message: string },
 } = {}) {
   const callMap: Record<string, number> = {}
   function next(key: string) {
@@ -138,7 +139,13 @@ function makeNextMock({
         return {
           insert: jest.fn().mockReturnThis(),
           select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: mockNewRound, error: null }),
+          single: jest
+            .fn()
+            .mockResolvedValue(
+              roundInsertError
+                ? { data: null, error: roundInsertError }
+                : { data: mockNewRound, error: null },
+            ),
         }
       }
       return {}
@@ -179,6 +186,20 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     ;(createServerClient as jest.Mock).mockReturnValue(makeNextMock({ latestRoundStatus: 'active' }))
     const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
     expect(res.status).toBe(409)
+  })
+
+  it('returns 409 when a concurrent caller already created this round number', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeNextMock({
+        roundInsertError: {
+          code: '23505',
+          message: 'duplicate key value violates unique constraint "rounds_session_id_round_number_key"',
+        },
+      }),
+    )
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
+    expect(res.status).toBe(409)
+    expect((await res.json()).error).toBe('Current round still active')
   })
 
   it('returns 409 if no questions available', async () => {

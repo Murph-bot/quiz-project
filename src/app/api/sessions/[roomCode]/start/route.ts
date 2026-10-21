@@ -75,6 +75,10 @@ export async function POST(
       .single()
 
     if (roundError || !round) {
+      // A second concurrent start lost the race on rounds(session_id, round_number).
+      if (roundError?.code === '23505') {
+        return NextResponse.json({ error: 'Game already started' }, { status: 409 })
+      }
       return NextResponse.json({ error: 'Failed to create round' }, { status: 500 })
     }
 
