@@ -38,7 +38,6 @@ export interface Round {
   started_at: string
   status: 'active' | 'closed'
   tiebreak_players?: string[] | null
-  options?: number[] | null
 }
 
 export interface Answer {
@@ -94,13 +93,3 @@ export interface BracketState {
 }
 
 export type GamePhase = 'normal' | 'semifinal' | 'final'
-
-export type UIPhase =
-  | 'answering'
-  | 'waiting'
-  | 'reveal'
-  | 'spectating'
-  | 'tiebreak-waiting'
-  | 'bracket'
-  | 'match-result'
-  | 'winner'

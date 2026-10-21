@@ -30,13 +30,6 @@ export const VALID_CATEGORIES = ['all', ...QUESTION_CATEGORIES] as const
 
 export type GameCategory = (typeof VALID_CATEGORIES)[number]
 
-/** Case-insensitive validity check — accepts 'all' and any question category. */
-export function isValidCategory(category: string): category is GameCategory {
-  return (VALID_CATEGORIES as readonly string[]).some(
-    (c) => c.toLowerCase() === category.trim().toLowerCase(),
-  )
-}
-
 /** Returns the canonical (Title Case) form, or null if unknown. Accepts 'all'. */
 export function canonicalCategory(raw: string): GameCategory | null {
   const found = (VALID_CATEGORIES as readonly string[]).find(
