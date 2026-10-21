@@ -43,7 +43,7 @@ function tiebreakResponse(
 }
 
 export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise<NextResponse | null> {
-  const { supabase, session, round, correctAnswer, answers } = params
+  const { supabase, session, round, correctAnswer, answers, activeList } = params
   const tbPlayers = round.tiebreak_players ?? []
   if (!Array.isArray(tbPlayers) || tbPlayers.length === 0) return null
 
@@ -91,8 +91,27 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
     return tiebreakResponse(correctAnswer, answers, tbResult, tiedForWorstIds)
   }
 
+  // Every participant was exactly right, so nobody is farther out. The round
+  // resolved; it just has no elimination to record.
   if (eliminated.length === 0) {
-    return null
+    return NextResponse.json({
+      correctAnswer,
+      answers,
+      eliminated: [],
+      aliveCount: activeList.length,
+      winner: null,
+      gameOver: false,
+      wasAlreadyClosed: false,
+      bracketReady: false,
+      finalReady: false,
+      sfComplete: false,
+      bracket: null,
+      tiebreakNeeded: false,
+      tiebreakRoundId: null,
+      tiebreakQuestion: null,
+      tiebreakPlayerIds: null,
+      tiebreakStartedAt: null,
+    })
   }
 
   await supabase
