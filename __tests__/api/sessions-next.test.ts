@@ -259,4 +259,34 @@ describe('POST /api/sessions/[roomCode]/rounds/next', () => {
     expect(body.resurrected.nickname).toBe('Ghost')
     expect(body.roundNumber).toBe(5)
   })
+
+  it('stays dormant while the round starts with more than 12 alive', async () => {
+    // 13 alive at the start of round 5: a big room thins out first.
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeNextMock({
+        latestRoundNumber: 4,
+        aliveCount: 13,
+        eliminatedPlayers: [{ id: 'p-elim', nickname: 'Ghost' }],
+      })
+    )
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.resurrected).toBeNull()
+    expect(body.roundNumber).toBe(5)
+  })
+
+  it('starts once the round begins with exactly 12 alive', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(
+      makeNextMock({
+        latestRoundNumber: 4,
+        aliveCount: 12,
+        eliminatedPlayers: [{ id: 'p-elim', nickname: 'Ghost' }],
+      })
+    )
+    const res = await POST(makeRequest('AB12', { playerId: 'p1', sessionSecret: 'secret-1' }), params('AB12'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.resurrected?.playerId).toBe('p-elim')
+  })
 })
