@@ -444,13 +444,18 @@ export function GameScreen({
     },
   })
 
-  async function handleSubmit(value: number) {
-    if (!playerId || isSpectatingRef.current) return
-    const res = await fetch(`/api/sessions/${roomCode}/rounds/${roundId}/answer`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId, sessionSecret, value }),
-    })
+  async function handleSubmit(value: number): Promise<boolean> {
+    if (!playerId || isSpectatingRef.current) return false
+    let res: Response
+    try {
+      res = await fetch(`/api/sessions/${roomCode}/rounds/${roundId}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, sessionSecret, value }),
+      })
+    } catch {
+      return false
+    }
     if (res.ok) {
       const data = await res.json()
       setPhase('waiting')
@@ -470,6 +475,7 @@ export function GameScreen({
         attemptClose()
       }
     }
+    return res.ok
   }
 
   if (!ready) {

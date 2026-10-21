@@ -84,6 +84,30 @@ describe('QuestionPanel (free numeric input)', () => {
     expect(screen.queryByRole('button', { name: /lock it in/i })).not.toBeInTheDocument()
   })
 
+  it('refuses a guess too large for the answer column without sending it', async () => {
+    const onSubmit = jest.fn()
+    render(<QuestionPanel {...makeProps({ onSubmit })} />)
+    const input = await getEnabledInput()
+    fireEvent.change(input, { target: { value: '8000000000' } })
+    fireEvent.click(screen.getByRole('button', { name: /lock it in/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/too big/i)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('unlocks the guess and says so when the server rejects it', async () => {
+    const onSubmit = jest.fn().mockResolvedValue(false)
+    render(<QuestionPanel {...makeProps({ onSubmit })} />)
+    const input = await getEnabledInput()
+    fireEvent.change(input, { target: { value: '17508' } })
+    fireEvent.click(screen.getByRole('button', { name: /lock it in/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/did not reach the server/i)
+    const retryInput = screen.getByLabelText('Your guess')
+    await waitFor(() => expect(retryInput).toBeEnabled())
+    expect(retryInput).toHaveValue('17508')
+  })
+
   it('does not submit while waiting for the round to close', async () => {
     const onSubmit = jest.fn()
     render(<QuestionPanel {...makeProps({ isWaiting: true, onSubmit })} />)

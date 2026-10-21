@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { broadcastToRoom } from '@/lib/realtime'
 import { normalizeRoomCode } from '@/lib/roomCode'
 import { getBracketMatchPlayerIds } from '@/lib/bracket'
+import { MAX_ANSWER_VALUE } from '@/lib/answerLimits'
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +22,11 @@ export async function POST(
   }
   if (value === undefined || value === null || typeof value !== 'number' || !Number.isInteger(value)) {
     return NextResponse.json({ error: 'value must be an integer' }, { status: 400 })
+  }
+  // answers.value is a Postgres int4 column. A larger guess would fail the insert
+  // with a 500 after the client already showed it as locked in.
+  if (Math.abs(value) > MAX_ANSWER_VALUE) {
+    return NextResponse.json({ error: 'value is out of range' }, { status: 400 })
   }
 
   const supabase = createServerClient()

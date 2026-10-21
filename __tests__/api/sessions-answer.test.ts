@@ -153,6 +153,32 @@ describe('POST /api/sessions/[roomCode]/rounds/[roundId]/answer', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 when the guess is too large for the answer column', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase())
+    const res = await POST(
+      makeRequest('AB12', 'round-1', {
+        playerId: 'p1',
+        sessionSecret: 'secret-1',
+        value: 8_000_000_000,
+      }),
+      params('AB12', 'round-1'),
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts the largest value the answer column can hold', async () => {
+    ;(createServerClient as jest.Mock).mockReturnValue(makeSupabase())
+    const res = await POST(
+      makeRequest('AB12', 'round-1', {
+        playerId: 'p1',
+        sessionSecret: 'secret-1',
+        value: 2_147_483_647,
+      }),
+      params('AB12', 'round-1'),
+    )
+    expect(res.status).toBe(200)
+  })
+
   it('returns 400 if value is a float', async () => {
     const res = await POST(makeRequest('AB12', 'round-1', { playerId: 'p1', sessionSecret: 'secret-1', value: 3.14 }), params('AB12', 'round-1'))
     expect(res.status).toBe(400)

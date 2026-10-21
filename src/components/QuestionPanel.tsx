@@ -5,6 +5,7 @@ import { useCountdown } from '@/hooks/useCountdown'
 import { Banner } from '@/components/ui/Banner'
 import { Card } from '@/components/ui/Card'
 import { MuteToggle } from '@/components/ui/MuteToggle'
+import { MAX_ANSWER_VALUE } from '@/lib/answerLimits'
 import { formatNumber } from '@/lib/format'
 import { playSfx } from '@/lib/sfx'
 
@@ -15,7 +16,8 @@ interface Props {
   isWaiting: boolean
   isGracePeriod: boolean
   graceSecondsLeft?: number
-  onSubmit: (value: number) => void
+  /** Resolves false when the server rejected the guess, so the panel can unlock it. */
+  onSubmit: (value: number) => Promise<boolean> | void
 }
 
 export function QuestionPanel({
@@ -28,6 +30,7 @@ export function QuestionPanel({
   onSubmit,
 }: Props) {
   const [submittedValue, setSubmittedValue] = useState<number | null>(null)
+  const [submitError, setSubmitError] = useState('')
   const [input, setInput] = useState('')
   const deadlineMs = new Date(startedAt).getTime() + question.timeLimit * 1000
   const { secondsLeft } = useCountdown(deadlineMs)
@@ -52,15 +55,25 @@ export function QuestionPanel({
     }
   }, [secondsLeft, isWaiting, isGracePeriod])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (disabled || input === '') return
     const value = parseInt(input, 10)
-    if (!Number.isInteger(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) return
+    if (!Number.isInteger(value)) return
+    if (value > MAX_ANSWER_VALUE) {
+      setSubmitError('That number is too big for the answer box.')
+      return
+    }
     playSfx('lockIn')
     navigator.vibrate?.(50)
+    setSubmitError('')
     setSubmittedValue(value)
-    onSubmit(value)
+    // Optimistic: the value is already on screen. Unlock it again if the server
+    // refused it, or the player would think a rejected guess was counted.
+    if ((await onSubmit(value)) === false) {
+      setSubmittedValue(null)
+      setSubmitError('Your guess did not reach the server. Try again.')
+    }
   }
 
   return (
@@ -145,7 +158,10 @@ export function QuestionPanel({
                 autoComplete="off"
                 autoFocus
                 value={input}
-                onChange={(e) => setInput(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  setInput(e.target.value.replace(/\D/g, ''))
+                  setSubmitError('')
+                }}
                 placeholder="Your guess"
                 disabled={disabled}
                 aria-label="Your guess"
@@ -161,6 +177,11 @@ export function QuestionPanel({
             </>
           )}
         </form>
+        {submitError && (
+          <p role="alert" className="text-center text-qk-danger text-xs font-semibold mt-1">
+            {submitError}
+          </p>
+        )}
         {closing && (
           <p className="text-center text-qk-muted text-sm mt-1">{closing}</p>
         )}
