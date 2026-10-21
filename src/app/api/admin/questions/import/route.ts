@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase-server'
 import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
 import { QUESTION_CATEGORIES, canonicalCategory } from '@/lib/categories'
 import { isMissingColumnError } from '@/lib/questionPicker'
+import { suggestCategory } from '@/lib/typesafe'
 
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid CSV header. Expected: text,answer,category,time_limit (optionally ,unit,hint)' }, { status: 400 })
   }
   const errors: { row: number; field: string; message: string }[] = []
+  const suggested: { row: number; raw: string; category: string; confidence: number }[] = []
   const rows: { text: string; answer: number; category: string; time_limit: number; unit: string | null; hint: string | null }[] = []
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i])
@@ -47,7 +49,16 @@ export async function POST(req: NextRequest) {
     if (isNaN(answer) || String(answer) !== rawAnswer.trim()) errors.push({ row, field: 'answer', message: `Must be an integer, got "${rawAnswer}"` })
     const category = rawCategory ? canonicalCategory(rawCategory) : null
     // 'all' is not a valid question category
-    const questionCategory = category && category !== 'all' ? category : null
+    let questionCategory = category && category !== 'all' ? category : null
+    // A cell that missed the exact match may still name a real category loosely.
+    // Consulted only after the match fails, so a valid CSV never calls out.
+    if (!questionCategory && rawCategory && rawText) {
+      const guess = await suggestCategory(rawText.trim())
+      if (guess.ok) {
+        questionCategory = guess.category
+        suggested.push({ row, raw: rawCategory, category: guess.category, confidence: guess.confidence })
+      }
+    }
     if (!questionCategory) errors.push({ row, field: 'category', message: `Invalid category "${rawCategory}". Must be one of: ${QUESTION_CATEGORIES.join(', ')}` })
     const time_limit = parseInt(rawTimeLimit, 10)
     if (isNaN(time_limit) || time_limit < 5 || time_limit > 60) errors.push({ row, field: 'time_limit', message: `Must be an integer 5–60, got "${rawTimeLimit}"` })
@@ -66,5 +77,7 @@ export async function POST(req: NextRequest) {
     ;({ error } = await supabase.from('questions').insert(baseRows))
   }
   if (error) { console.error('[import]', error.message); return NextResponse.json({ error: 'Import failed' }, { status: 500 }) }
-  return NextResponse.json({ imported: rows.length })
+  // Rows whose category was guessed rather than matched exactly, so the admin
+  // can spot a wrong mapping without re-reading the file.
+  return NextResponse.json({ imported: rows.length, suggested })
 }
