@@ -57,7 +57,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const supabase = createServerClient()
   const { data, error } = await supabase.from('questions').delete().eq('id', id).select()
-  if (error) return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
+  if (error) {
+    // rounds.question_id has no ON DELETE rule, so a question that was already
+    // played cannot be removed until the 24h cleanup drops that game.
+    if (error.code === '23503') {
+      return NextResponse.json(
+        { error: 'This question was used in a played round and cannot be deleted yet.' },
+        { status: 409 },
+      )
+    }
+    return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
+  }
   if (!data || data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return new NextResponse(null, { status: 204 })
 }

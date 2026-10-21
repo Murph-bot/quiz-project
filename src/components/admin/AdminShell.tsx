@@ -49,7 +49,13 @@ export function AdminShell() {
 
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this question?')) return
-    await fetch(`/api/admin/questions/${id}`, { method: 'DELETE' })
+    setError(null)
+    const res = await fetch(`/api/admin/questions/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error ?? 'Delete failed')
+      return
+    }
     fetchQuestions()
   }
 
@@ -123,8 +129,8 @@ export function AdminShell() {
           <input className="border rounded px-3 py-2 text-sm w-28" placeholder="Unit (opt)" maxLength={40} value={addForm.unit} onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))} />
           <input className="border rounded px-3 py-2 text-sm flex-1 min-w-[140px]" placeholder="Hint (optional)" maxLength={140} value={addForm.hint} onChange={e => setAddForm(f => ({ ...f, hint: e.target.value }))} />
           <button type="submit" className="bg-qk-field text-qk-text rounded px-4 py-2 text-sm font-bold hover:bg-qk-void">Add</button>
-          {error && <p className="w-full text-red-500 text-sm">{error}</p>}
         </form>
+        {error && <p role="alert" className="w-full text-red-500 text-sm">{error}</p>}
       </div>
 
       {/* CSV Import */}
