@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
+import { isAuthorized } from '@/lib/admin-auth'
 import { QUESTION_CATEGORIES, canonicalCategory } from '@/lib/categories'
 import { isMissingColumnError } from '@/lib/questionPicker'
 import { suggestCategory } from '@/lib/typesafe'
-
-async function isAuthorized(req: NextRequest): Promise<boolean> {
-  const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
-  return !!token && verifyAdminToken(token)
-}
 
 function parseCSVLine(line: string): string[] {
   const result: string[] = []

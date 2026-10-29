@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
-import { verifyAdminToken, ADMIN_COOKIE_NAME } from '@/lib/admin-auth'
+import { isAuthorized } from '@/lib/admin-auth'
 import { canonicalCategory } from '@/lib/categories'
 import { isMissingColumnError } from '@/lib/questionPicker'
-
-async function isAuthorized(req: NextRequest): Promise<boolean> {
-  const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
-  return !!token && verifyAdminToken(token)
-}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isAuthorized(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

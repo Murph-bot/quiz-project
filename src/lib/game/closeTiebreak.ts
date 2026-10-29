@@ -17,10 +17,20 @@ interface CloseTiebreakParams {
   activeList: Array<{ id: string; nickname: string }>
 }
 
+type CreatedTiebreak = Awaited<ReturnType<typeof createTiebreakRound>> & { ok: true }
+
+type TiebreakCreateResult = {
+  tiebreakRoundId: string | null
+  tiebreakQuestion: CreatedTiebreak['question'] | null
+  tiebreakPlayerIds: string[] | null
+  tiebreakStartedAt: string | null
+  errorResponse?: NextResponse
+}
+
 function tiebreakResponse(
   correctAnswer: number,
   answers: RankedAnswer[],
-  tbResult: Awaited<ReturnType<typeof createTiebreakRound>> & { ok: true },
+  tbResult: CreatedTiebreak,
   playerIds: string[],
 ) {
   return NextResponse.json({
@@ -40,6 +50,46 @@ function tiebreakResponse(
     tiebreakPlayerIds: playerIds,
     tiebreakStartedAt: tbResult.startedAt,
   })
+}
+
+async function createTiebreakOrError(
+  supabase: Supabase,
+  session: Session,
+  playerIds: string[],
+  kind: 'replay' | 'tiebreak',
+): Promise<{ ok: true; tbResult: CreatedTiebreak } | { ok: false; errorResponse: NextResponse }> {
+  const tbResult = await createTiebreakRound(supabase, session.id, session.category, playerIds)
+  if (!tbResult.ok) {
+    return {
+      ok: false,
+      errorResponse: NextResponse.json(
+        {
+          error:
+            tbResult.error === 'no_questions'
+              ? `No questions available for ${kind}`
+              : `Failed to create ${kind} round`,
+        },
+        { status: 500 },
+      ),
+    }
+  }
+  return { ok: true, tbResult }
+}
+
+function createdTiebreakFields(tbResult: CreatedTiebreak, playerIds: string[]): TiebreakCreateResult {
+  return {
+    tiebreakRoundId: tbResult.roundId,
+    tiebreakStartedAt: tbResult.startedAt,
+    tiebreakPlayerIds: playerIds,
+    tiebreakQuestion: tbResult.question,
+  }
+}
+
+const emptyTiebreakFields: TiebreakCreateResult = {
+  tiebreakRoundId: null,
+  tiebreakQuestion: null,
+  tiebreakPlayerIds: null,
+  tiebreakStartedAt: null,
 }
 
 export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise<NextResponse | null> {
@@ -66,29 +116,17 @@ export async function resolveTiebreakRound(params: CloseTiebreakParams): Promise
   }))
 
   if (isIdenticalWrongReplay(participantRanked, tbPlayers.length)) {
-    const tbResult = await createTiebreakRound(supabase, session.id, session.category, tbPlayers)
-    if (!tbResult.ok) {
-      const msg =
-        tbResult.error === 'no_questions'
-          ? 'No questions available for replay'
-          : 'Failed to create replay round'
-      return NextResponse.json({ error: msg }, { status: 500 })
-    }
-    return tiebreakResponse(correctAnswer, answers, tbResult, tbPlayers)
+    const created = await createTiebreakOrError(supabase, session, tbPlayers, 'replay')
+    if (!created.ok) return created.errorResponse
+    return tiebreakResponse(correctAnswer, answers, created.tbResult, tbPlayers)
   }
 
   const { eliminated, tiedForWorstIds } = resolveSubsetElimination(participantAnswers)
 
   if (tiedForWorstIds.length > 1) {
-    const tbResult = await createTiebreakRound(supabase, session.id, session.category, tiedForWorstIds)
-    if (!tbResult.ok) {
-      const msg =
-        tbResult.error === 'no_questions'
-          ? 'No questions available for tiebreak'
-          : 'Failed to create tiebreak round'
-      return NextResponse.json({ error: msg }, { status: 500 })
-    }
-    return tiebreakResponse(correctAnswer, answers, tbResult, tiedForWorstIds)
+    const created = await createTiebreakOrError(supabase, session, tiedForWorstIds, 'tiebreak')
+    if (!created.ok) return created.errorResponse
+    return tiebreakResponse(correctAnswer, answers, created.tbResult, tiedForWorstIds)
   }
 
   // Every participant was exactly right, so nobody is farther out. The round
@@ -156,44 +194,14 @@ export async function maybeCreateIdenticalWrongReplay(params: {
   activeList: Array<{ id: string; nickname: string }>
   correctAnswer: number
   answers: RankedAnswer[]
-}): Promise<{
-  tiebreakNeeded: boolean
-  tiebreakRoundId: string | null
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null } | null
-  tiebreakPlayerIds: string[] | null
-  tiebreakStartedAt: string | null
-  errorResponse?: NextResponse
-}> {
+}): Promise<TiebreakCreateResult & { tiebreakNeeded: boolean }> {
   const { supabase, session, activeList } = params
   const allAliveIds = activeList.map((p) => p.id)
-  const tbResult = await createTiebreakRound(supabase, session.id, session.category, allAliveIds)
-
-  if (!tbResult.ok) {
-    return {
-      tiebreakNeeded: false,
-      tiebreakRoundId: null,
-      tiebreakQuestion: null,
-      tiebreakPlayerIds: null,
-      tiebreakStartedAt: null,
-      errorResponse: NextResponse.json(
-        {
-          error:
-            tbResult.error === 'no_questions'
-              ? 'No questions available for replay'
-              : 'Failed to create replay round',
-        },
-        { status: 500 },
-      ),
-    }
+  const created = await createTiebreakOrError(supabase, session, allAliveIds, 'replay')
+  if (!created.ok) {
+    return { ...emptyTiebreakFields, tiebreakNeeded: false, errorResponse: created.errorResponse }
   }
-
-  return {
-    tiebreakNeeded: true,
-    tiebreakRoundId: tbResult.roundId,
-    tiebreakStartedAt: tbResult.startedAt,
-    tiebreakPlayerIds: allAliveIds,
-    tiebreakQuestion: tbResult.question,
-  }
+  return { ...createdTiebreakFields(created.tbResult, allAliveIds), tiebreakNeeded: true }
 }
 
 export async function maybeCreateWorstTiebreak(params: {
@@ -202,40 +210,13 @@ export async function maybeCreateWorstTiebreak(params: {
   tiedPlayerIds: string[]
   correctAnswer: number
   answers: RankedAnswer[]
-}): Promise<{
-  tiebreakRoundId: string | null
-  tiebreakQuestion: { id: string; text: string; timeLimit: number; category: string; unit?: string | null; hint?: string | null } | null
-  tiebreakPlayerIds: string[] | null
-  tiebreakStartedAt: string | null
-  errorResponse?: NextResponse
-}> {
+}): Promise<TiebreakCreateResult> {
   const { supabase, session, tiedPlayerIds } = params
-  const tbResult = await createTiebreakRound(supabase, session.id, session.category, tiedPlayerIds)
-
-  if (!tbResult.ok) {
-    return {
-      tiebreakRoundId: null,
-      tiebreakQuestion: null,
-      tiebreakPlayerIds: null,
-      tiebreakStartedAt: null,
-      errorResponse: NextResponse.json(
-        {
-          error:
-            tbResult.error === 'no_questions'
-              ? 'No questions available for tiebreak'
-              : 'Failed to create tiebreak round',
-        },
-        { status: 500 },
-      ),
-    }
+  const created = await createTiebreakOrError(supabase, session, tiedPlayerIds, 'tiebreak')
+  if (!created.ok) {
+    return { ...emptyTiebreakFields, errorResponse: created.errorResponse }
   }
-
-  return {
-    tiebreakRoundId: tbResult.roundId,
-    tiebreakStartedAt: tbResult.startedAt,
-    tiebreakPlayerIds: tiedPlayerIds,
-    tiebreakQuestion: tbResult.question,
-  }
+  return createdTiebreakFields(created.tbResult, tiedPlayerIds)
 }
 
 export function buildRankedAnswers(

@@ -6,8 +6,9 @@ export interface NormalEliminationResult {
   tiedForWorstIds: string[]
 }
 
-/** In normal phase, only the farthest answer(s) from correct are at risk. */
-export function resolveNormalElimination(answers: RankedAnswer[]): NormalEliminationResult {
+function farthestDelta(
+  answers: Array<{ playerId: string; nickname: string; delta: number }>,
+): NormalEliminationResult {
   if (answers.length === 0) {
     return { eliminated: [], tiedForWorstIds: [] }
   }
@@ -32,6 +33,11 @@ export function resolveNormalElimination(answers: RankedAnswer[]): NormalElimina
   }
 }
 
+/** In normal phase, only the farthest answer(s) from correct are at risk. */
+export function resolveNormalElimination(answers: RankedAnswer[]): NormalEliminationResult {
+  return farthestDelta(answers)
+}
+
 /** Everyone answered wrong with the exact same distance — replay, no elimination. */
 export function isIdenticalWrongReplay(answers: RankedAnswer[], activeCount: number): boolean {
   if (answers.length !== activeCount || answers.length === 0) return false
@@ -44,26 +50,5 @@ export function isIdenticalWrongReplay(answers: RankedAnswer[], activeCount: num
 export function resolveSubsetElimination(
   participantAnswers: Array<{ playerId: string; nickname: string; delta: number }>,
 ): { eliminated: EliminatedPlayer[]; tiedForWorstIds: string[] } {
-  if (participantAnswers.length === 0) {
-    return { eliminated: [], tiedForWorstIds: [] }
-  }
-
-  const maxDelta = Math.max(...participantAnswers.map((a) => a.delta))
-  if (maxDelta === 0) {
-    return { eliminated: [], tiedForWorstIds: [] }
-  }
-
-  const worst = participantAnswers.filter((a) => a.delta === maxDelta)
-
-  if (worst.length === 1) {
-    return {
-      eliminated: [{ playerId: worst[0].playerId, nickname: worst[0].nickname }],
-      tiedForWorstIds: [],
-    }
-  }
-
-  return {
-    eliminated: [],
-    tiedForWorstIds: worst.map((a) => a.playerId),
-  }
+  return farthestDelta(participantAnswers)
 }
