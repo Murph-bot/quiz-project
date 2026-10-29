@@ -4,10 +4,8 @@ import { safeEqual } from '@/lib/admin-auth'
 
 function isAuthorized(req: NextRequest): boolean {
   const auth = req.headers.get('authorization') ?? ''
-  // Accept CRON_SECRET (Vercel cron), CLEANUP_SECRET (Netlify scheduled functions / manual)
-  return [process.env.CRON_SECRET, process.env.CLEANUP_SECRET].some(
-    (secret) => !!secret && safeEqual(auth, `Bearer ${secret}`),
-  )
+  const secret = process.env.CLEANUP_SECRET
+  return !!secret && safeEqual(auth, `Bearer ${secret}`)
 }
 
 async function runCleanup(): Promise<NextResponse> {
@@ -35,7 +33,6 @@ async function runCleanup(): Promise<NextResponse> {
   return NextResponse.json({ deleted })
 }
 
-// GET — called by Vercel cron or Netlify scheduled-cleanup (Bearer CRON_SECRET or CLEANUP_SECRET)
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

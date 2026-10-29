@@ -14,8 +14,6 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Editor tooling, not app code:
     ".cursor/**",
-    // Netlify functions use their own conventions:
-    "netlify/functions/**",
   ]),
 ]);
 

@@ -5,7 +5,6 @@ import { createServerClient } from '@/lib/supabase-server'
 jest.mock('@/lib/supabase-server', () => ({ createServerClient: jest.fn() }))
 
 process.env.CLEANUP_SECRET = 'cleanup-secret'
-delete process.env.CRON_SECRET
 
 function request(authorization?: string) {
   return new NextRequest('http://localhost/api/cleanup', {

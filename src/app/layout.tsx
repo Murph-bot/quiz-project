@@ -2,7 +2,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
-const SITE_URL = 'https://quiz-project-phi-sooty.vercel.app'
+const SITE_URL = 'https://quizknight.sotiriosgoulas.com'
 const DESCRIPTION =
   'Last-one-standing trivia for friends. Join a room with a 4-letter code, guess the number before the timer runs out, and outlast everyone.'
 
