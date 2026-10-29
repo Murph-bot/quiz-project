@@ -1,9 +1,11 @@
+import type { NextRequest } from 'next/server'
+
 const ADMIN_COOKIE_NAME = 'qk_admin_token'
 
 // Must match the cookie maxAge set at login.
 const ADMIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000
 
-function toHex(bytes: Uint8Array): string {
+export function toHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
@@ -56,6 +58,11 @@ export function safeEqual(a: string, b: string): boolean {
   let diff = 0
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
   return diff === 0
+}
+
+export async function isAuthorized(req: NextRequest): Promise<boolean> {
+  const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value
+  return !!token && verifyAdminToken(token)
 }
 
 export { ADMIN_COOKIE_NAME }
