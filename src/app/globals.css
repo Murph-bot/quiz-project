@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@source not "../../.netlify";
 @source not "../../.next";
 @source not "../../.cursor";
 

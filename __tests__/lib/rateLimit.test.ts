@@ -51,22 +51,6 @@ describe('clientKey', () => {
     expect(clientKey(req, 'scope')).toBe('scope:7.7.7.7')
   })
 
-  describe('on Vercel', () => {
-    beforeEach(() => {
-      process.env.VERCEL = '1'
-    })
-    afterEach(() => {
-      delete process.env.VERCEL
-    })
-
-    it('uses x-real-ip and ignores client-supplied cf-connecting-ip', () => {
-      const req = new Request('http://localhost', {
-        headers: { 'x-real-ip': '9.9.9.9', 'cf-connecting-ip': '6.6.6.6' },
-      })
-      expect(clientKey(req, 'scope')).toBe('scope:9.9.9.9')
-    })
-  })
-
   it('falls back to unknown without any address header', () => {
     const bare = new NextRequest('http://localhost/api/x')
     expect(clientKey(bare, 'scope')).toBe('scope:unknown')

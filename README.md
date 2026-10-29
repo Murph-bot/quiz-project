@@ -29,8 +29,7 @@ npm run dev                  # http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client | Realtime subscribe/presence only (RLS blocks table access) |
 | `SUPABASE_SERVICE_ROLE_KEY` | server only | DB access in API routes, server-side broadcast |
 | `ADMIN_SECRET` | server | Admin panel login (`/admin`) |
-| `CLEANUP_SECRET` | server | Netlify scheduled-cleanup + manual `/api/cleanup` calls |
-| `CRON_SECRET` | server | Vercel cron calls to `/api/cleanup` (only if Vercel crons are enabled) |
+| `CLEANUP_SECRET` | server | Bearer secret for `/api/cleanup` |
 | `NEXT_PUBLIC_SENTRY_DSN` | client + server | Optional — Sentry error monitoring; leave unset to keep the SDK inert |
 
 ### Database
