@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": "./worker.ts",
   "name": "quizknight",
+  "observability": {
+    "enabled": true,
+  },
   "workers_dev": true,
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
