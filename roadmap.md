@@ -1,0 +1,12 @@
+# Quiz_Knight
+- [x] Live nickname-based room hosting and joining
+- [x] Numeric rounds, countdown, reveal and sudden death
+- [x] Spectators and best-of-3 / best-of-5 final-four bracket
+- [x] Party-game interface, knight artwork and sound
+- [x] Initial rule tests and five-player tournament verification
+- [x] Tactical Armor: two shields, damage and elimination at zero, before final four only
+- [x] Round quests and Bullseye Bounty shield rewards
+- [x] Shadow Council predictions and live crowd sentiment
+- [x] Apply uploaded Tactical Armor HUD structure using the existing game palette
+- [x] Verify armor, bounties and spectator predictions with six live players- [x] Finish 4/5/8-player live round tests
+- [x] Screenshot every game phase for the user
