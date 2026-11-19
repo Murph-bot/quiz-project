@@ -1,1 +1,47 @@
-aW1wb3J0IHsgZGVzY3JpYmUsIGV4cGVjdCwgaXQgfSBmcm9tICd2aXRlc3QnOwppbXBvcnQgeyBuZXdHYW1lLCBvcGVuUXVlc3Rpb24sIHF1ZXN0aW9uS2V5IH0gZnJvbSAnLi9nYW1lJzsKaW1wb3J0IHsgcXVlc3Rpb25zIH0gZnJvbSAnLi9xdWVzdGlvbnMuc2VydmVyJzsKCmRlc2NyaWJlKCdzYW1lLXJvb20gcXVlc3Rpb24gaGlzdG9yeScsICgpID0+IHsKICBpdCgnZG9lcyBub3QgcmVwbGF5IGEgcXVlc3Rpb24gd2hlbiB0aGUgYmFuayBpcyByZW9yZGVyZWQgYmV0d2VlbiByb3VuZHMnLCAoKSA9PiB7CiAgICBjb25zdCBnID0gbmV3R2FtZSgnQScsICdhJywgJ3QnLCAzMCk7CiAgICBjb25zdCBrZXlzID0gWydGaXJzdCBxdWVzdGlvbj8nLCAnU2Vjb25kIHF1ZXN0aW9uPyddLm1hcCh0ZXh0ID0+IHF1ZXN0aW9uS2V5KHsgdGV4dCB9KSk7CiAgICBvcGVuUXVlc3Rpb24oZywgMiwgMCwgWzEsIDFdLCAoKSA9PiAwLCBrZXlzKTsKICAgIGV4cGVjdChnLnVzZWRLZXlzKS50b0VxdWFsKFtrZXlzWzBdXSk7CiAgICBvcGVuUXVlc3Rpb24oZywgMiwgMTAwMCwgWzEsIDFdLCAoKSA9PiAwLCBbLi4ua2V5c10ucmV2ZXJzZSgpKTsKICAgIGV4cGVjdChnLnF1ZXN0aW9uSW5kZXgpLnRvQmUoMCk7CiAgICBleHBlY3QoZy51c2VkS2V5cykudG9FcXVhbChrZXlzKTsKICB9KTsKICBpdCgnZG9lcyBub3QgcmVzZXQgaGlzdG9yeSBvciByZW9wZW4gYW4gb2xkIHF1ZXN0aW9uIHdoZW4gYWxsIHF1ZXN0aW9ucyBhcmUgdXNlZCcsICgpID0+IHsKICAgIGNvbnN0IGcgPSBuZXdHYW1lKCdBJywgJ2EnLCAndCcsIDMwKTsKICAgIG9wZW5RdWVzdGlvbihnLCAxLCAwKTsKICAgIGcucGhhc2UgPSAncmV2ZWFsJzsKICAgIGV4cGVjdChvcGVuUXVlc3Rpb24oZywgMSwgMTAwMCkpLnRvQmUoZmFsc2UpOwogICAgZXhwZWN0KGcucGhhc2UpLnRvQmUoJ3JldmVhbCcpOwogICAgZXhwZWN0KGcucm91bmQpLnRvQmUoMSk7CiAgICBleHBlY3QoZy51c2VkKS50b0VxdWFsKFswXSk7CiAgICBleHBlY3QoZy5xdWVzdGlvbkV4aGF1c3RlZCkudG9CZSh0cnVlKTsKICAgIGV4cGVjdChnLnJldmVhbFVudGlsKS50b0JlKDApOwogIH0pOwogIGZvciAoY29uc3QgcGFjaW5nIG9mIFsnc3RlYWR5JywgJ3Jpc2luZycsICdjaGFvcyddIGFzIGNvbnN0KSB7CiAgICBpdChgJHtwYWNpbmd9OiBuZXZlciByZXBlYXRzIGFueSBxdWVzdGlvbiBpbiB0aGUgZXhwYW5kZWQgYmFuaywgaW5jbHVkaW5nIGFmdGVyIGV4aGF1c3Rpb25gLCAoKSA9PiB7CiAgICAgIGNvbnN0IGcgPSBuZXdHYW1lKCdBJywgJ2EnLCAndCcsIDMwLCBwYWNpbmcpOwogICAgICBjb25zdCBrZXlzID0gcXVlc3Rpb25zLm1hcChxdWVzdGlvbktleSksIGxldmVscyA9IHF1ZXN0aW9ucy5tYXAocSA9PiBxLmxldmVsID8/IDEpOwogICAgICBjb25zdCBzZWVuID0gbmV3IFNldDxzdHJpbmc+KCk7CiAgICAgIGV4cGVjdChxdWVzdGlvbnMubGVuZ3RoKS50b0JlKDYxNik7CiAgICAgIGZvciAobGV0IGkgPSAwOyBpIDwgcXVlc3Rpb25zLmxlbmd0aDsgaSsrKSB7CiAgICAgICAgZXhwZWN0KG9wZW5RdWVzdGlvbihnLCBxdWVzdGlvbnMubGVuZ3RoLCBpICogMTAwMCwgbGV2ZWxzLCAoKSA9PiAwLjUsIGtleXMpKS50b0JlKHRydWUpOwogICAgICAgIGNvbnN0IGtleSA9IGtleXNbZy5xdWVzdGlvbkluZGV4XTsKICAgICAgICBpZiAoa2V5ID09PSB1bmRlZmluZWQpIHRocm93IG5ldyBFcnJvcignTWlzc2luZyBxdWVzdGlvbiBpZGVudGl0eScpOwogICAgICAgIGV4cGVjdChzZWVuLmhhcyhrZXkpKS50b0JlKGZhbHNlKTsKICAgICAgICBzZWVuLmFkZChrZXkpOwogICAgICB9CiAgICAgIGV4cGVjdChvcGVuUXVlc3Rpb24oZywgcXVlc3Rpb25zLmxlbmd0aCwgOTk5OTk5LCBsZXZlbHMsICgpID0+IDAuNSwga2V5cykpLnRvQmUoZmFsc2UpOwogICAgICBleHBlY3Qoc2Vlbi5zaXplKS50b0JlKDYxNik7CiAgICAgIGV4cGVjdChnLnVzZWRLZXlzPy5sZW5ndGgpLnRvQmUoNjE2KTsKICAgIH0pOwogIH0KICBpdCgndHJlYXRzIHB1bmN0dWF0aW9uIGFuZCBjYXNlIGVkaXRzIGFzIHRoZSBzYW1lIHF1ZXN0aW9uJywgKCkgPT4gewogICAgZXhwZWN0KHF1ZXN0aW9uS2V5KHsgdGV4dDogJ0hvdyBtYW55IHBsYW5ldHM/JyB9KSkudG9CZShxdWVzdGlvbktleSh7IHRleHQ6ICdIT1cgTUFOWSBQTEFORVRTICEnIH0pKTsKICB9KTsKfSk7
+import { describe, expect, it } from 'vitest';
+import { newGame, openQuestion, questionKey } from './game';
+import { questions } from './questions.server';
+
+describe('same-room question history', () => {
+  it('does not replay a question when the bank is reordered between rounds', () => {
+    const g = newGame('A', 'a', 't', 30);
+    const keys = ['First question?', 'Second question?'].map(text => questionKey({ text }));
+    openQuestion(g, 2, 0, [1, 1], () => 0, keys);
+    expect(g.usedKeys).toEqual([keys[0]]);
+    openQuestion(g, 2, 1000, [1, 1], () => 0, [...keys].reverse());
+    expect(g.questionIndex).toBe(0);
+    expect(g.usedKeys).toEqual(keys);
+  });
+  it('does not reset history or reopen an old question when all questions are used', () => {
+    const g = newGame('A', 'a', 't', 30);
+    openQuestion(g, 1, 0);
+    g.phase = 'reveal';
+    expect(openQuestion(g, 1, 1000)).toBe(false);
+    expect(g.phase).toBe('reveal');
+    expect(g.round).toBe(1);
+    expect(g.used).toEqual([0]);
+    expect(g.questionExhausted).toBe(true);
+    expect(g.revealUntil).toBe(0);
+  });
+  for (const pacing of ['steady', 'rising', 'chaos'] as const) {
+    it(`${pacing}: never repeats any question in the expanded bank, including after exhaustion`, () => {
+      const g = newGame('A', 'a', 't', 30, pacing);
+      const keys = questions.map(questionKey), levels = questions.map(q => q.level ?? 1);
+      const seen = new Set<string>();
+      expect(questions.length).toBe(616);
+      for (let i = 0; i < questions.length; i++) {
+        expect(openQuestion(g, questions.length, i * 1000, levels, () => 0.5, keys)).toBe(true);
+        const key = keys[g.questionIndex];
+        if (key === undefined) throw new Error('Missing question identity');
+        expect(seen.has(key)).toBe(false);
+        seen.add(key);
+      }
+      expect(openQuestion(g, questions.length, 999999, levels, () => 0.5, keys)).toBe(false);
+      expect(seen.size).toBe(616);
+      expect(g.usedKeys?.length).toBe(616);
+    });
+  }
+  it('treats punctuation and case edits as the same question', () => {
+    expect(questionKey({ text: 'How many planets?' })).toBe(questionKey({ text: 'HOW MANY PLANETS !' }));
+  });
+});

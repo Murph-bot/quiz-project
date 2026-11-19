@@ -1,1 +1,40 @@
-PCEtLSBMT1ZBQkxFOkJFR0lOIC0tPgo+IFshSU1QT1JUQU5UXQo+IFRoaXMgcHJvamVjdCBpcyBjb25uZWN0ZWQgdG8gW0xvdmFibGVdKGh0dHBzOi8vbG92YWJsZS5kZXYpLiBBdm9pZCByZXdyaXRpbmcKPiBwdWJsaXNoZWQgZ2l0IGhpc3Rvcnkg4oCUIGZvcmNlIHB1c2hpbmcsIG9yIHJlYmFzaW5nL2FtZW5kaW5nL3NxdWFzaGluZyBjb21taXRzCj4gdGhhdCBhcmUgYWxyZWFkeSBwdXNoZWQg4oCUIGFzIGl0IHJld3JpdGVzIGhpc3Rvcnkgb24gTG92YWJsZSdzIHNpZGUgYW5kIHRoZQo+IHVzZXIgd2lsbCBsaWtlbHkgbG9zZSB0aGVpciBwcm9qZWN0IGhpc3RvcnkuCj4KPiBDb21taXRzIHlvdSBwdXNoIHRvIHRoZSBjb25uZWN0ZWQgYnJhbmNoIHN5bmMgYmFjayB0byBMb3ZhYmxlIGFuZCBzaG93IHVwIGluCj4gdGhlIGVkaXRvciwgc28ga2VlcCB0aGUgYnJhbmNoIGluIGEgd29ya2luZyBzdGF0ZS4KCiMjIFdoYXQgTG92YWJsZSBtYW5hZ2VzCgpSdWxlcyBvdXRzaWRlIHRoaXMgYmxvY2sgYXJlIHRoZSBwcm9qZWN0J3Mgb3duLiBDaGFuZ2UgdGhlIHBpZWNlcyBiZWxvdyBpbgpMb3ZhYmxlLCBub3QgYnkgaGFuZC4gV2l0aCB0aGUgW0xvdmFibGUgTUNQXShodHRwczovL21jcC5sb3ZhYmxlLmRldikKY29ubmVjdGVkLCBgc2VuZF9tZXNzYWdlYCBhc2tzIExvdmFibGUgdG8gZG8gaXQ7IG90aGVyd2lzZSBhc2sgdGhlIHVzZXIgdG8KdXNlIHRoZSBlZGl0b3IuCgotICoqRGF0YWJhc2UuKiogRG8gbm90IGFkZCBvciBlZGl0IGBzdXBhYmFzZS9taWdyYXRpb25zL2Agb3IgYGRyaXp6bGUvYC4KICBBc2sgTG92YWJsZSB0byBjaGFuZ2UgdGhlIHNjaGVtYS4KLSAqKkdlbmVyYXRlZCBmaWxlcy4qKiBEbyBub3QgZWRpdCBhIGZpbGUgd2hvc2UgaGVhZGVyIHNheXMgaXQgaXMgYXV0b21hdGljYWxseQogIGdlbmVyYXRlZC4KLSAqKkFJIGdhdGV3YXkuKiogS2VlcCBtb2RlbCBjYWxscyBvbiBMb3ZhYmxlJ3MgZ2F0ZXdheSwgYW5kIGtlZXAKICBgTE9WQUJMRV9BUElfS0VZYCBvdXQgb2YgYnJvd3NlciBjb2RlLgotICoqQ29ubmVjdG9ycy4qKiBMb3ZhYmxlIHByb3ZpZGVzIG5hdGl2ZSBjb25uZWN0b3JzLiBgbGlzdF9jb25uZWN0b3JzYCBzaG93cwogIHdoaWNoIGFyZSBlbmFibGVkOyBgYWRkX2Nvbm5lY3RvcmAgb25seSByZXR1cm5zIHRoZSBkYXNoYm9hcmQgbGluay4gV2hlbiBhCiAgY29ubmVjdG9yIGlzIGVuYWJsZWQsIGNhbGxzIGdvIHRocm91Z2ggdGhlIGNvbm5lY3RvciBnYXRld2F5IGFuZCBuZWVkCiAgYExPVkFCTEVfQVBJX0tFWWAuIFdoZW4gTG92YWJsZSBkb2VzIG5vdCBwcm92aWRlIG9uZSwgdXNlcnMgY2FuIGJyaW5nIHRoZWlyCiAgb3duIGtleSBhbmQgc3RvcmUgaXQgaW4gU2VjcmV0cy4KLSAqKlNlY3JldHMuKiogTG92YWJsZSBtYW5hZ2VzIHRoZW0uIERvIG5vdCBwdXQgc2VjcmV0IHZhbHVlcyBpbiB0aGUgcmVwby4KPCEtLSBMT1ZBQkxFOkVORCAtLT4KCiMjIFF1aXogZ2FtZSBhcmNoaXRlY3R1cmUKLSBLZWVwIHRoZSBkZXRlcm1pbmlzdGljIHJvdW5kIGFuZCB0b3VybmFtZW50IHJ1bGVzIGluIGBzcmMvbGliL2dhbWUudHNgLCB0ZXN0ZWQgc2VwYXJhdGVseSwgc28gdGhlIHNlcnZlciByZW1haW5zIGF1dGhvcml0YXRpdmUuCi0gUm9vbXMgcGVyc2lzdCBhcyB2ZXJzaW9uZWQgSlNPTiB3aXRoIGNvbXBhcmUtYW5kLXN3YXAgdXBkYXRlczsgYSBjcnlwdG9ncmFwaGljYWxseSByYW5kb20gcGxheWVyIHRpY2tldCBhdXRob3JpemVzIGV2ZXJ5IHJvb20gYWN0aW9uLCBzbyBuaWNrbmFtZXMgcmVxdWlyZSBubyBhY2NvdW50cy4KLSBPbmx5IHNlcnZlci1zaWRlIHJvb20gZnVuY3Rpb25zIGFjY2VzcyBnYW1lIHN0b3JhZ2U7IHByb2plY3QgdGFibGVzIGFyZSBSTFMtbG9ja2VkIHRvIGNsaWVudHMsIGFuZCByZXNwb25zZXMgc3RyaXAgdGlja2V0cyBhbmQgdW5yZXZlYWxlZCBhbnN3ZXJzLgotIFBvbGwgcm9vbSBzdGF0ZSBvbmNlIHBlciBzZWNvbmQgd2hpbGUgam9pbmVkOyBkZWFkbGluZSByZXNvbHV0aW9uIGlzIGlkZW1wb3RlbnQgYW5kIHRyaWdnZXJlZCBieSBhbnkgcGxheWVyLCBzbyBhIGhvc3QgZGlzY29ubmVjdCBjYW5ub3QgZnJlZXplIHRoZSByZXZlYWwuCi0gS2VlcCB2aXN1YWwgcm9sZXMgaW4gQ1NTIHNlbWFudGljIHRva2VucyBhbmQgdXNlIHRoZSBzaGFyZWQgQnV0dG9uIGZvciBnYW1lIGNvbnRyb2xzLgotIEFybW9yLCBib3VudGllcyBhbmQgY291bmNpbCB3YWdlcnMgbGl2ZSBpbiB0aGUgZGV0ZXJtaW5pc3RpYyBnYW1lIG1vZHVsZTsgbm9ybWFsaXplIGxlZ2FjeSByb29tIEpTT04gYmVmb3JlIGFjdGlvbnMgc28gb2xkZXIgcm9vbXMgcmVtYWluIHVzYWJsZS4KLSBDb3VuY2lsIHByZWRpY3Rpb25zIHVzZSBzZXJ2ZXItdmFsaWRhdGVkIHBsYXktcG9pbnQgYmFsYW5jZXMgYW5kIHBlci1yb3VuZCBzZXR0bGVtZW50cywgbmV2ZXIgY2FzaCBvciBjbGllbnQtY29udHJvbGxlZCBvdXRjb21lcy4KLSBQZXJzaXN0IG5vcm1hbGl6ZWQgcXVlc3Rpb24tdGV4dCBpZGVudGl0aWVzIGFuZCB0aGUgYWN0aXZlIHF1ZXN0aW9uIHNuYXBzaG90IGluIHJvb20gSlNPTjsgaW5kaWNlcyBhbG9uZSBzaGlmdCBvbiBiYW5rIGVkaXRzLCBhbmQgZXhoYXVzdGVkIHJvb21zIG11c3Qgbm90IHJlY3ljbGUgcXVlc3Rpb25zLgo=
+<!-- LOVABLE:BEGIN -->
+> [!IMPORTANT]
+> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
+> published git history — force pushing, or rebasing/amending/squashing commits
+> that are already pushed — as it rewrites history on Lovable's side and the
+> user will likely lose their project history.
+>
+> Commits you push to the connected branch sync back to Lovable and show up in
+> the editor, so keep the branch in a working state.
+
+## What Lovable manages
+
+Rules outside this block are the project's own. Change the pieces below in
+Lovable, not by hand. With the [Lovable MCP](https://mcp.lovable.dev)
+connected, `send_message` asks Lovable to do it; otherwise ask the user to
+use the editor.
+
+- **Database.** Do not add or edit `supabase/migrations/` or `drizzle/`.
+  Ask Lovable to change the schema.
+- **Generated files.** Do not edit a file whose header says it is automatically
+  generated.
+- **AI gateway.** Keep model calls on Lovable's gateway, and keep
+  `LOVABLE_API_KEY` out of browser code.
+- **Connectors.** Lovable provides native connectors. `list_connectors` shows
+  which are enabled; `add_connector` only returns the dashboard link. When a
+  connector is enabled, calls go through the connector gateway and need
+  `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
+  own key and store it in Secrets.
+- **Secrets.** Lovable manages them. Do not put secret values in the repo.
+<!-- LOVABLE:END -->
+
+## Quiz game architecture
+- Keep the deterministic round and tournament rules in `src/lib/game.ts`, tested separately, so the server remains authoritative.
+- Rooms persist as versioned JSON with compare-and-swap updates; a cryptographically random player ticket authorizes every room action, so nicknames require no accounts.
+- Only server-side room functions access game storage; project tables are RLS-locked to clients, and responses strip tickets and unrevealed answers.
+- Poll room state once per second while joined; deadline resolution is idempotent and triggered by any player, so a host disconnect cannot freeze the reveal.
+- Keep visual roles in CSS semantic tokens and use the shared Button for game controls.
+- Armor, bounties and council wagers live in the deterministic game module; normalize legacy room JSON before actions so older rooms remain usable.
+- Council predictions use server-validated play-point balances and per-round settlements, never cash or client-controlled outcomes.
+- Persist normalized question-text identities and the active question snapshot in room JSON; indices alone shift on bank edits, and exhausted rooms must not recycle questions.

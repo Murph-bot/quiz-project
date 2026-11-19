@@ -1,1 +1,35 @@
-aW1wb3J0IHsgZGVzY3JpYmUsIGV4cGVjdCwgaXQgfSBmcm9tICd2aXRlc3QnOwppbXBvcnQgeyBuZXdHYW1lLCBvcGVuUXVlc3Rpb24sIHF1ZXN0aW9uS2V5LCByYW5rQW5zd2VycywgcmVzb2x2ZVJvdW5kIH0gZnJvbSAnLi9nYW1lJzsKaW1wb3J0IHsgcXVlc3Rpb25zIH0gZnJvbSAnLi9xdWVzdGlvbnMuc2VydmVyJzsKCmNvbnN0IGZyZXNoID0gcXVlc3Rpb25zLnNsaWNlKDU5Mik7CmNvbnN0IGNoZWNrZWRBbnN3ZXJzID0gWzY4NywgMzM5MCwgMTMsIDI3MzcsIDEyODAsIDIyNywgMjc1NzIsIDIzMywgMTQsIDEwMiwgMTk3MywgNDYsIDI1NCwgMjAsIDUuNSwgODAwLCA2MDAsIDI2MCwgMjIwLCA3LCAyLjUsIDQsIDE5NTgsIDIwMDVdOwoKZGVzY3JpYmUoJ3NvdXJjZS1jaGVja2VkIGVzdGltYXRpb24gYmF0Y2gnLCAoKSA9PiB7CiAgaXQoJ2FkZHMgMjQgcXVlc3Rpb25zIHdpdGhvdXQgZHVwbGljYXRlIGlkZW50aXRpZXMnLCAoKSA9PiB7CiAgICBleHBlY3QoZnJlc2gpLnRvSGF2ZUxlbmd0aCgyNCk7CiAgICBleHBlY3QobmV3IFNldChxdWVzdGlvbnMubWFwKHF1ZXN0aW9uS2V5KSkuc2l6ZSkudG9CZSg2MTYpOwogIH0pOwogIGNoZWNrZWRBbnN3ZXJzLmZvckVhY2goKGFuc3dlciwgaW5kZXgpID0+IHsKICAgIGl0KGByZXRhaW5zIHZlcmlmaWVkIGFuc3dlciAke2Fuc3dlcn0gZm9yIGFkZGl0aW9uICR7aW5kZXggKyAxfWAsICgpID0+IHsKICAgICAgZXhwZWN0KGZyZXNoW2luZGV4XT8uYW5zd2VyKS50b0JlKGFuc3dlcik7CiAgICB9KTsKICB9KTsKICBpdCgncmFua3MgZGVjaW1hbCBndWVzc2VzIHVzaW5nIGFic29sdXRlIGRpc3RhbmNlJywgKCkgPT4gewogICAgZXhwZWN0KHJhbmtBbnN3ZXJzKFsnYScsICdiJ10sIHsgYTogNS40LCBiOiA1LjcgfSwgNS41KVswXT8uaWQpLnRvQmUoJ2EnKTsKICB9KTsKICBpdCgncGxheXMgYW5kIHJldmVhbHMgZXZlcnkgbmV3IHF1ZXN0aW9uIHRocm91Z2ggdGhlIG5vcm1hbCByb3VuZCBydWxlcycsICgpID0+IHsKICAgIGZvciAoY29uc3QgcXVlc3Rpb24gb2YgZnJlc2gpIHsKICAgICAgY29uc3QgZyA9IG5ld0dhbWUoJ1Rlc3RlcicsICdhJywgJ3RpY2tldCcsIDMwKTsKICAgICAgZy5wbGF5ZXJzLnB1c2goLi4ubmV3R2FtZSgnT3Bwb25lbnQnLCAnYicsICdvdGhlci10aWNrZXQnLCAzMCkucGxheWVycyk7CiAgICAgIGV4cGVjdChvcGVuUXVlc3Rpb24oZywgMSwgMCwgW3F1ZXN0aW9uLmxldmVsID8/IDFdLCAoKSA9PiAwLCBbcXVlc3Rpb25LZXkocXVlc3Rpb24pXSkpLnRvQmUodHJ1ZSk7CiAgICAgIGcuYW5zd2VycyA9IHsgYTogcXVlc3Rpb24uYW5zd2VyLCBiOiBxdWVzdGlvbi5hbnN3ZXIgKyAxMCB9OwogICAgICByZXNvbHZlUm91bmQoZywgcXVlc3Rpb24pOwogICAgICBleHBlY3QoZy5waGFzZSkudG9CZSgncmV2ZWFsJyk7CiAgICAgIGV4cGVjdChnLmFuc3dlcikudG9CZShxdWVzdGlvbi5hbnN3ZXIpOwogICAgICBleHBlY3QoZy5zb3VyY2UpLnRvQmUocXVlc3Rpb24uc291cmNlKTsKICAgICAgZXhwZWN0KGcucmFua2luZ1swXT8uZGlzdGFuY2UpLnRvQmUoMCk7CiAgICAgIGV4cGVjdChnLnJhbmtpbmdbMF0/Lmd1ZXNzKS50b0JlKHF1ZXN0aW9uLmFuc3dlcik7CiAgICB9CiAgfSk7Cn0pOw==
+import { describe, expect, it } from 'vitest';
+import { newGame, openQuestion, questionKey, rankAnswers, resolveRound } from './game';
+import { questions } from './questions.server';
+
+const fresh = questions.slice(592);
+const checkedAnswers = [687, 3390, 13, 2737, 1280, 227, 27572, 233, 14, 102, 1973, 46, 254, 20, 5.5, 800, 600, 260, 220, 7, 2.5, 4, 1958, 2005];
+
+describe('source-checked estimation batch', () => {
+  it('adds 24 questions without duplicate identities', () => {
+    expect(fresh).toHaveLength(24);
+    expect(new Set(questions.map(questionKey)).size).toBe(616);
+  });
+  checkedAnswers.forEach((answer, index) => {
+    it(`retains verified answer ${answer} for addition ${index + 1}`, () => {
+      expect(fresh[index]?.answer).toBe(answer);
+    });
+  });
+  it('ranks decimal guesses using absolute distance', () => {
+    expect(rankAnswers(['a', 'b'], { a: 5.4, b: 5.7 }, 5.5)[0]?.id).toBe('a');
+  });
+  it('plays and reveals every new question through the normal round rules', () => {
+    for (const question of fresh) {
+      const g = newGame('Tester', 'a', 'ticket', 30);
+      g.players.push(...newGame('Opponent', 'b', 'other-ticket', 30).players);
+      expect(openQuestion(g, 1, 0, [question.level ?? 1], () => 0, [questionKey(question)])).toBe(true);
+      g.answers = { a: question.answer, b: question.answer + 10 };
+      resolveRound(g, question);
+      expect(g.phase).toBe('reveal');
+      expect(g.answer).toBe(question.answer);
+      expect(g.source).toBe(question.source);
+      expect(g.ranking[0]?.distance).toBe(0);
+      expect(g.ranking[0]?.guess).toBe(question.answer);
+    }
+  });
+});

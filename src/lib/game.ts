@@ -1,1 +1,212 @@
-ZXhwb3J0IHR5cGUgUGxheWVyID0geyBpZDogc3RyaW5nOyBuYW1lOiBzdHJpbmc7IHRva2VuOiBzdHJpbmc7IGVsaW1pbmF0ZWQ6IGJvb2xlYW47IHNoaWVsZHM6IG51bWJlcjsgZ29sZGVuOiBib29sZWFuOyBjb3VuY2lsUG9pbnRzOiBudW1iZXI7IGNsb3Nlc3RXaW5zPzogbnVtYmVyOyBsZWZ0PzogYm9vbGVhbiB9OwpleHBvcnQgdHlwZSBQcmVkaWN0aW9uID0geyB0YXJnZXQ6IHN0cmluZzsga2luZDogJ2Nsb3Nlc3QnIHwgJ3N1cnZpdmUnOyBzdGFrZTogbnVtYmVyOyB3b24/OiBib29sZWFuIH07CmV4cG9ydCB0eXBlIFF1ZXN0ID0geyBuYW1lOiBzdHJpbmc7IHBlcmNlbnQ6IG51bWJlcjsgd2lubmVyczogc3RyaW5nW10gfTsKZXhwb3J0IHR5cGUgUXVlc3Rpb24gPSB7IHRleHQ6IHN0cmluZzsgYW5zd2VyOiBudW1iZXI7IHVuaXQ6IHN0cmluZzsgY2F0ZWdvcnk6IHN0cmluZzsgc291cmNlOiBzdHJpbmc7IGxldmVsPzogbnVtYmVyIH07CmV4cG9ydCB0eXBlIE1hdGNoID0geyBwbGF5ZXJzOiBzdHJpbmdbXTsgc2NvcmVzOiBudW1iZXJbXTsgd2lubmVyPzogc3RyaW5nOyB0YXJnZXQ6IG51bWJlciB9OwpleHBvcnQgdHlwZSBSYW5raW5nID0geyBpZDogc3RyaW5nOyBndWVzczogbnVtYmVyIHwgbnVsbDsgZGlzdGFuY2U6IG51bWJlciB8IG51bGwgfTsKZXhwb3J0IHR5cGUgUGFjaW5nID0gJ3N0ZWFkeScgfCAncmlzaW5nJyB8ICdjaGFvcyc7CmV4cG9ydCBjb25zdCByZXZlYWxQYXVzZTogUmVjb3JkPFBhY2luZywgbnVtYmVyPiA9IHsgc3RlYWR5OiAwLCByaXNpbmc6IDYwMDAsIGNoYW9zOiA0MDAwIH07CmV4cG9ydCB0eXBlIEdhbWUgPSB7CiAgdXNlZEtleXM/OiBzdHJpbmdbXTsgY3VycmVudFF1ZXN0aW9uPzogUXVlc3Rpb247IHF1ZXN0aW9uRXhoYXVzdGVkPzogYm9vbGVhbjsKICBwYWNpbmc6IFBhY2luZzsgdXNlZDogbnVtYmVyW107IHJldmVhbFVudGlsOiBudW1iZXI7IHJvdW5kU2Vjb25kczogbnVtYmVyOwogIHBsYXllcnM6IFBsYXllcltdOyBob3N0OiBzdHJpbmc7IHBoYXNlOiAnbG9iYnknIHwgJ3F1ZXN0aW9uJyB8ICdyZXZlYWwnIHwgJ2ZpbmlzaGVkJzsKICByb3VuZDogbnVtYmVyOyBzZWNvbmRzOiBudW1iZXI7IGRlYWRsaW5lOiBudW1iZXI7IHF1ZXN0aW9uSW5kZXg6IG51bWJlcjsKICBhbnN3ZXJzOiBSZWNvcmQ8c3RyaW5nLCBudW1iZXI+OyByYW5raW5nOiBSYW5raW5nW107IGVsaW1pbmF0ZWRJZHM6IHN0cmluZ1tdOwogIGNvbnRlbmRlcnM6IHN0cmluZ1tdOyBzdWRkZW46IGJvb2xlYW47IG1hdGNoZXM6IE1hdGNoW107IG1hdGNoSW5kZXg6IG51bWJlcjsKICBmaW5hbGlzdHM6IHN0cmluZ1tdOyBjaGFtcGlvbj86IHN0cmluZzsgYW5zd2VyPzogbnVtYmVyOyBzb3VyY2U/OiBzdHJpbmc7CiAgZGFtYWdlZElkczogc3RyaW5nW107IHJldHVybmVkSWRzOiBzdHJpbmdbXTsgZmFsbGVuU2luY2VDb21lYmFjazogbnVtYmVyOyBxdWVzdDogUXVlc3Q7IHByZWRpY3Rpb25zOiBSZWNvcmQ8c3RyaW5nLCBQcmVkaWN0aW9uPjsKfTsKZXhwb3J0IHR5cGUgVmlldyA9IE9taXQ8R2FtZSwgJ3BsYXllcnMnIHwgJ2Fuc3dlcnMnPiAmIHsKICBjb2RlOiBzdHJpbmc7IHBsYXllcnM6IE9taXQ8UGxheWVyLCAndG9rZW4nPltdOyBtZTogc3RyaW5nOwogIHNlcnZlck5vdzogbnVtYmVyOyBzdWJtaXR0ZWQ6IHN0cmluZ1tdOyBteUd1ZXNzOiBudW1iZXIgfCBudWxsOyBxdWVzdGlvbjogT21pdDxRdWVzdGlvbiwgJ2Fuc3dlcicgfCAnc291cmNlJyB8ICdsZXZlbCc+IHwgbnVsbDsKfTsKCmV4cG9ydCBmdW5jdGlvbiByYW5rQW5zd2VycyhpZHM6IHN0cmluZ1tdLCBhbnN3ZXJzOiBSZWNvcmQ8c3RyaW5nLCBudW1iZXI+LCB0cnV0aDogbnVtYmVyKTogUmFua2luZ1tdIHsKICByZXR1cm4gaWRzLm1hcChpZCA9PiAoeyBpZCwgZ3Vlc3M6IGFuc3dlcnNbaWRdID8/IG51bGwsIGRpc3RhbmNlOiBhbnN3ZXJzW2lkXSA9PT0gdW5kZWZpbmVkID8gbnVsbCA6IE1hdGguYWJzKGFuc3dlcnNbaWRdIC0gdHJ1dGgpIH0pKQogICAgLnNvcnQoKGEsIGIpID0+IChhLmRpc3RhbmNlID8/IEluZmluaXR5KSAtIChiLmRpc3RhbmNlID8/IEluZmluaXR5KSk7Cn0KZXhwb3J0IGZ1bmN0aW9uIHdvcnN0VGllcyhyYW5raW5nOiBSYW5raW5nW10pIHsKICBjb25zdCB3b3JzdCA9IHJhbmtpbmcuYXQoLTEpPy5kaXN0YW5jZTsKICByZXR1cm4gcmFua2luZy5maWx0ZXIociA9PiByLmRpc3RhbmNlID09PSB3b3JzdCkubWFwKHIgPT4gci5pZCk7Cn0KZXhwb3J0IGZ1bmN0aW9uIG5ld0dhbWUobmFtZTogc3RyaW5nLCBpZDogc3RyaW5nLCB0b2tlbjogc3RyaW5nLCBzZWNvbmRzOiBudW1iZXIsIHBhY2luZzogUGFjaW5nID0gJ3N0ZWFkeScpOiBHYW1lIHsKICByZXR1cm4geyBwYWNpbmcsIHVzZWQ6IFtdLCByZXZlYWxVbnRpbDogMCwgcm91bmRTZWNvbmRzOiBzZWNvbmRzLCBwbGF5ZXJzOiBbeyBpZCwgbmFtZSwgdG9rZW4sIGVsaW1pbmF0ZWQ6IGZhbHNlLCBzaGllbGRzOiAyLCBnb2xkZW46IGZhbHNlLCBjb3VuY2lsUG9pbnRzOiAxMDAgfV0sIGhvc3Q6IGlkLCBwaGFzZTogJ2xvYmJ5Jywgcm91bmQ6IDAsIHNlY29uZHMsCiAgICBkZWFkbGluZTogMCwgcXVlc3Rpb25JbmRleDogLTEsIGFuc3dlcnM6IHt9LCByYW5raW5nOiBbXSwgZWxpbWluYXRlZElkczogW10sIGNvbnRlbmRlcnM6IFtdLCBzdWRkZW46IGZhbHNlLAogICAgbWF0Y2hlczogW10sIG1hdGNoSW5kZXg6IDAsIGZpbmFsaXN0czogW10sIGRhbWFnZWRJZHM6IFtdLCByZXR1cm5lZElkczogW10sIGZhbGxlblNpbmNlQ29tZWJhY2s6IDAsIHF1ZXN0OiB7IG5hbWU6ICdCdWxsc2V5ZSBCb3VudHknLCBwZXJjZW50OiA4LCB3aW5uZXJzOiBbXSB9LCBwcmVkaWN0aW9uczoge30gfTsKfQpleHBvcnQgZnVuY3Rpb24gbm9ybWFsaXplR2FtZShnOiBHYW1lKSB7CiAgZm9yIChjb25zdCBwIG9mIGcucGxheWVycykgeyBwLnNoaWVsZHMgPz89IHAuZWxpbWluYXRlZCA/IDAgOiAyOyBwLmdvbGRlbiA/Pz0gZmFsc2U7IHAuY291bmNpbFBvaW50cyA/Pz0gMTAwOyB9CiAgZy5kYW1hZ2VkSWRzID8/PSBbXTsgZy5yZXR1cm5lZElkcyA/Pz0gW107IGcuZmFsbGVuU2luY2VDb21lYmFjayA/Pz0gMDsgZy5xdWVzdCA/Pz0geyBuYW1lOiAnQnVsbHNleWUgQm91bnR5JywgcGVyY2VudDogOCwgd2lubmVyczogW10gfTsgZy5wcmVkaWN0aW9ucyA/Pz0ge307CiAgZy5wYWNpbmcgPz89ICdzdGVhZHknOyBnLnVzZWQgPz89IFtdOyBnLnJldmVhbFVudGlsID8/PSAwOyBnLnJvdW5kU2Vjb25kcyA/Pz0gZy5zZWNvbmRzOwogIHJldHVybiBnOwp9Ci8qKiBMZWdhY3kgcGVyY2VudGFnZSB3aW5kb3csIG5vIGxvbmdlciB1c2VkIGZvciB0aGUgYm91bnR5OiB0aGUgY2xvc2VzdCBhYnNvbHV0ZSBndWVzcyB3aW5zLiAqLwpleHBvcnQgZnVuY3Rpb24gcXVhbGlmaWVzQm91bnR5KGd1ZXNzOiBudW1iZXIsIGFuc3dlcjogbnVtYmVyLCBwZXJjZW50OiBudW1iZXIpIHsKICByZXR1cm4gTWF0aC5hYnMoZ3Vlc3MgLSBhbnN3ZXIpIDw9IE1hdGguYWJzKGFuc3dlcikgKiBwZXJjZW50IC8gMTAwOwp9CmV4cG9ydCBmdW5jdGlvbiBwbGFjZVByZWRpY3Rpb24oZzogR2FtZSwgcGxheWVySWQ6IHN0cmluZywgcHJlZGljdGlvbjogUHJlZGljdGlvbiwgbm93OiBudW1iZXIpIHsKICBjb25zdCBwbGF5ZXIgPSBnLnBsYXllcnMuZmluZChwID0+IHAuaWQgPT09IHBsYXllcklkKTsKICBpZiAoIXBsYXllcj8uZWxpbWluYXRlZCkgdGhyb3cgbmV3IEVycm9yKCdPbmx5IHRoZSBTaGFkb3cgQ291bmNpbCBjYW4gd2FnZXIuJyk7CiAgaWYgKGcucGhhc2UgIT09ICdxdWVzdGlvbicgfHwgbm93ID49IGcuZGVhZGxpbmUpIHRocm93IG5ldyBFcnJvcignUHJlZGljdGlvbnMgYXJlIGNsb3NlZCBmb3IgdGhpcyByb3VuZC4nKTsKICBpZiAoZy5wcmVkaWN0aW9uc1twbGF5ZXJJZF0pIHRocm93IG5ldyBFcnJvcignWW91ciBwcmVkaWN0aW9uIGlzIGFscmVhZHkgbG9ja2VkLicpOwogIGlmICghZy5jb250ZW5kZXJzLmluY2x1ZGVzKHByZWRpY3Rpb24udGFyZ2V0KSB8fCBnLnBsYXllcnMuZmluZChwID0+IHAuaWQgPT09IHByZWRpY3Rpb24udGFyZ2V0KT8uZWxpbWluYXRlZCkgdGhyb3cgbmV3IEVycm9yKCdDaG9vc2UgYSBrbmlnaHQgaW4gdGhpcyByb3VuZC4nKTsKICBpZiAoIVs1LCAxMCwgMjBdLmluY2x1ZGVzKHByZWRpY3Rpb24uc3Rha2UpIHx8IHBsYXllci5jb3VuY2lsUG9pbnRzIDwgcHJlZGljdGlvbi5zdGFrZSkgdGhyb3cgbmV3IEVycm9yKCdOb3QgZW5vdWdoIGNvdW5jaWwgcG9pbnRzIGZvciB0aGlzIHdhZ2VyLicpOwogIHBsYXllci5jb3VuY2lsUG9pbnRzIC09IHByZWRpY3Rpb24uc3Rha2U7IGcucHJlZGljdGlvbnNbcGxheWVySWRdID0gcHJlZGljdGlvbjsKfQpmdW5jdGlvbiBzZXR0bGVQcmVkaWN0aW9ucyhnOiBHYW1lKSB7CiAgY29uc3QgY2xvc2VzdERpc3RhbmNlID0gZy5yYW5raW5nWzBdPy5kaXN0YW5jZTsKICBmb3IgKGNvbnN0IFtpZCwgcHJlZGljdGlvbl0gb2YgT2JqZWN0LmVudHJpZXMoZy5wcmVkaWN0aW9ucykpIHsKICAgIGNvbnN0IHBsYXllciA9IGcucGxheWVycy5maW5kKHAgPT4gcC5pZCA9PT0gaWQpOwogICAgY29uc3QgdGFyZ2V0ID0gZy5wbGF5ZXJzLmZpbmQocCA9PiBwLmlkID09PSBwcmVkaWN0aW9uLnRhcmdldCk7CiAgICBjb25zdCByZXN1bHQgPSBnLnJhbmtpbmcuZmluZChyID0+IHIuaWQgPT09IHByZWRpY3Rpb24udGFyZ2V0KTsKICAgIHByZWRpY3Rpb24ud29uID0gcHJlZGljdGlvbi5raW5kID09PSAnc3Vydml2ZScgPyB0YXJnZXQ/LmVsaW1pbmF0ZWQgPT09IGZhbHNlIDogcmVzdWx0Py5kaXN0YW5jZSAhPT0gbnVsbCAmJiByZXN1bHQ/LmRpc3RhbmNlICE9PSB1bmRlZmluZWQgJiYgcmVzdWx0LmRpc3RhbmNlID09PSBjbG9zZXN0RGlzdGFuY2U7CiAgICBpZiAocHJlZGljdGlvbi53b24gJiYgcGxheWVyKSBwbGF5ZXIuY291bmNpbFBvaW50cyArPSBwcmVkaWN0aW9uLnN0YWtlICogMjsKICAgIGlmIChwcmVkaWN0aW9uLndvbiAmJiBwbGF5ZXIgJiYgcHJlZGljdGlvbi5raW5kID09PSAnY2xvc2VzdCcpIHBsYXllci5jbG9zZXN0V2lucyA9IChwbGF5ZXIuY2xvc2VzdFdpbnMgPz8gMCkgKyAxOwogIH0KfQpleHBvcnQgZnVuY3Rpb24gc3RhcnRCcmFja2V0KGc6IEdhbWUpIHsKICBjb25zdCBpZHMgPSBnLnBsYXllcnMuZmlsdGVyKHAgPT4gIXAuZWxpbWluYXRlZCkubWFwKHAgPT4gcC5pZCk7CiAgaWYgKGlkcy5sZW5ndGggPT09IDQpIHsKICAgIGcubWF0Y2hlcyA9IFt7IHBsYXllcnM6IGlkcy5zbGljZSgwLCAyKSwgc2NvcmVzOiBbMCwgMF0sIHRhcmdldDogMiB9LCB7IHBsYXllcnM6IGlkcy5zbGljZSgyLCA0KSwgc2NvcmVzOiBbMCwgMF0sIHRhcmdldDogMiB9XTsKICB9IGVsc2UgaWYgKGlkcy5sZW5ndGggPT09IDIpIHsKICAgIGcubWF0Y2hlcyA9IFt7IHBsYXllcnM6IGlkcywgc2NvcmVzOiBbMCwgMF0sIHRhcmdldDogMyB9XTsKICB9CiAgZy5tYXRjaEluZGV4ID0gMDsKfQpleHBvcnQgZnVuY3Rpb24gc2Vjb25kc0ZvcihnOiBQaWNrPEdhbWUsICdwYWNpbmcnIHwgJ3NlY29uZHMnIHwgJ3JvdW5kJyB8ICdzdWRkZW4nPikgewogIGlmIChnLnN1ZGRlbikgcmV0dXJuIDE1OwogIHJldHVybiBnLnBhY2luZyA9PT0gJ3Jpc2luZycgPyBNYXRoLm1heCgxMiwgZy5zZWNvbmRzIC0gNSAqIChnLnJvdW5kIC0gMSkpIDogZy5zZWNvbmRzOwp9CmV4cG9ydCBmdW5jdGlvbiBxdWVzdGlvbktleShxOiBQaWNrPFF1ZXN0aW9uLCAndGV4dCc+KSB7CiAgcmV0dXJuIHEudGV4dC5ub3JtYWxpemUoJ05GS0MnKS50b0xvd2VyQ2FzZSgpLnJlcGxhY2UoL1teXHB7TH1ccHtOfV0vZ3UsICcnKTsKfQpleHBvcnQgZnVuY3Rpb24gcGlja1F1ZXN0aW9uKGc6IEdhbWUsIGxldmVsczogbnVtYmVyW10sIHJhbmQ6ICgpID0+IG51bWJlciA9IE1hdGgucmFuZG9tLCBrZXlzPzogc3RyaW5nW10pIHsKICBjb25zdCBwb29sVXNlZCA9IG5ldyBTZXQoZy51c2VkS2V5cyA/PyBbXSk7CiAgbGV0IHBvb2wgPSBsZXZlbHMubWFwKChfLCBpKSA9PiBpKS5maWx0ZXIoaSA9PiB7CiAgICBpZiAoIWtleXMpIHJldHVybiAhZy51c2VkLmluY2x1ZGVzKGkpOwogICAgY29uc3Qga2V5ID0ga2V5c1tpXTsKICAgIHJldHVybiBrZXkgIT09IHVuZGVmaW5lZCAmJiAhcG9vbFVzZWQuaGFzKGtleSk7CiAgfSk7CiAgaWYgKCFwb29sLmxlbmd0aCkgcmV0dXJuIHVuZGVmaW5lZDsKICBpZiAoZy5wYWNpbmcgPT09ICdyaXNpbmcnKSB7CiAgICBjb25zdCBhY3RpdmUgPSBnLnBsYXllcnMuZmlsdGVyKHAgPT4gIXAuZWxpbWluYXRlZCkubGVuZ3RoOwogICAgY29uc3QgdGllciA9IGcubWF0Y2hlcy5sZW5ndGggfHwgYWN0aXZlIDw9IDQgPyAzIDogYWN0aXZlIDw9IDYgPyAyIDogMTsKICAgIGNvbnN0IHRpZXJlZCA9IHBvb2wuZmlsdGVyKGkgPT4gbGV2ZWxzW2ldID09PSB0aWVyKTsKICAgIGlmICh0aWVyZWQubGVuZ3RoKSBwb29sID0gdGllcmVkOwogIH0KICBjb25zdCBwaWNrID0gcG9vbFtNYXRoLmZsb29yKHJhbmQoKSAqIHBvb2wubGVuZ3RoKV0gPz8gcG9vbFswXTsKICBpZiAocGljayA9PT0gdW5kZWZpbmVkKSByZXR1cm4gdW5kZWZpbmVkOwogIGcudXNlZC5wdXNoKHBpY2spOwogIGlmIChrZXlzPy5bcGlja10pIHsgZy51c2VkS2V5cyA/Pz0gW107IGcudXNlZEtleXMucHVzaChrZXlzW3BpY2tdKTsgfQogIHJldHVybiBwaWNrOwp9CmV4cG9ydCBmdW5jdGlvbiBhdXRvQWR2YW5jZUR1ZShnOiBHYW1lLCBub3c6IG51bWJlcikgewogIHJldHVybiBnLnBoYXNlID09PSAncmV2ZWFsJyAmJiBnLnBhY2luZyAhPT0gJ3N0ZWFkeScgJiYgZy5yZXZlYWxVbnRpbCA+IDAgJiYgbm93ID49IGcucmV2ZWFsVW50aWw7Cn0KZXhwb3J0IGZ1bmN0aW9uIG1heWJlRW5kRWFybHkoZzogR2FtZSwgbm93OiBudW1iZXIpIHsKICBjb25zdCBsaXZlID0gZy5jb250ZW5kZXJzLmZpbHRlcihpZCA9PiAhZy5wbGF5ZXJzLmZpbmQocCA9PiBwLmlkID09PSBpZCk/LmVsaW1pbmF0ZWQpOwogIGlmIChnLnBhY2luZyA9PT0gJ2NoYW9zJyAmJiBnLnBoYXNlID09PSAncXVlc3Rpb24nICYmIGxpdmUubGVuZ3RoID4gMCAmJiBsaXZlLmV2ZXJ5KGlkID0+IGcuYW5zd2Vyc1tpZF0gIT09IHVuZGVmaW5lZCkpIGcuZGVhZGxpbmUgPSBNYXRoLm1pbihnLmRlYWRsaW5lLCBub3cgKyAzMDAwKTsKfQpleHBvcnQgZnVuY3Rpb24gb3BlblF1ZXN0aW9uKGc6IEdhbWUsIHF1ZXN0aW9uQ291bnQ6IG51bWJlciwgbm93OiBudW1iZXIsIGxldmVscz86IG51bWJlcltdLCByYW5kPzogKCkgPT4gbnVtYmVyLCBrZXlzPzogc3RyaW5nW10pIHsKICBub3JtYWxpemVHYW1lKGcpOwogIGNvbnN0IHNlbGVjdGVkID0gcGlja1F1ZXN0aW9uKGcsIGxldmVscyA/PyBBcnJheTxudW1iZXI+KHF1ZXN0aW9uQ291bnQpLmZpbGwoMSksIHJhbmQgPz8gKCgpID0+IDApLCBrZXlzKTsKICBpZiAoc2VsZWN0ZWQgPT09IHVuZGVmaW5lZCkgeyBnLnF1ZXN0aW9uRXhoYXVzdGVkID0gdHJ1ZTsgZy5yZXZlYWxVbnRpbCA9IDA7IHJldHVybiBmYWxzZTsgfQogIGlmICghZy5zdWRkZW4pIHsKICAgIGNvbnN0IGFjdGl2ZSA9IGcucGxheWVycy5maWx0ZXIocCA9PiAhcC5lbGltaW5hdGVkKS5tYXAocCA9PiBwLmlkKTsKICAgIGlmICghZy5tYXRjaGVzLmxlbmd0aCAmJiAoYWN0aXZlLmxlbmd0aCA9PT0gNCB8fCBhY3RpdmUubGVuZ3RoID09PSAyKSkgc3RhcnRCcmFja2V0KGcpOwogICAgY29uc3QgbWF0Y2ggPSBnLm1hdGNoZXNbZy5tYXRjaEluZGV4XTsKICAgIGcuY29udGVuZGVycyA9IG1hdGNoID8gWy4uLm1hdGNoLnBsYXllcnNdIDogYWN0aXZlOwogIH0KICBnLnBoYXNlID0gJ3F1ZXN0aW9uJzsgZy5yb3VuZCsrOyBnLnF1ZXN0aW9uSW5kZXggPSBzZWxlY3RlZDsKICBnLmFuc3dlcnMgPSB7fTsgZy5yYW5raW5nID0gW107IGcuZWxpbWluYXRlZElkcyA9IFtdOyBkZWxldGUgZy5hbnN3ZXI7IGRlbGV0ZSBnLnNvdXJjZTsKICBnLmRhbWFnZWRJZHMgPSBbXTsgZy5yZXR1cm5lZElkcyA9IFtdOyBnLnByZWRpY3Rpb25zID0ge307CiAgZy5xdWVzdCA9IHsgbmFtZTogJ0J1bGxzZXllIEJvdW50eScsIHBlcmNlbnQ6IDAsIHdpbm5lcnM6IFtdIH07CiAgZy5yb3VuZFNlY29uZHMgPSBzZWNvbmRzRm9yKGcpOyBnLnJldmVhbFVudGlsID0gMDsKICBnLmRlYWRsaW5lID0gbm93ICsgZy5yb3VuZFNlY29uZHMgKiAxMDAwOwogIHJldHVybiB0cnVlOwp9CmV4cG9ydCBmdW5jdGlvbiByZXNvbHZlUm91bmQoZzogR2FtZSwgcTogUXVlc3Rpb24pIHsKICBub3JtYWxpemVHYW1lKGcpOwogIGcucmFua2luZyA9IHJhbmtBbnN3ZXJzKGcuY29udGVuZGVycywgZy5hbnN3ZXJzLCBxLmFuc3dlcik7CiAgZy5hbnN3ZXIgPSBxLmFuc3dlcjsgZy5zb3VyY2UgPSBxLnNvdXJjZTsgZy5waGFzZSA9ICdyZXZlYWwnOwogIGZvciAoY29uc3QgciBvZiBnLnJhbmtpbmcpIHsKICAgIGNvbnN0IHAgPSBnLnBsYXllcnMuZmluZChwID0+IHAuaWQgPT09IHIuaWQpOwogICAgaWYgKCFnLm1hdGNoZXMubGVuZ3RoICYmIHAgJiYgIXAuZWxpbWluYXRlZCAmJiByLmd1ZXNzICE9PSBudWxsICYmIHIuZGlzdGFuY2UgPT09IGcucmFua2luZ1swXT8uZGlzdGFuY2UpIHsKICAgICAgaWYgKHAuc2hpZWxkcyA8IDIpIHAuc2hpZWxkcysrOyBlbHNlIHAuZ29sZGVuID0gdHJ1ZTsKICAgICAgZy5xdWVzdC53aW5uZXJzLnB1c2gocC5pZCk7CiAgICB9CiAgfQogIGlmICghZy5tYXRjaGVzLmxlbmd0aCAmJiAhZy5zdWRkZW4gJiYgZy5wbGF5ZXJzLmZpbHRlcihwID0+ICFwLmVsaW1pbmF0ZWQpLmxlbmd0aCA+PSBET1VCTEVfSElUX01JTikgeyBkb3VibGVIaXQoZyk7IHJldHVybjsgfQogIGNvbnN0IHRpZWQgPSB3b3JzdFRpZXMoZy5yYW5raW5nKTsKICBpZiAodGllZC5sZW5ndGggPiAxKSB7IHNldHRsZVByZWRpY3Rpb25zKGcpOyBnLnN1ZGRlbiA9IHRydWU7IGcuY29udGVuZGVycyA9IHRpZWQ7IHJldHVybjsgfQogIGNvbnN0IGxvc2VyID0gdGllZFswXTsKICBpZiAoIWxvc2VyKSByZXR1cm47CiAgZy5zdWRkZW4gPSBmYWxzZTsKICBjb25zdCBsb3NlclBsYXllciA9IGcucGxheWVycy5maW5kKHAgPT4gcC5pZCA9PT0gbG9zZXIpOwogIGlmICghZy5tYXRjaGVzLmxlbmd0aCAmJiBsb3NlclBsYXllcikgewogICAgaWYgKGxvc2VyUGxheWVyLmdvbGRlbikgbG9zZXJQbGF5ZXIuZ29sZGVuID0gZmFsc2U7CiAgICBlbHNlIGxvc2VyUGxheWVyLnNoaWVsZHMgPSBNYXRoLm1heCgwLCBsb3NlclBsYXllci5zaGllbGRzIC0gMSk7CiAgICBnLmRhbWFnZWRJZHMgPSBbbG9zZXJdOwogIH0KICBpZiAoZy5tYXRjaGVzLmxlbmd0aCkgewogICAgY29uc3QgbWF0Y2ggPSBnLm1hdGNoZXNbZy5tYXRjaEluZGV4XTsKICAgIGlmICghbWF0Y2gpIHJldHVybjsKICAgIGNvbnN0IHdpbm5lckluZGV4ID0gbWF0Y2gucGxheWVycy5maW5kSW5kZXgoaWQgPT4gaWQgIT09IGxvc2VyKTsKICAgIGlmICh3aW5uZXJJbmRleCA8IDApIHJldHVybjsKICAgIGNvbnN0IHdpbm5lciA9IG1hdGNoLnBsYXllcnNbd2lubmVySW5kZXhdOwogICAgaWYgKCF3aW5uZXIpIHJldHVybjsKICAgIGNvbnN0IHNjb3JlID0gKG1hdGNoLnNjb3Jlc1t3aW5uZXJJbmRleF0gPz8gMCkgKyAxOwogICAgbWF0Y2guc2NvcmVzW3dpbm5lckluZGV4XSA9IHNjb3JlOwogICAgaWYgKHNjb3JlID49IG1hdGNoLnRhcmdldCkgewogICAgICBtYXRjaC53aW5uZXIgPSB3aW5uZXI7CiAgICAgIGcuZWxpbWluYXRlZElkcyA9IFtsb3Nlcl07CiAgICAgIGNvbnN0IHAgPSBnLnBsYXllcnMuZmluZChwID0+IHAuaWQgPT09IGxvc2VyKTsgaWYgKHApIHsgcC5zaGllbGRzID0gMDsgcC5nb2xkZW4gPSBmYWxzZTsgcC5lbGltaW5hdGVkID0gdHJ1ZTsgfQogICAgICBpZiAobWF0Y2gudGFyZ2V0ID09PSAzKSB7IGcuY2hhbXBpb24gPSB3aW5uZXI7IGcucGhhc2UgPSAnZmluaXNoZWQnOyB9CiAgICAgIGVsc2UgewogICAgICAgIGcuZmluYWxpc3RzLnB1c2god2lubmVyKTsgZy5tYXRjaEluZGV4Kys7CiAgICAgICAgaWYgKGcuZmluYWxpc3RzLmxlbmd0aCA9PT0gMikgZy5tYXRjaGVzLnB1c2goeyBwbGF5ZXJzOiBbLi4uZy5maW5hbGlzdHNdLCBzY29yZXM6IFswLCAwXSwgdGFyZ2V0OiAzIH0pOwogICAgICB9CiAgICB9CiAgfSBlbHNlIHsKICAgIGlmIChsb3NlclBsYXllciAmJiBsb3NlclBsYXllci5zaGllbGRzID09PSAwKSB7IGxvc2VyUGxheWVyLmVsaW1pbmF0ZWQgPSB0cnVlOyBnLmVsaW1pbmF0ZWRJZHMgPSBbbG9zZXJdOyBnLmZhbGxlblNpbmNlQ29tZWJhY2srKzsgfQogICAgY29uc3QgYWN0aXZlID0gZy5wbGF5ZXJzLmZpbHRlcihwID0+ICFwLmVsaW1pbmF0ZWQpOwogICAgY29uc3Qgc3Vydml2b3IgPSBhY3RpdmVbMF07CiAgICBpZiAoYWN0aXZlLmxlbmd0aCA9PT0gMSAmJiBzdXJ2aXZvcikgeyBnLmNoYW1waW9uID0gc3Vydml2b3IuaWQ7IGcucGhhc2UgPSAnZmluaXNoZWQnOyB9CiAgfQogIHNldHRsZVByZWRpY3Rpb25zKGcpOwogIGlmIChnLnBoYXNlID09PSAncmV2ZWFsJyAmJiAhZy5tYXRjaGVzLmxlbmd0aCkgcmV0dXJuT2ZUaGVGYWxsZW4oZyk7Cn0KLyoqIFdpdGggMjIrIGtuaWdodHMgc3RhbmRpbmcsIHRoZSB0d28gZmFydGhlc3QgZ3Vlc3NlcyBlYWNoIHRha2UgYSBoaXQuIEEgdGllIGZvciAybmQtZmFydGhlc3QgZ29lcyB0byBzdWRkZW4gZGVhdGguICovCmV4cG9ydCBjb25zdCBET1VCTEVfSElUX01JTiA9IDIyOwpmdW5jdGlvbiBoaXQoZzogR2FtZSwgaWQ6IHN0cmluZykgewogIGNvbnN0IHAgPSBnLnBsYXllcnMuZmluZChwID0+IHAuaWQgPT09IGlkKTsgaWYgKCFwKSByZXR1cm47CiAgaWYgKHAuZ29sZGVuKSBwLmdvbGRlbiA9IGZhbHNlOyBlbHNlIHAuc2hpZWxkcyA9IE1hdGgubWF4KDAsIHAuc2hpZWxkcyAtIDEpOwogIGcuZGFtYWdlZElkcy5wdXNoKGlkKTsKICBpZiAocC5zaGllbGRzID09PSAwICYmICFwLmVsaW1pbmF0ZWQpIHsgcC5lbGltaW5hdGVkID0gdHJ1ZTsgZy5lbGltaW5hdGVkSWRzLnB1c2goaWQpOyBnLmZhbGxlblNpbmNlQ29tZWJhY2srKzsgfQp9CmZ1bmN0aW9uIGRvdWJsZUhpdChnOiBHYW1lKSB7CiAgY29uc3Qgd29yc3QgPSB3b3JzdFRpZXMoZy5yYW5raW5nKTsKICBpZiAod29yc3QubGVuZ3RoID4gMikgeyBzZXR0bGVQcmVkaWN0aW9ucyhnKTsgZy5zdWRkZW4gPSB0cnVlOyBnLmNvbnRlbmRlcnMgPSB3b3JzdDsgcmV0dXJuOyB9CiAgZy5zdWRkZW4gPSBmYWxzZTsKICBmb3IgKGNvbnN0IGlkIG9mIHdvcnN0KSBoaXQoZywgaWQpOwogIGlmICh3b3JzdC5sZW5ndGggPT09IDEpIHsKICAgIGNvbnN0IHJlc3QgPSBnLnJhbmtpbmcuZmlsdGVyKHIgPT4gIXdvcnN0LmluY2x1ZGVzKHIuaWQpKTsKICAgIGNvbnN0IG5leHQgPSB3b3JzdFRpZXMocmVzdCk7CiAgICBpZiAobmV4dC5sZW5ndGggPiAxKSB7IHNldHRsZVByZWRpY3Rpb25zKGcpOyBnLnN1ZGRlbiA9IHRydWU7IGcuY29udGVuZGVycyA9IG5leHQ7IHJldHVybjsgfQogICAgaWYgKG5leHRbMF0pIGhpdChnLCBuZXh0WzBdKTsKICB9CiAgc2V0dGxlUHJlZGljdGlvbnMoZyk7CiAgaWYgKGcucGhhc2UgPT09ICdyZXZlYWwnKSByZXR1cm5PZlRoZUZhbGxlbihnKTsKfQovKiogRXZlcnkgMyBlbGltaW5hdGlvbnMsIHdoaWxlIDUrIGtuaWdodHMgc3RhbmQsIHRoZSBzcGVjdGF0b3Iocykgd2l0aCB0aGUgbW9zdCBjb3JyZWN0ICJjbG9zZXN0IGtuaWdodCIgYmV0cyByZXR1cm4gd2l0aCAxIHNoaWVsZC4gKi8KZXhwb3J0IGZ1bmN0aW9uIHJldHVybk9mVGhlRmFsbGVuKGc6IEdhbWUpIHsKICBpZiAoZy5mYWxsZW5TaW5jZUNvbWViYWNrIDwgMykgcmV0dXJuOwogIGlmIChnLnBsYXllcnMuZmlsdGVyKHAgPT4gIXAuZWxpbWluYXRlZCkubGVuZ3RoIDwgNSkgcmV0dXJuOwogIGNvbnN0IGZhbGxlbiA9IGcucGxheWVycy5maWx0ZXIocCA9PiBwLmVsaW1pbmF0ZWQgJiYgIXAubGVmdCk7CiAgY29uc3QgYmVzdCA9IE1hdGgubWF4KDAsIC4uLmZhbGxlbi5tYXAocCA9PiBwLmNsb3Nlc3RXaW5zID8/IDApKTsKICBpZiAoYmVzdCA9PT0gMCkgcmV0dXJuOwogIGcucmV0dXJuZWRJZHMgPSBmYWxsZW4uZmlsdGVyKHAgPT4gKHAuY2xvc2VzdFdpbnMgPz8gMCkgPT09IGJlc3QpLm1hcChwID0+IHAuaWQpOwogIGZvciAoY29uc3QgcCBvZiBmYWxsZW4pIHsgaWYgKGcucmV0dXJuZWRJZHMuaW5jbHVkZXMocC5pZCkpIHsgcC5lbGltaW5hdGVkID0gZmFsc2U7IHAuc2hpZWxkcyA9IDE7IHAuZ29sZGVuID0gZmFsc2U7IH0gfQogIGZvciAoY29uc3QgcCBvZiBnLnBsYXllcnMpIHAuY2xvc2VzdFdpbnMgPSAwOwogIGcuZmFsbGVuU2luY2VDb21lYmFjayA9IDA7Cn0K
+export type Player = { id: string; name: string; token: string; eliminated: boolean; shields: number; golden: boolean; councilPoints: number; closestWins?: number; left?: boolean };
+export type Prediction = { target: string; kind: 'closest' | 'survive'; stake: number; won?: boolean };
+export type Quest = { name: string; percent: number; winners: string[] };
+export type Question = { text: string; answer: number; unit: string; category: string; source: string; level?: number };
+export type Match = { players: string[]; scores: number[]; winner?: string; target: number };
+export type Ranking = { id: string; guess: number | null; distance: number | null };
+export type Pacing = 'steady' | 'rising' | 'chaos';
+export const revealPause: Record<Pacing, number> = { steady: 0, rising: 6000, chaos: 4000 };
+export type Game = {
+  usedKeys?: string[]; currentQuestion?: Question; questionExhausted?: boolean;
+  pacing: Pacing; used: number[]; revealUntil: number; roundSeconds: number;
+  players: Player[]; host: string; phase: 'lobby' | 'question' | 'reveal' | 'finished';
+  round: number; seconds: number; deadline: number; questionIndex: number;
+  answers: Record<string, number>; ranking: Ranking[]; eliminatedIds: string[];
+  contenders: string[]; sudden: boolean; matches: Match[]; matchIndex: number;
+  finalists: string[]; champion?: string; answer?: number; source?: string;
+  damagedIds: string[]; returnedIds: string[]; fallenSinceComeback: number; quest: Quest; predictions: Record<string, Prediction>;
+};
+export type View = Omit<Game, 'players' | 'answers'> & {
+  code: string; players: Omit<Player, 'token'>[]; me: string;
+  serverNow: number; submitted: string[]; myGuess: number | null; question: Omit<Question, 'answer' | 'source' | 'level'> | null;
+};
+
+export function rankAnswers(ids: string[], answers: Record<string, number>, truth: number): Ranking[] {
+  return ids.map(id => ({ id, guess: answers[id] ?? null, distance: answers[id] === undefined ? null : Math.abs(answers[id] - truth) }))
+    .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+}
+export function worstTies(ranking: Ranking[]) {
+  const worst = ranking.at(-1)?.distance;
+  return ranking.filter(r => r.distance === worst).map(r => r.id);
+}
+export function newGame(name: string, id: string, token: string, seconds: number, pacing: Pacing = 'steady'): Game {
+  return { pacing, used: [], revealUntil: 0, roundSeconds: seconds, players: [{ id, name, token, eliminated: false, shields: 2, golden: false, councilPoints: 100 }], host: id, phase: 'lobby', round: 0, seconds,
+    deadline: 0, questionIndex: -1, answers: {}, ranking: [], eliminatedIds: [], contenders: [], sudden: false,
+    matches: [], matchIndex: 0, finalists: [], damagedIds: [], returnedIds: [], fallenSinceComeback: 0, quest: { name: 'Bullseye Bounty', percent: 8, winners: [] }, predictions: {} };
+}
+export function normalizeGame(g: Game) {
+  for (const p of g.players) { p.shields ??= p.eliminated ? 0 : 2; p.golden ??= false; p.councilPoints ??= 100; }
+  g.damagedIds ??= []; g.returnedIds ??= []; g.fallenSinceComeback ??= 0; g.quest ??= { name: 'Bullseye Bounty', percent: 8, winners: [] }; g.predictions ??= {};
+  g.pacing ??= 'steady'; g.used ??= []; g.revealUntil ??= 0; g.roundSeconds ??= g.seconds;
+  return g;
+}
+/** Legacy percentage window, no longer used for the bounty: the closest absolute guess wins. */
+export function qualifiesBounty(guess: number, answer: number, percent: number) {
+  return Math.abs(guess - answer) <= Math.abs(answer) * percent / 100;
+}
+export function placePrediction(g: Game, playerId: string, prediction: Prediction, now: number) {
+  const player = g.players.find(p => p.id === playerId);
+  if (!player?.eliminated) throw new Error('Only the Shadow Council can wager.');
+  if (g.phase !== 'question' || now >= g.deadline) throw new Error('Predictions are closed for this round.');
+  if (g.predictions[playerId]) throw new Error('Your prediction is already locked.');
+  if (!g.contenders.includes(prediction.target) || g.players.find(p => p.id === prediction.target)?.eliminated) throw new Error('Choose a knight in this round.');
+  if (![5, 10, 20].includes(prediction.stake) || player.councilPoints < prediction.stake) throw new Error('Not enough council points for this wager.');
+  player.councilPoints -= prediction.stake; g.predictions[playerId] = prediction;
+}
+function settlePredictions(g: Game) {
+  const closestDistance = g.ranking[0]?.distance;
+  for (const [id, prediction] of Object.entries(g.predictions)) {
+    const player = g.players.find(p => p.id === id);
+    const target = g.players.find(p => p.id === prediction.target);
+    const result = g.ranking.find(r => r.id === prediction.target);
+    prediction.won = prediction.kind === 'survive' ? target?.eliminated === false : result?.distance !== null && result?.distance !== undefined && result.distance === closestDistance;
+    if (prediction.won && player) player.councilPoints += prediction.stake * 2;
+    if (prediction.won && player && prediction.kind === 'closest') player.closestWins = (player.closestWins ?? 0) + 1;
+  }
+}
+export function startBracket(g: Game) {
+  const ids = g.players.filter(p => !p.eliminated).map(p => p.id);
+  if (ids.length === 4) {
+    g.matches = [{ players: ids.slice(0, 2), scores: [0, 0], target: 2 }, { players: ids.slice(2, 4), scores: [0, 0], target: 2 }];
+  } else if (ids.length === 2) {
+    g.matches = [{ players: ids, scores: [0, 0], target: 3 }];
+  }
+  g.matchIndex = 0;
+}
+export function secondsFor(g: Pick<Game, 'pacing' | 'seconds' | 'round' | 'sudden'>) {
+  if (g.sudden) return 15;
+  return g.pacing === 'rising' ? Math.max(12, g.seconds - 5 * (g.round - 1)) : g.seconds;
+}
+export function questionKey(q: Pick<Question, 'text'>) {
+  return q.text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+export function pickQuestion(g: Game, levels: number[], rand: () => number = Math.random, keys?: string[]) {
+  const poolUsed = new Set(g.usedKeys ?? []);
+  let pool = levels.map((_, i) => i).filter(i => {
+    if (!keys) return !g.used.includes(i);
+    const key = keys[i];
+    return key !== undefined && !poolUsed.has(key);
+  });
+  if (!pool.length) return undefined;
+  if (g.pacing === 'rising') {
+    const active = g.players.filter(p => !p.eliminated).length;
+    const tier = g.matches.length || active <= 4 ? 3 : active <= 6 ? 2 : 1;
+    const tiered = pool.filter(i => levels[i] === tier);
+    if (tiered.length) pool = tiered;
+  }
+  const pick = pool[Math.floor(rand() * pool.length)] ?? pool[0];
+  if (pick === undefined) return undefined;
+  g.used.push(pick);
+  if (keys?.[pick]) { g.usedKeys ??= []; g.usedKeys.push(keys[pick]); }
+  return pick;
+}
+export function autoAdvanceDue(g: Game, now: number) {
+  return g.phase === 'reveal' && g.pacing !== 'steady' && g.revealUntil > 0 && now >= g.revealUntil;
+}
+export function maybeEndEarly(g: Game, now: number) {
+  const live = g.contenders.filter(id => !g.players.find(p => p.id === id)?.eliminated);
+  if (g.pacing === 'chaos' && g.phase === 'question' && live.length > 0 && live.every(id => g.answers[id] !== undefined)) g.deadline = Math.min(g.deadline, now + 3000);
+}
+export function openQuestion(g: Game, questionCount: number, now: number, levels?: number[], rand?: () => number, keys?: string[]) {
+  normalizeGame(g);
+  const selected = pickQuestion(g, levels ?? Array<number>(questionCount).fill(1), rand ?? (() => 0), keys);
+  if (selected === undefined) { g.questionExhausted = true; g.revealUntil = 0; return false; }
+  if (!g.sudden) {
+    const active = g.players.filter(p => !p.eliminated).map(p => p.id);
+    if (!g.matches.length && (active.length === 4 || active.length === 2)) startBracket(g);
+    const match = g.matches[g.matchIndex];
+    g.contenders = match ? [...match.players] : active;
+  }
+  g.phase = 'question'; g.round++; g.questionIndex = selected;
+  g.answers = {}; g.ranking = []; g.eliminatedIds = []; delete g.answer; delete g.source;
+  g.damagedIds = []; g.returnedIds = []; g.predictions = {};
+  g.quest = { name: 'Bullseye Bounty', percent: 0, winners: [] };
+  g.roundSeconds = secondsFor(g); g.revealUntil = 0;
+  g.deadline = now + g.roundSeconds * 1000;
+  return true;
+}
+export function resolveRound(g: Game, q: Question) {
+  normalizeGame(g);
+  g.ranking = rankAnswers(g.contenders, g.answers, q.answer);
+  g.answer = q.answer; g.source = q.source; g.phase = 'reveal';
+  for (const r of g.ranking) {
+    const p = g.players.find(p => p.id === r.id);
+    if (!g.matches.length && p && !p.eliminated && r.guess !== null && r.distance === g.ranking[0]?.distance) {
+      if (p.shields < 2) p.shields++; else p.golden = true;
+      g.quest.winners.push(p.id);
+    }
+  }
+  if (!g.matches.length && !g.sudden && g.players.filter(p => !p.eliminated).length >= DOUBLE_HIT_MIN) { doubleHit(g); return; }
+  const tied = worstTies(g.ranking);
+  if (tied.length > 1) { settlePredictions(g); g.sudden = true; g.contenders = tied; return; }
+  const loser = tied[0];
+  if (!loser) return;
+  g.sudden = false;
+  const loserPlayer = g.players.find(p => p.id === loser);
+  if (!g.matches.length && loserPlayer) {
+    if (loserPlayer.golden) loserPlayer.golden = false;
+    else loserPlayer.shields = Math.max(0, loserPlayer.shields - 1);
+    g.damagedIds = [loser];
+  }
+  if (g.matches.length) {
+    const match = g.matches[g.matchIndex];
+    if (!match) return;
+    const winnerIndex = match.players.findIndex(id => id !== loser);
+    if (winnerIndex < 0) return;
+    const winner = match.players[winnerIndex];
+    if (!winner) return;
+    const score = (match.scores[winnerIndex] ?? 0) + 1;
+    match.scores[winnerIndex] = score;
+    if (score >= match.target) {
+      match.winner = winner;
+      g.eliminatedIds = [loser];
+      const p = g.players.find(p => p.id === loser); if (p) { p.shields = 0; p.golden = false; p.eliminated = true; }
+      if (match.target === 3) { g.champion = winner; g.phase = 'finished'; }
+      else {
+        g.finalists.push(winner); g.matchIndex++;
+        if (g.finalists.length === 2) g.matches.push({ players: [...g.finalists], scores: [0, 0], target: 3 });
+      }
+    }
+  } else {
+    if (loserPlayer && loserPlayer.shields === 0) { loserPlayer.eliminated = true; g.eliminatedIds = [loser]; g.fallenSinceComeback++; }
+    const active = g.players.filter(p => !p.eliminated);
+    const survivor = active[0];
+    if (active.length === 1 && survivor) { g.champion = survivor.id; g.phase = 'finished'; }
+  }
+  settlePredictions(g);
+  if (g.phase === 'reveal' && !g.matches.length) returnOfTheFallen(g);
+}
+/** With 22+ knights standing, the two farthest guesses each take a hit. A tie for 2nd-farthest goes to sudden death. */
+export const DOUBLE_HIT_MIN = 22;
+function hit(g: Game, id: string) {
+  const p = g.players.find(p => p.id === id); if (!p) return;
+  if (p.golden) p.golden = false; else p.shields = Math.max(0, p.shields - 1);
+  g.damagedIds.push(id);
+  if (p.shields === 0 && !p.eliminated) { p.eliminated = true; g.eliminatedIds.push(id); g.fallenSinceComeback++; }
+}
+function doubleHit(g: Game) {
+  const worst = worstTies(g.ranking);
+  if (worst.length > 2) { settlePredictions(g); g.sudden = true; g.contenders = worst; return; }
+  g.sudden = false;
+  for (const id of worst) hit(g, id);
+  if (worst.length === 1) {
+    const rest = g.ranking.filter(r => !worst.includes(r.id));
+    const next = worstTies(rest);
+    if (next.length > 1) { settlePredictions(g); g.sudden = true; g.contenders = next; return; }
+    if (next[0]) hit(g, next[0]);
+  }
+  settlePredictions(g);
+  if (g.phase === 'reveal') returnOfTheFallen(g);
+}
+/** Every 3 eliminations, while 5+ knights stand, the spectator(s) with the most correct "closest knight" bets return with 1 shield. */
+export function returnOfTheFallen(g: Game) {
+  if (g.fallenSinceComeback < 3) return;
+  if (g.players.filter(p => !p.eliminated).length < 5) return;
+  const fallen = g.players.filter(p => p.eliminated && !p.left);
+  const best = Math.max(0, ...fallen.map(p => p.closestWins ?? 0));
+  if (best === 0) return;
+  g.returnedIds = fallen.filter(p => (p.closestWins ?? 0) === best).map(p => p.id);
+  for (const p of fallen) { if (g.returnedIds.includes(p.id)) { p.eliminated = false; p.shields = 1; p.golden = false; } }
+  for (const p of g.players) p.closestWins = 0;
+  g.fallenSinceComeback = 0;
+}
