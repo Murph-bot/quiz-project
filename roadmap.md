@@ -13,3 +13,5 @@
 - [x] Agent integrations (MCP): protected with OAuth — accounts, authorization server, protected tools, WebMCP companion
 - [x] Prevent same-room repeats across question-bank edits and exhaustion; verify regression tests and live rounds
 - [x] Add 24 source-checked estimation questions; verify 616-question no-repeat coverage, 66 tests, and live rounds
+- [x] UX upgrade: guess-spread number line, staged reveal, QR/direct join, compact lobby, wake lock, richer sound + haptics, quick guess buttons
+- [ ] PostHog analytics (postponed by user)

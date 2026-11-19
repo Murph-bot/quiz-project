@@ -38,3 +38,4 @@ use the editor.
 - Armor, bounties and council wagers live in the deterministic game module; normalize legacy room JSON before actions so older rooms remain usable.
 - Council predictions use server-validated play-point balances and per-round settlements, never cash or client-controlled outcomes.
 - Persist normalized question-text identities and the active question snapshot in room JSON; indices alone shift on bank edits, and exhausted rooms must not recycle questions.
+- Reveal suspense, sounds, haptics and wake lock are client-only presentation in `src/components/game-extras.tsx`; they never change server game state, so polling stays authoritative.
