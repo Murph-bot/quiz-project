@@ -1,16 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from '@tanstack/react-start';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronRight, Copy, Crown, Eye, HelpCircle, LogOut, Shield, Sparkles, Swords, Timer, Trophy, Users, Volume2, VolumeX, X, Zap } from 'lucide-react';
+import { ArrowRight, Check, ChevronRight, Copy, Crown, Eye, HelpCircle, LogOut, Shield, Sparkles, Swords, Timer, Trophy, UserRound, Users, Volume2, VolumeX, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { KnightMark, PlayerAvatar } from '@/components/knight';
 import { enterRoom, roomAction } from '@/lib/game.functions';
+import { useWebMCP } from 'use-webmcp-tool';
+import { runWebMCPTool } from '@/lib/webmcp-telemetry';
 import { ArmorCrests, RoundQuest, ShadowCouncil, TacticalHud } from '@/components/armor-council';
 import type { Prediction, View } from '@/lib/game';
 import knight from '@/assets/knight.png.asset.json';
 
 export const Route = createFileRoute("/")({
+  staticData: { sitemap: true },
   head: () => ({ meta: [
     { title: 'Quiz_Knight — The last guess standing' },
     { name: 'description', content: 'Gather your friends for live numeric trivia, sudden-death eliminations and a final-four showdown. Host or join a Quiz_Knight room.' },
@@ -94,10 +97,91 @@ function Index() {
   const fmt = (n: number) => game?.question?.unit === 'year' ? String(n) : n.toLocaleString();
   const playerName = (id?: string) => game?.players.find(p => p.id === id)?.name ?? 'TBD';
   const activeMatch = game?.matches[game.matchIndex];
+
+  function applyHostSettings(next: { pacing?: unknown; seconds?: unknown }) {
+    const changed: string[] = [];
+    if (next.pacing !== undefined) {
+      const pace = next.pacing;
+      if (pace !== 'steady' && pace !== 'rising' && pace !== 'chaos') throw new Error('Unknown pace; expected steady, rising or chaos.');
+      setPacing(pace); changed.push(`pace ${pace}`);
+    }
+    if (next.seconds !== undefined) {
+      const secs = next.seconds;
+      if (secs !== 15 && secs !== 30 && secs !== 45 && secs !== 60) throw new Error('Unknown round timer; expected 15, 30, 45 or 60.');
+      setSeconds(secs); changed.push(`timer ${secs}s`);
+    }
+    if (!changed.length) throw new Error('Nothing to change; pass pacing, seconds, or both.');
+    return changed.join(', ');
+  }
+
+  useWebMCP({
+    name: "read_game_screen",
+    description: "Read what the Quiz_Knight screen currently shows: entry form, lobby, a live round, a reveal or a champion, plus round and party details.",
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    execute: () => runWebMCPTool("read_game_screen", () => {
+      if (!ticket) return "Entry screen: pick Join (needs a four-letter room code) or Host, then give a nickname.";
+      if (!game) return "Loading the arena…";
+      const lines = [`Phase: ${game.phase}`, `Room code: ${game.code}`, `Knights: ${game.players.length}`, `Still standing: ${game.players.filter(p => !p.eliminated).length}`];
+      if (game.phase !== 'lobby') lines.push(`Round: ${game.round}`, `Pace: ${game.pacing}`);
+      if (game.phase === 'question') lines.push(`Seconds left: ${remaining}`, `Guesses locked: ${game.submitted.length} / ${game.contenders.length}`);
+      if (game.phase === 'reveal' && game.answer !== undefined) lines.push(`The answer was: ${game.answer}`);
+      if (game.champion) lines.push(`Champion: ${playerName(game.champion)}`);
+      lines.push(`You: ${me?.name ?? 'unknown'} — ${me?.eliminated ? 'Shadow Council' : game.contenders.includes(game.me) ? 'in the arena' : 'spectating'}`);
+      return lines.join('\n');
+    }),
+  });
+
+  useWebMCP({
+    name: "choose_entry_mode",
+    description: "Switch the entry form between joining an existing room and hosting a new one. Only works while no room is open.",
+    inputSchema: {
+      type: "object",
+      properties: { mode: { type: "string", enum: ["join", "host"], description: "Join an existing room, or host a new one." } },
+      required: ["mode"],
+    },
+    enabled: !ticket,
+    execute: ({ mode }: { mode: 'join' | 'host' }) => runWebMCPTool("choose_entry_mode", () => {
+      if (mode !== 'join' && mode !== 'host') throw new Error('Unknown mode; expected join or host.');
+      setMode(mode); setError('');
+      return `Entry form is set to ${mode === 'join' ? 'join a room' : 'host a new room'}.`;
+    }),
+  });
+
+  useWebMCP({
+    name: "set_host_game_settings",
+    description: "Set the round timer and game pace on the host form before a room is created. Pass pacing, seconds, or both.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pacing: { type: "string", enum: ["steady", "rising", "chaos"], description: "Steady Siege, Rising Pressure or Crowd's Chaos." },
+        seconds: { type: "number", enum: [15, 30, 45, 60], description: "Seconds on the round timer." },
+      },
+    },
+    enabled: !ticket,
+    execute: (args: { pacing?: unknown; seconds?: unknown }) => runWebMCPTool("set_host_game_settings", () => `Host settings updated: ${applyHostSettings(args)}.`),
+  });
+
+  useWebMCP({
+    name: "toggle_sound",
+    description: "Turn the game's sound effects on or off.",
+    execute: () => runWebMCPTool("toggle_sound", () => {
+      setSound(!sound);
+      return `Sound is now ${sound ? 'off' : 'on'}.`;
+    }),
+  });
+
+  useWebMCP({
+    name: "open_rules",
+    description: "Open the 'How to play' dialog that explains the Quiz_Knight rules.",
+    execute: () => runWebMCPTool("open_rules", () => {
+      setHelp(true);
+      return "Opened the rules dialog.";
+    }),
+  });
   return (
     <div className="app-shell">
       <header className="site-header"><a href="/" className="wordmark"><KnightMark /><span>QUIZ<span className="text-primary">_</span>KNIGHT</span></a>
-        <div className="header-actions"><span className="live-label"><i /> GAME NIGHT, UPGRADED</span><Button variant="ghost" onClick={() => setHelp(true)}><HelpCircle /> <span>How to play</span></Button><Button variant="ghost" size="icon" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'} onClick={() => setSound(!sound)}>{sound ? <Volume2 /> : <VolumeX />}</Button></div>
+        <div className="header-actions"><span className="live-label"><i /> GAME NIGHT, UPGRADED</span><Button variant="ghost" onClick={() => setHelp(true)}><HelpCircle /> <span>How to play</span></Button><Button variant="ghost" size="icon" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'} onClick={() => setSound(!sound)}>{sound ? <Volume2 /> : <VolumeX />}</Button><Link to="/login" search={{ next: '/' }} className="header-account" title="Account"><UserRound /><span>Account</span></Link></div>
       </header>
       <main>
         {!ticket ? <>

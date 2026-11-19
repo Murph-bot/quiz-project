@@ -262,6 +262,9 @@ input::placeholder { color: var(--muted-foreground); }
 .site-footer .knight-emblem { width: 18px; height: 22px; color: var(--muted-foreground); }
 .site-footer .emblem-swords { width: 10px; height: 10px; top: 5px; left: 4px; }
 .error-message { color: var(--destructive); font-size: 12px; line-height: 1.6; margin-top: 14px; }
+.header-account { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 5px; color: var(--muted-foreground); font-size: 11px; font-weight: 600; }
+.header-account:hover { color: var(--foreground); border-color: var(--primary); }
+.header-account svg { width: 15px; height: 15px; }
 .rules-dialog { background: var(--card); border-color: var(--border); max-width: 520px; }
 .rules-dialog h2 { display: flex; gap: 12px; align-items: center; font: 700 28px var(--font-display); }
 .rules-dialog h2 svg { color: var(--primary); }

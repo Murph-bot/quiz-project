@@ -1,9 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useWebMCP } from 'use-webmcp-tool';
+import { runWebMCPTool } from '@/lib/webmcp-telemetry';
 import { Button } from '@/components/ui/button';
 import { Timer, Swords, BookOpen, ArrowLeft } from 'lucide-react';
 
 export const Route = createFileRoute('/alternatives')({
+  staticData: { sitemap: true },
   head: () => ({ meta: [
     { title: 'Pacing options — Quiz_Knight' },
     { name: 'description', content: 'Compare three ways to run timers, bracket pacing and the question bank in Quiz_Knight.' },
@@ -38,6 +41,27 @@ function Countdown({ seq }: { seq: number[] }) {
 
 function Alternatives() {
   const [pick, setPick] = useState('B');
+  useWebMCP({
+    name: "read_pacing_options",
+    description: "List the three Quiz_Knight pacing options shown on this page, with each one's timer behaviour and question bank.",
+    annotations: { readOnlyHint: true },
+    execute: () => runWebMCPTool("read_pacing_options", () => alts.map(a => `${a.key} — ${a.name} (${a.tag})\n  Timer: ${a.timer.label}: ${a.timer.note}\n  Bank: ${a.bank.label}: ${a.bank.items.join('; ')}`).join('\n\n')),
+  });
+  useWebMCP({
+    name: "prefer_pacing_option",
+    description: "Mark one of the three pacing options as preferred on this comparison page.",
+    inputSchema: {
+      type: "object",
+      properties: { option: { type: "string", enum: ["A", "B", "C"], description: "Which pacing option to prefer." } },
+      required: ["option"],
+    },
+    execute: ({ option }: { option: string }) => runWebMCPTool("prefer_pacing_option", () => {
+      const chosen = alts.find(a => a.key === option);
+      if (!chosen) throw new Error('Unknown option; expected A, B or C.');
+      setPick(chosen.key);
+      return `Preferred pacing is now ${chosen.name}.`;
+    }),
+  });
   return <main className="min-h-screen bg-background text-foreground p-6 md:p-10">
     <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground"><ArrowLeft className="size-4" /> Back to the arena</Link>
     <h1 className="font-display text-5xl mt-4">Choose your pacing</h1>

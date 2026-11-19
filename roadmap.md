@@ -10,3 +10,4 @@
 - [x] Apply uploaded Tactical Armor HUD structure using the existing game palette
 - [x] Verify armor, bounties and spectator predictions with six live players- [x] Finish 4/5/8-player live round tests
 - [x] Screenshot every game phase for the user
+- [x] Agent integrations (MCP): protected with OAuth — accounts, authorization server, protected tools, WebMCP companion
